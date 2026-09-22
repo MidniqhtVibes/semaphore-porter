@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "Db7fmFKGeG4=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\louis.findeisen\\Downloads\\Semaphore-Tenant-Configurator-v2.0.3-DarkUI\\Semaphore-Tenant-Configurator-v2\\src\\SemaphoreTenantConfigurator.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\louis.findeisen\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.12\\microsoft.net.illink.tasks.10.0.12.nupkg.sha512",
+    "C:\\Users\\louis.findeisen\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.12\\microsoft.netcore.app.runtime.win-x64.10.0.12.nupkg.sha512",
+    "C:\\Users\\louis.findeisen\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.12\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.12.nupkg.sha512",
+    "C:\\Users\\louis.findeisen\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.12\\microsoft.aspnetcore.app.runtime.win-x64.10.0.12.nupkg.sha512",
+    "C:\\Users\\louis.findeisen\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\10.0.12\\microsoft.netcore.app.host.win-x64.10.0.12.nupkg.sha512"
+  ],
+  "logs": []
+}

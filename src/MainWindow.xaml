@@ -1,0 +1,336 @@
+<Window x:Class="SemaphoreTenantConfigurator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Semaphore Tenant Configurator"
+        Width="1500"
+        Height="940"
+        MinWidth="1200"
+        MinHeight="780"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Shell}"
+        Foreground="{StaticResource Text}">
+  <Border Background="{StaticResource Shell}" Padding="18">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Header -->
+      <Border Style="{StaticResource CardBorder}" Padding="22,18" Margin="0,0,0,16">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="SEMAPHORE / TENANT CONFIGURATOR" FontWeight="Bold" FontSize="26"/>
+            <TextBlock Text="Geführt konfigurieren · Projekt klonen · Tenant vorbereiten" Foreground="{StaticResource Muted}" Margin="0,6,0,0" FontSize="14"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+            <Ellipse x:Name="StatusDot" Fill="{StaticResource Muted}" Width="10" Height="10" Margin="0,4,10,0"/>
+            <TextBlock x:Name="StatusLabel" Text="Offline / bereit" Foreground="{StaticResource Muted}" VerticalAlignment="Center" FontSize="13"/>
+            <TextBlock Text=" · v2 · Windows" Foreground="{StaticResource Muted}" VerticalAlignment="Center" FontSize="13"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Main Area -->
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="290"/>
+          <ColumnDefinition Width="18"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="18"/>
+          <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left wizard navigation -->
+        <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="14">
+          <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Margin="4,2,4,16">
+              <TextBlock Text="DEIN ABLAUF" FontWeight="Bold" FontSize="13"/>
+              <TextBlock Text="Schritt für Schritt zum neuen Tenant-Projekt" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="4,16,4,2">
+              <Separator/>
+              <TextBlock Text="Das Quellprojekt bleibt immer unverändert. Du arbeitest nur mit einer Kopie." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,4,0,12"/>
+              <Button x:Name="OpenBackupSideButton" Content="JSON-Datei öffnen …" Click="OpenBackup_Click"/>
+            </StackPanel>
+
+            <ListBox x:Name="StepsList"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     SelectionChanged="StepsList_SelectionChanged"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14"/>
+                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,5,0,0"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,0,1" Padding="24,20">
+              <StackPanel>
+                <TextBlock x:Name="PageTitle" Text="Verbindung" FontWeight="Bold" FontSize="24"/>
+                <TextBlock x:Name="PageSubtitle" Foreground="{StaticResource Muted}" Margin="0,6,0,0" FontSize="13"/>
+              </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Margin="24,22,24,26">
+                <!-- Step 1: Verbindung -->
+                <StackPanel x:Name="PageConnection">
+                  <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,20">
+                    <TextBlock Text="Verbinde dich mit Semaphore. Wenn du stattdessen mit einer lokalen JSON-Vorlage arbeitest, kannst du diesen Schritt überspringen und später eine Datei öffnen."/>
+                  </Border>
+
+                  <Label Content="Semaphore-Server   ⓘ" ToolTip="Die vollständige HTTPS-Adresse deiner Semaphore-Instanz, ohne /api/projects."/>
+                  <TextBox x:Name="ServerBox" Text="https://semaphore.devops.kommunale.it" ToolTip="Beispiel: https://semaphore.example.de"/>
+
+                  <Label Content="API-Token   ⓘ" ToolTip="Persönlicher Semaphore-API-Token. Nicht mit Proxy-Benutzername oder Passwort verwechseln."/>
+                  <PasswordBox x:Name="TokenBox"/>
+                  <CheckBox x:Name="SaveTokenCheck" Content="Token für dieses Windows-Konto verschlüsselt speichern (DPAPI)" ToolTip="Der Token wird nur für dein Windows-Konto lokal verschlüsselt gespeichert."/>
+
+                  <Expander Header="Proxy und Firmenanmeldung" IsExpanded="True">
+                    <StackPanel Margin="4,10,4,0">
+                      <Label Content="Verbindungsweg   ⓘ" ToolTip="Windows-Anmeldung nutzt den Windows-Systemproxy und das angemeldete Windows-Konto. Manuell nutzt explizite Proxy-Daten."/>
+                      <ComboBox x:Name="ProxyModeBox" SelectionChanged="ProxyMode_Changed">
+                        <ComboBoxItem Content="Windows-Anmeldung"/>
+                        <ComboBoxItem Content="Automatisch"/>
+                        <ComboBoxItem Content="Ohne Proxy"/>
+                        <ComboBoxItem Content="Manuell"/>
+                      </ComboBox>
+
+                      <Label Content="Proxy-URL (nur manuell)   ⓘ" ToolTip="Nur im manuellen Modus ausfüllen: vollständige Proxy-Adresse inklusive Port."/>
+                      <TextBox x:Name="ProxyUrlBox" ToolTip="Beispiel: http://proxy.firma.local:8080"/>
+
+                      <Label Content="Proxy-Benutzername (optional, nur manuell)   ⓘ" ToolTip="Nur für explizite Proxy-Anmeldedaten. Windows-Anmeldung ignoriert dieses Feld bewusst."/>
+                      <TextBox x:Name="ProxyUserBox"/>
+
+                      <Label Content="Proxy-Passwort (nicht gespeichert, nur manuell)   ⓘ" ToolTip="Wird nicht gespeichert und gilt nur für die aktuelle Sitzung."/>
+                      <PasswordBox x:Name="ProxyPasswordBox"/>
+                    </StackPanel>
+                  </Expander>
+
+                  <WrapPanel Margin="0,10,0,12">
+                    <Button Content="Verbindung prüfen &amp; Projekte laden" Style="{StaticResource PrimaryButton}" Click="Connect_Click"/>
+                    <Button Content="Verbindung speichern" Click="SaveConnection_Click"/>
+                  </WrapPanel>
+
+                  <Border Padding="14" Background="{StaticResource FieldBg}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10">
+                    <TextBlock x:Name="ConnectionInfo" Text="Noch keine Verbindung geprüft." TextWrapping="Wrap"/>
+                  </Border>
+                </StackPanel>
+
+                <!-- Step 2: Quelle -->
+                <StackPanel x:Name="PageSource" Visibility="Collapsed">
+                  <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,18">
+                    <TextBlock Text="Wähle zuerst das Quellprojekt aus, das als Vorlage kopiert werden soll. Die folgende Bearbeitung geschieht nur auf einer lokalen Kopie des Backups."/>
+                  </Border>
+
+                  <Label Content="Serverprojekte   ⓘ" ToolTip="Die Auswahl lädt die Backup-Konfiguration des Projekts und verwendet sie als Vorlage."/>
+                  <TextBox x:Name="SourceFilter" TextChanged="SourceFilter_Changed" ToolTip="Suche nach Name oder Projekt-ID"/>
+                  <ListBox x:Name="ProjectList" Height="310" DisplayMemberPath="Display" SelectionChanged="ProjectList_SelectionChanged"/>
+                  <WrapPanel Margin="0,14,0,8">
+                    <Button Content="↻ Serverliste aktualisieren" Click="Connect_Click"/>
+                    <Button Content="Lokales JSON laden …" Click="OpenBackup_Click"/>
+                  </WrapPanel>
+                  <Border Background="{StaticResource FieldBg}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" Padding="14" CornerRadius="10" Margin="0,12,0,0">
+                    <TextBlock x:Name="SourceInfo" Text="Noch keine Quelle ausgewählt."/>
+                  </Border>
+                </StackPanel>
+
+                <!-- Step 3: Tenant -->
+                <StackPanel x:Name="PageTenant" Visibility="Collapsed">
+                  <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,18">
+                    <TextBlock Text="Definiere hier, wie das neue Tenant-Projekt heißen soll und welche tenant-spezifischen Survey-Standardwerte vorbereitet werden."/>
+                  </Border>
+                  <TextBlock Text="Die Kennung fließt in die Tenant-Gruppe und vorhandene Survey-Standardwerte ein. Das Deployment selbst wird dadurch nicht automatisch gestartet." Foreground="{StaticResource Muted}" Margin="0,0,0,16"/>
+
+                  <Label Content="Name des neuen Semaphore-Projekts   ⓘ" ToolTip="Neuer Name; das vorhandene Quellprojekt wird nicht überschrieben."/>
+                  <TextBox x:Name="ProjectNameBox" TextChanged="Summary_Changed"/>
+
+                  <Label Content="Technische Tenant-ID   ⓘ" ToolTip="Kleinbuchstaben, Ziffern und Bindestriche, z. B. kunde-a; wird als tenant_slug verwendet."/>
+                  <TextBox x:Name="TenantSlugBox" TextChanged="Summary_Changed"/>
+
+                  <Expander Header="Anwendung und Testdaten" IsExpanded="True">
+                    <StackPanel Margin="4,10,4,0">
+                      <Label Content="Anwendung (application_id)   ⓘ" ToolTip="Werte stammen aus vorhandenen Surveys; die Anwendung wird dadurch nicht neu in Git angelegt."/>
+                      <ComboBox x:Name="ApplicationBox" IsEditable="True" ToolTip="Vorhandene Anwendung wählen oder eigenen Wert eintragen."/>
+
+                      <Label Content="Datenbanktyp (database_type)   ⓘ" ToolTip="Nur die passende Option der Vorlage verwenden, z. B. postgresql, mariadb, mysql oder none."/>
+                      <ComboBox x:Name="DatabaseBox" IsEditable="True"/>
+
+                      <Label Content="Datensatz (dataset_id)   ⓘ" ToolTip="Muss im Datenkatalog des Ansible-Projekts vorhanden sein; dieser Konfigurator erzeugt keine SQL-Dumps."/>
+                      <ComboBox x:Name="DatasetBox" IsEditable="True"/>
+
+                      <Label Content="Standardlaufzeit in Minuten (ttl_minutes)   ⓘ" ToolTip="5 bis 1440 Minuten; ändert nur den Survey-Standardwert für die Kopie."/>
+                      <TextBox x:Name="TtlBox" Text="15" ToolTip="Ändert bestehende Survey-Standardwerte; das Playbook bestimmt die tatsächliche Laufzeit."/>
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+
+                <!-- Step 4: Inhalte -->
+                <StackPanel x:Name="PageResources" Visibility="Collapsed">
+                  <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,18">
+                    <TextBlock Text="Wähle nun aus, welche Aufgaben und Variablengruppen aus der Vorlage in das neue Tenant-Projekt übernommen werden sollen."/>
+                  </Border>
+                  <TextBlock Text="Übernimm nur die Aufgaben und Variablengruppen, die der neue Tenant benötigt. Verknüpfungen werden später auf Gültigkeit geprüft." Foreground="{StaticResource Muted}" Margin="0,0,0,16"/>
+                  <Expander Header="Task Templates auswählen   ⓘ" IsExpanded="True" ToolTip="Nicht gewählte Task Templates werden nur aus der neuen Kopie entfernt.">
+                    <ListBox x:Name="TasksChoiceList" MinHeight="120" MaxHeight="250" BorderThickness="0" Background="Transparent">
+                      <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding Included, Mode=TwoWay}"/></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                  </Expander>
+                  <Expander Header="Vorhandene Variablengruppen auswählen" IsExpanded="True">
+                    <ListBox x:Name="GroupsChoiceList" MinHeight="120" MaxHeight="250" BorderThickness="0" Background="Transparent">
+                      <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding Included, Mode=TwoWay}"/></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                  </Expander>
+                  <Expander Header="Git-Repository anpassen (optional)" IsExpanded="False">
+                    <StackPanel Margin="4,10,4,0">
+                      <TextBlock Text="Ändert URL und Branch des ersten Repositories dieser Kopie; vorhandene SSH-Keys werden nicht mit exportiert." Foreground="{StaticResource Muted}" Margin="0,0,0,10"/>
+                      <Label Content="Git-URL   ⓘ" ToolTip="Optional: Ändert die URL des ersten Repositories. SSH-Key-Inhalte werden nicht übertragen."/>
+                      <TextBox x:Name="RepositoryUrlBox"/>
+                      <Label Content="Branch   ⓘ" ToolTip="Optional: Default-Branch des ersten Repositories der neuen Projektkopie."/>
+                      <TextBox x:Name="RepositoryBranchBox"/>
+                    </StackPanel>
+                  </Expander>
+                  <Expander Header="Sichere Tenant-Vorbereitung" IsExpanded="True">
+                    <StackPanel Margin="4,10,4,0">
+                      <CheckBox x:Name="AddTenantGroupCheck" IsChecked="True" Content="Tenant-Variablengruppe automatisch erzeugen und ausgewählten Tasks zuweisen"/>
+                      <CheckBox x:Name="AddTenantSurveyCheck" IsChecked="True" Content="Fehlendes tenant_slug-Survey bei ausgewählten Tasks hinzufügen"/>
+                      <CheckBox x:Name="DisableSchedulesCheck" IsChecked="True" Content="Zeitpläne in der neuen Kopie nicht übernehmen"/>
+                      <CheckBox x:Name="DisableIntegrationsCheck" IsChecked="True" Content="Integrationen/Webhooks in der neuen Kopie nicht übernehmen"/>
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+
+                <!-- Step 5: Presets -->
+                <StackPanel x:Name="PageGroups" Visibility="Collapsed">
+                  <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,18">
+                    <TextBlock Text="Nutze bestehende Gruppen weiter oder füge neue Variablengruppen aus wiederverwendbaren Presets hinzu. Das spart beim Anlegen neuer Tenants eine Menge Klicks."/>
+                  </Border>
+                  <TextBlock Text="Bestehende Variablengruppen lassen sich hier bearbeiten oder durch Presets ergänzen. Die Werte werden im Semaphore-Backup-Format gespeichert." Foreground="{StaticResource Muted}" Margin="0,0,0,16"/>
+                  <Expander Header="Preset hinzufügen" IsExpanded="True">
+                    <StackPanel Margin="4,10,4,0">
+                      <Label Content="Vorlage   ⓘ" ToolTip="Eingebaute oder eigene Variablengruppen-Presets wählen. Secrets nicht in Presets speichern."/>
+                      <ComboBox x:Name="PresetBox" DisplayMemberPath="Display" SelectionChanged="PresetBox_Changed"/>
+                      <TextBlock x:Name="PresetDescription" Foreground="{StaticResource Muted}" Margin="0,0,0,10"/>
+                      <Label Content="Neuer Gruppenname   ⓘ" ToolTip="Eine neue, eindeutige Variablengruppe entsteht. Bei Namenskollision wird eine laufende Zahl angehängt."/>
+                      <TextBox x:Name="PresetNameBox"/>
+                      <Button Content="+ Preset als Gruppe hinzufügen" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="AddPreset_Click"/>
+                    </StackPanel>
+                  </Expander>
+                  <Expander Header="Variablen der ausgewählten Gruppe" IsExpanded="True">
+                    <StackPanel Margin="4,10,4,0">
+                      <Label Content="Gruppe wählen   ⓘ" ToolTip="Die JSON-Werte der Gruppe werden als bearbeitbare Tabelle geladen. Vor Gruppenwechsel speichern."/>
+                      <ComboBox x:Name="EditableGroupBox" DisplayMemberPath="Name" SelectionChanged="EditableGroup_Changed"/>
+                      <TextBlock Text="Werte direkt in der Tabelle bearbeiten. Für verschachtelte JSON-Werte den Typ JSON verwenden." Foreground="{StaticResource Muted}" Margin="0,0,0,12"/>
+                      <DataGrid x:Name="ValuesGrid" Height="260" AutoGenerateColumns="False" CanUserAddRows="False" SelectionUnit="FullRow">
+                        <DataGrid.Columns>
+                          <DataGridTextColumn Header="Variable" Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                          <DataGridTextColumn Header="Wert" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
+                          <DataGridTextColumn Header="Typ: Text / Zahl / Bool / JSON" Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Width="190"/>
+                        </DataGrid.Columns>
+                      </DataGrid>
+                      <WrapPanel Margin="0,14,0,0">
+                        <Button Content="+ Variable" Click="AddValue_Click"/>
+                        <Button Content="Variable löschen" Click="RemoveValue_Click"/>
+                        <Button Content="Werte übernehmen" Style="{StaticResource PrimaryButton}" Click="SaveGroup_Click"/>
+                        <Button Content="Als eigenes Preset speichern" Click="SavePreset_Click"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+
+                <!-- Step 6: Prüfen -->
+                <StackPanel x:Name="PageReview" Visibility="Collapsed">
+                  <Border Background="#10243D" BorderBrush="#234062" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,16">
+                    <TextBlock Text="Wir erstellen ein NEUES Semaphore-Projekt. Das Quellprojekt bleibt unverändert und es wird kein Task automatisch gestartet." FontWeight="SemiBold"/>
+                  </Border>
+                  <Label Content="Geplanter Projektinhalt   ⓘ" ToolTip="Nur lokale Vorschau des neu erzeugten Backup-JSON. Es ist noch keine API-Anfrage erfolgt."/>
+                  <TextBox x:Name="PreviewBox" Height="200" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+                  <Label Content="Validierung und Nacharbeiten   ⓘ" ToolTip="Fehler verhindern den Import. Warnungen zu Keys, Zeitplänen und Webhooks müssen nach Restore geprüft werden."/>
+                  <TextBox x:Name="WarningsBox" Height="160" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+                  <WrapPanel Margin="0,14,0,10">
+                    <Button Content="JSON-Vorschau speichern …" Click="SavePreview_Click"/>
+                    <Button Content="Prüfung erneut ausführen" Click="Review_Click"/>
+                  </WrapPanel>
+                  <CheckBox x:Name="ConfirmCheck" Content="Ich bestätige: Neues Projekt anlegen; Key Store, Zeitpläne und Integrationen danach prüfen." FontWeight="SemiBold"/>
+                  <Button x:Name="RestoreButton" Content="+ NEUES SEMAPHORE-PROJEKT ERSTELLEN" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Padding="22,14" Click="Restore_Click"/>
+                </StackPanel>
+
+                <!-- Step 7: Ergebnis -->
+                <StackPanel x:Name="PageResult" Visibility="Collapsed">
+                  <TextBlock Text="Tenant-Projekt vorbereitet" FontSize="26" FontWeight="Bold" Foreground="{StaticResource Positive}" Margin="0,0,0,12"/>
+                  <TextBlock x:Name="ResultInfo" FontSize="15" Margin="0,0,0,22"/>
+                  <Expander Header="Nächste Schritte" IsExpanded="True">
+                    <TextBlock Margin="6,10,6,4" Text="1. Im neuen Projekt unter Key Store die SSH- und Vault-Zugangsdaten ergänzen.&#10;2. Repository, Inventory und Variablengruppen kontrollieren.&#10;3. Deployment-Task manuell starten und Tenant-ID/Testdaten prüfen.&#10;4. Erst danach Zeitpläne oder Webhooks aktivieren."/>
+                  </Expander>
+                  <Button Content="Weiteres Tenant-Projekt vorbereiten" HorizontalAlignment="Left" Click="Restart_Click" Style="{StaticResource PrimaryButton}"/>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
+        <!-- Help sidebar -->
+        <Border Grid.Column="4" Style="{StaticResource CardBorder}" Padding="18">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+              <Separator/>
+              <Button Content="? Hilfe zu diesem Schritt" Click="Help_Click"/>
+              <TextBlock Text="Passwörter und Schlüssel gehören in Semaphore Key Store bzw. Vault, nicht in Presets." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,8,0,0"/>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock Text="KONTEXT &amp; HILFE" FontWeight="Bold" FontSize="13" Margin="0,2,0,18"/>
+              <TextBlock x:Name="HelpTitle" Text="Warum diese Schritte?" FontWeight="SemiBold" FontSize="18" Margin="0,0,0,10"/>
+              <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,0,0,16">
+                <TextBlock x:Name="HelpBody" Foreground="{StaticResource Text}"/>
+              </Border>
+
+              <TextBlock Text="DEINE AUSWAHL" FontWeight="Bold" FontSize="13" Margin="0,6,0,12"/>
+              <Border Background="{StaticResource FieldBg}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="10" Padding="14">
+                <TextBlock x:Name="SummaryText" Foreground="{StaticResource Muted}"/>
+              </Border>
+            </StackPanel>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <!-- Footer -->
+      <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="18,14" Margin="0,16,0,0">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="FooterStatus" Text="Bereit. Beginne mit Verbindung oder lokaler JSON-Datei." FontWeight="SemiBold"/>
+            <TextBlock x:Name="FooterDiagnostic" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,6,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="BackButton" Content="← Zurück" Click="Back_Click"/>
+            <Button x:Name="NextButton" Content="Weiter →" Style="{StaticResource PrimaryButton}" Click="Next_Click" MinWidth="150"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>
