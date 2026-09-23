@@ -2,9 +2,23 @@
 
 ## Komponenten
 
-`frontend` erzeugt eine statische React-SPA. Nginx liefert sie aus, leitet `/api/` an FastAPI weiter und deaktiviert für den Live-Run-Stream das Proxy-Buffering. `backend` enthält REST-API, Autorisierung, Policy Engine, Semaphore-Client, Audit und Creation-Job-Orchestrierung. `postgres` speichert Portalzustand, verschlüsselte Integrationsdaten und Historie.
+`gateway` ist ein optionales Caddy-TLS-Gateway innerhalb derselben Compose-Datei. `frontend` enthält die statische React-SPA; Nginx liefert sie aus, leitet `/api/` an FastAPI weiter und deaktiviert für den Live-Run-Stream das Proxy-Buffering. `backend` enthält REST-API, Autorisierung, Policy Engine, Semaphore-Client, Audit und Creation-Job-Orchestrierung. `postgres` speichert Portalzustand, verschlüsselte Integrationsdaten und Historie.
 
-Das interne Docker-Netz verbindet alle drei Dienste. Nur das Backend hängt zusätzlich am Egress-Netz, nur das Frontend am Edge-Netz. Damit ist PostgreSQL weder vom Host noch über das Egress-Netz erreichbar.
+Die Dienste sind über getrennte Docker-Netze gekoppelt:
+
+- `portal_edge`: ausschließlich Gateway und Frontend
+- `portal_application`: ausschließlich Frontend und Backend
+- `portal_database`: ausschließlich Backend und PostgreSQL
+- `portal_backend_egress`: externer Zugriff nur für das Backend, insbesondere zur Semaphore API
+- `portal_gateway_egress`: externer Zugriff nur für Caddy, insbesondere für ACME
+
+Die drei internen Netze besitzen keinen externen Egress. PostgreSQL und Backend veröffentlichen keine Host-Ports. Das Frontend bindet für die Anbindung eines vorhandenen Host-Reverse-Proxys nur an Loopback; bei aktiviertem TLS-Profil ist Caddy der öffentliche Einstiegspunkt.
+
+## Build- und Deployment-Grenze
+
+GitHub Actions testet Backend und Frontend vor dem Image-Build. Nur erfolgreiche Pushes auf `main` beziehungsweise Versionstags veröffentlichen die Images nach GHCR. Die produktive Compose-Datei enthält für die Anwendung ausschließlich `image:`-Referenzen und keine `build:`-Kontexte. Deshalb benötigt der Zielserver weder Quellcode noch Python-, Node- oder .NET-Toolchains.
+
+Beide Anwendungsimages verwenden denselben Release- oder Commit-Tag. Damit wird verhindert, dass Frontend und Backend versehentlich aus unterschiedlichen Revisionen kombiniert werden. PostgreSQL-Daten, Caddy-Zertifikate und Caddy-Zustand liegen in benannten Volumes; die Portal-Konfiguration und Secrets liegen in der nur lokal vorhandenen `.env`.
 
 ## Vertrauensgrenzen
 

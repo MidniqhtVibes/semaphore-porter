@@ -7,19 +7,24 @@ Die bisherige Windows/WPF-Anwendung bleibt in `src/` erhalten. Der produktive Zi
 ## Architektur
 
 ```text
-Browser :8080
+Browser :443
     |
     v
-Nginx + React SPA  ---- internes Netz ---->  FastAPI
-                                              |   |
-                                  internes Netz   +---- Egress ----> Semaphore UI API
-                                              |
-                                          PostgreSQL
+Caddy (TLS)  ---- internes Edge-Netz ---->  Nginx + React SPA
+                                                   |
+                                             internes App-Netz
+                                                   |
+                                                FastAPI  ---- Egress ----> Semaphore UI API
+                                                   |
+                                             internes DB-Netz
+                                                   |
+                                               PostgreSQL
 ```
 
-- Nur Nginx veröffentlicht einen Host-Port.
-- PostgreSQL ist ausschließlich im internen Docker-Netz erreichbar.
-- FastAPI besitzt ein zusätzliches ausgehendes Netz für den Semaphore-Server, aber keinen Host-Port.
+- Caddy terminiert im mitgelieferten TLS-Profil HTTPS und erneuert Zertifikate automatisch.
+- PostgreSQL und FastAPI veröffentlichen keine Host-Ports; PostgreSQL besitzt auch keinen Internetzugang.
+- Nur FastAPI besitzt ein ausgehendes Netz für den Semaphore-Server.
+- Nginx ist ohne TLS-Profil ausschließlich auf `127.0.0.1:8080` erreichbar, etwa für einen bereits vorhandenen Host-Reverse-Proxy.
 - Tenant-, Template- und Run-Zugriffe werden im Backend anhand interner UUIDs und der aktuellen Mitgliedschaften geprüft.
 - Task-Parameter werden nie direkt durchgereicht: Die serverseitige Policy validiert Eingaben und ergänzt Fixed/Hidden-Werte.
 
@@ -41,59 +46,77 @@ Weitere Details: [Architektur und Sicherheitsmodell](docs/ARCHITECTURE.md) und [
 
 ## Versionen
 
-Die Images und direkten Abhängigkeiten sind fest versioniert:
+Die Runtime-Images und direkten Abhängigkeiten sind fest versioniert:
 
 - PostgreSQL 17.6 Alpine
 - Python 3.13.7, FastAPI 0.116.1, SQLAlchemy 2.0.43, Alembic 1.16.5
 - Node 22.19.0 für den Build, React 19.1.1, TypeScript 5.9.2, Vite 7.1.5
 - Nginx 1.29.1 Alpine zur Auslieferung und als API-Reverse-Proxy
+- Caddy 2.10.2 Alpine als optionales TLS-Gateway
 
 `frontend/package-lock.json` fixiert den vollständigen Frontend-Dependency-Graph.
 
-## Voraussetzungen
+## Voraussetzungen für den Server
 
-- Docker Engine mit Compose v2
+- Linux/x86-64 mit Docker Engine und Docker Compose 2.33.1 oder neuer
+- `docker-compose.yml` und eine lokale `.env`; ein Checkout des Quellcodes ist nicht erforderlich
 - erreichbare Semaphore-UI-Instanz und ein Service-Token mit den benötigten Projekt-/Task-Rechten
-- für Produktion: HTTPS-Reverse-Proxy und ein DNS-Name
-- ausreichend Rechte für ein persistentes Docker-Volume
+- für das eingebaute TLS-Gateway: ein DNS-Name, der auf den Host zeigt, sowie eingehend erreichbare TCP-Ports 80 und 443
+- Zugriff auf GHCR; bei privaten Packages einmalig `docker login ghcr.io` mit einem Token mit Leserecht ausführen
 
-## Installation
+Python, Node.js, .NET und `docker compose build` werden auf dem Server nicht benötigt. Compose zieht die beiden von GitHub Actions gebauten Portal-Images sowie die festgelegten offiziellen PostgreSQL- und Caddy-Images.
 
-1. Konfiguration anlegen:
+## Produktive Installation
 
-   ```powershell
-   Copy-Item .env.example .env
+1. `docker-compose.yml` und `.env.example` in ein geschütztes Verzeichnis auf dem Server kopieren, `.env.example` in `.env` umbenennen und die Datei nur für den Betreiber lesbar machen:
+
+   ```bash
+   install -d -m 750 /opt/semaphore-portal
+   cd /opt/semaphore-portal
+   cp /pfad/zu/docker-compose.yml .
+   cp /pfad/zu/.env.example .env
+   chmod 600 .env
    ```
 
-2. Alle `CHANGE_ME`-Werte in `.env` ersetzen. Sichere Werte lassen sich ohne lokale Python-Installation erzeugen:
+2. Alle `CHANGE_ME`-Werte sowie `PORTAL_DOMAIN` und `PORTAL_ALLOWED_HOSTS` in `.env` ersetzen. Sichere Werte lassen sich mit einem temporären Python-Container erzeugen:
 
-   ```powershell
-   docker run --rm python:3.13.7-slim python -c "import secrets; print(secrets.token_urlsafe(64))"
+   ```bash
+   docker run --rm python:3.13.7-slim python -c "import secrets; print(secrets.token_hex(48))"
    docker run --rm python:3.13.7-slim python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
    ```
 
-   Die erste Ausgabe ist für `PORTAL_SECRET_KEY`, die zweite für `PORTAL_FERNET_KEY`. Für `POSTGRES_PASSWORD` einen langen URL-sicheren Zufallswert verwenden. Der Fernet-Key muss bei Updates und Restores unverändert bleiben, sonst kann das gespeicherte Semaphore-Token nicht mehr entschlüsselt werden.
+   Die erste Ausgabe kann für `PORTAL_SECRET_KEY` und ein weiterer URL-sicherer Zufallswert für `POSTGRES_PASSWORD` verwendet werden; die zweite Ausgabe ist der `PORTAL_FERNET_KEY`. Dieser Fernet-Key muss bei Updates und Restores unverändert bleiben, sonst kann das gespeicherte Semaphore-Token nicht mehr entschlüsselt werden.
 
-3. Images bauen und Stack starten:
+3. Für reproduzierbare Deployments `PORTAL_IMAGE_TAG` auf einen veröffentlichten `vX.Y.Z`- oder `sha-<vollständiger-Commit>`-Tag setzen. `latest` folgt dem aktuellen Stand von `main` und eignet sich vor allem für die Erstinbetriebnahme.
 
-   ```powershell
-   docker compose build
-   docker compose up -d
-   docker compose ps
+4. Den vollständigen Stack inklusive HTTPS starten:
+
+   ```bash
+   docker compose --profile tls pull
+   docker compose --profile tls up -d --wait
+   docker compose --profile tls ps
    ```
 
-4. `http://localhost:8080` öffnen und mit `PORTAL_BOOTSTRAP_ADMIN_EMAIL` sowie `PORTAL_BOOTSTRAP_ADMIN_PASSWORD` anmelden. Beim ersten Login ist ein Passwortwechsel erzwungen.
+5. `https://<PORTAL_DOMAIN>` öffnen und mit `PORTAL_BOOTSTRAP_ADMIN_EMAIL` sowie `PORTAL_BOOTSTRAP_ADMIN_PASSWORD` anmelden. Beim ersten Login ist ein Passwortwechsel erzwungen. Danach beide Bootstrap-Werte in `.env` leeren und den Backend-Container neu erstellen; ein bestehender Administrator wird dabei nicht verändert:
 
-Beim Backend-Start laufen zuerst `alembic upgrade head` und der idempotente Bootstrap für Rollen, integrierte Presets und den ersten Administrator.
+   ```bash
+   docker compose --profile tls up -d --force-recreate backend
+   ```
 
-## Produktionskonfiguration
+Beim Backend-Start laufen zuerst `alembic upgrade head` und der idempotente Bootstrap für Rollen und integrierte Presets. `PORTAL_COOKIE_SECURE=true` muss in Produktion gesetzt bleiben.
 
-- `PORTAL_COOKIE_SECURE=true` setzen und das Portal nur über HTTPS betreiben.
-- `PORTAL_ALLOWED_HOSTS` auf die tatsächlichen, kommaseparierten Hostnamen begrenzen. Die internen Healthcheck-Namen `localhost` und `127.0.0.1` werden automatisch ergänzt.
-- Bootstrap-Passwort nach erfolgreicher Erstinstallation aus `.env` entfernen. Ein bestehender Admin wird dadurch nicht gelöscht.
-- `.env`, Datenbank-Backups und Fernet-Key getrennt und zugriffsgeschützt sichern.
-- Den Backend- oder PostgreSQL-Port nicht zusätzlich veröffentlichen.
-- Bei einem vorgeschalteten Proxy den ursprünglichen Host beibehalten. TLS wird weder für das Portal noch für Semaphore deaktiviert.
+### Vorhandenen Reverse-Proxy verwenden
+
+Wenn auf demselben Host bereits ein TLS-Reverse-Proxy betrieben wird, den Stack ohne Profil mit `docker compose up -d --wait` starten und den Proxy auf `http://127.0.0.1:8080` leiten. Er muss den ursprünglichen `Host` und `X-Forwarded-Proto: https` weitergeben. Backend- oder PostgreSQL-Ports dürfen nicht zusätzlich veröffentlicht werden.
+
+### GitHub Actions und Packages
+
+Die Portal-CI testet zuerst Backend und Frontend. Danach startet sie mit den lokal gebauten Images genau die produktive Compose-Datei einschließlich PostgreSQL und Caddy und prüft Health- und Login-Route. Erst nach diesem Smoke-Test werden Packages veröffentlicht. Pull Requests und normale Branches bauen beide Images nur zur Prüfung. Erfolgreiche Pushes auf `main` veröffentlichen `latest`, `main` und einen unveränderlichen `sha-*`-Tag nach:
+
+- `ghcr.io/midniqhtvibes/semaphore-porter-backend`
+- `ghcr.io/midniqhtvibes/semaphore-porter-frontend`
+
+Ein Git-Tag `vX.Y.Z` erzeugt zusätzlich SemVer-Tags. Der Image-Job beginnt erst, wenn beide Testjobs erfolgreich waren. Die Package-Sichtbarkeit muss in GitHub zum vorgesehenen Betriebsmodell passen: entweder öffentlich oder mit authentifiziertem Lesezugriff vom Server.
 
 ## Ersteinrichtung im Portal
 
@@ -123,30 +146,36 @@ Unbekannte Felder, manipulierte Fixed/Hidden-Werte und Regeln für nicht vorhand
 
 Status und Logs:
 
-```powershell
-docker compose ps
-docker compose logs --tail=200 backend
-docker compose logs --tail=200 frontend
-curl.exe --fail http://localhost:8080/api/health
+```bash
+docker compose --profile tls ps
+docker compose --profile tls logs --tail=200 backend frontend gateway
+curl --fail https://portal.example.com/api/health
 ```
 
-Update:
+Vor jedem Update die Datenbank sowie `.env`/Fernet-Key außerhalb des Hosts sichern. Danach `PORTAL_IMAGE_TAG` kontrolliert auf den gewünschten Release- oder SHA-Tag ändern und ausschließlich Images ziehen:
 
-```powershell
-docker compose build --pull
-docker compose up -d
+```bash
+docker compose --profile tls pull
+docker compose --profile tls up -d --wait
 ```
 
-Vor einem Update Datenbank und `.env`/Fernet-Key sichern. Die Schema-Aktualisierung erfolgt beim Backend-Start über Alembic.
+Die Schema-Aktualisierung erfolgt beim Backend-Start über Alembic. Für ein Rollback den vorherigen Image-Tag eintragen und dieselben beiden Befehle ausführen. Falls die neue Version bereits eine nicht rückwärtskompatible Datenbankmigration ausgeführt hat, muss auch das zur alten Version passende Datenbank-Backup wiederhergestellt werden.
 
-Datenbank sichern und wiederherstellen:
+Datenbank sichern:
 
-```powershell
-docker compose exec -T postgres pg_dump -U semaphore_portal -d semaphore_portal -Fc > portal.dump
-Get-Content portal.dump -AsByteStream | docker compose exec -T postgres pg_restore -U semaphore_portal -d semaphore_portal --clean --if-exists
+```bash
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > portal.dump
 ```
 
-Die Werte für Benutzer und Datenbank bei abweichender `.env` entsprechend ersetzen. Ein Restore mit `--clean` überschreibt die Zieldatenbank und gehört in ein Wartungsfenster.
+Datenbank im Wartungsfenster wiederherstellen:
+
+```bash
+docker compose stop backend
+docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < portal.dump
+docker compose --profile tls up -d --wait
+```
+
+Ein Restore mit `--clean` überschreibt die Zieldatenbank. Datenbank-Backup und `.env` mit demselben Fernet-Key müssen gemeinsam, verschlüsselt und regelmäßig außerhalb des Docker-Hosts gesichert sowie testweise wiederhergestellt werden. Docker-Logs sind pro Container begrenzt; für zentrale Aufbewahrung ist ein externer Log-Collector erforderlich.
 
 ## Entwicklung und Tests
 
@@ -168,11 +197,13 @@ npm test
 npm run build
 ```
 
-API-Schema im laufenden System: `http://localhost:8080/api/docs`.
+API-Schema im laufenden System: `https://<PORTAL_DOMAIN>/api/docs` beziehungsweise lokal `http://127.0.0.1:8080/api/docs`.
 
 ## Fehlerdiagnose
 
 - **Backend bleibt unhealthy:** `docker compose logs backend` prüfen; häufig fehlen Variablen oder der Fernet-Key ist ungültig.
+- **GHCR-Pull wird abgelehnt:** Package-Sichtbarkeit prüfen oder `docker login ghcr.io` mit einem Token mit Package-Leserecht wiederholen.
+- **Caddy erhält kein Zertifikat:** DNS-Auflösung, Firewall/NAT für TCP 80 und 443 sowie `docker compose --profile tls logs gateway` prüfen.
 - **Login setzt kein Cookie:** Bei lokalem HTTP muss `PORTAL_COOKIE_SECURE=false` gelten; in Produktion ist `true` erforderlich.
 - **Host wird abgelehnt:** Hostnamen zu `PORTAL_ALLOWED_HOSTS` hinzufügen und Backend neu erstellen.
 - **Semaphore nicht erreichbar:** URL, DNS, Zertifikatskette, Proxy und Container-Egress prüfen. Der Client deaktiviert die TLS-Prüfung nicht.

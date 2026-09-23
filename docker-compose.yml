@@ -1,8 +1,15 @@
 name: semaphore-tenant-portal
 
+x-logging: &portal-logging
+  driver: json-file
+  options:
+    max-size: "${PORTAL_LOG_MAX_SIZE:-10m}"
+    max-file: "${PORTAL_LOG_MAX_FILES:-5}"
+
 services:
   postgres:
     image: postgres:17.6-alpine
+    pull_policy: ${PORTAL_PULL_POLICY:-always}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB fehlt}
@@ -15,24 +22,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 10s
-    # The API needs outbound connectivity to the external Semaphore server.
-    # It is not published on the host; PostgreSQL remains on portal_internal only.
-    networks: [portal_internal, portal_egress]
+      start_period: 15s
+    networks:
+      - portal_database
+    logging: *portal-logging
+    shm_size: 256mb
+    stop_grace_period: 30s
 
   backend:
-    build:
-      context: ./backend
+    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaphore-porter}-backend:${PORTAL_IMAGE_TAG:-latest}
+    pull_policy: ${PORTAL_PULL_POLICY:-always}
     restart: unless-stopped
+    init: true
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER fehlt}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB fehlt}
       PORTAL_SECRET_KEY: ${PORTAL_SECRET_KEY:?PORTAL_SECRET_KEY fehlt}
       PORTAL_FERNET_KEY: ${PORTAL_FERNET_KEY:?PORTAL_FERNET_KEY fehlt}
-      PORTAL_BOOTSTRAP_ADMIN_EMAIL: ${PORTAL_BOOTSTRAP_ADMIN_EMAIL:?}
-      PORTAL_BOOTSTRAP_ADMIN_PASSWORD: ${PORTAL_BOOTSTRAP_ADMIN_PASSWORD:?}
+      # Beide Werte duerfen nach dem ersten erfolgreichen Login leer bleiben.
+      PORTAL_BOOTSTRAP_ADMIN_EMAIL: ${PORTAL_BOOTSTRAP_ADMIN_EMAIL:-}
+      PORTAL_BOOTSTRAP_ADMIN_PASSWORD: ${PORTAL_BOOTSTRAP_ADMIN_PASSWORD:-}
       PORTAL_BOOTSTRAP_ADMIN_NAME: ${PORTAL_BOOTSTRAP_ADMIN_NAME:-Portal Administrator}
       PORTAL_COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-true}
-      PORTAL_ALLOWED_HOSTS: ${PORTAL_ALLOWED_HOSTS:-localhost}
+      PORTAL_ALLOWED_HOSTS: ${PORTAL_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      PORTAL_SESSION_HOURS: ${PORTAL_SESSION_HOURS:-12}
+      SEMAPHORE_REQUEST_TIMEOUT_SECONDS: ${SEMAPHORE_REQUEST_TIMEOUT_SECONDS:-30}
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,31 +54,110 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 20s
-    networks: [portal_internal]
+      retries: 8
+      start_period: 45s
+    networks:
+      portal_database:
+      portal_application:
+      # Nur dieses Netz stellt dem Backend ausgehenden Zugriff auf Semaphore bereit.
+      portal_backend_egress:
+        gw_priority: 1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    logging: *portal-logging
+    stop_grace_period: 30s
 
   frontend:
-    build:
-      context: ./frontend
+    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaphore-porter}-frontend:${PORTAL_IMAGE_TAG:-latest}
+    pull_policy: ${PORTAL_PULL_POLICY:-always}
     restart: unless-stopped
+    init: true
     depends_on:
       backend:
         condition: service_healthy
+    # Ohne TLS-Profil lokal erreichbar; im Produktivbetrieb bleibt dies auf Loopback.
     ports:
-      - "${PORTAL_PUBLIC_PORT:-8080}:80"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${PORTAL_PUBLIC_PORT:-8080}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
-    networks: [portal_internal, portal_edge]
+      start_period: 10s
+    networks:
+      - portal_application
+      - portal_edge
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    logging: *portal-logging
+    stop_grace_period: 15s
+
+  # Optionales TLS-Gateway ohne zweite Konfigurationsdatei:
+  # docker compose --profile tls up -d
+  gateway:
+    image: caddy:2.10.2-alpine
+    pull_policy: ${PORTAL_PULL_POLICY:-always}
+    profiles: ["tls"]
+    restart: unless-stopped
+    init: true
+    command: ["caddy", "reverse-proxy", "--from", "${PORTAL_DOMAIN:-localhost}", "--to", "frontend:80", "--access-log"]
+    depends_on:
+      frontend:
+        condition: service_healthy
+    # `caddy reverse-proxy` exposes no admin API. This verifies the process can
+    # reach its only upstream and prevents restart loops from satisfying --wait.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://frontend/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    ports:
+      - "${PORTAL_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${PORTAL_HTTP_PORT:-80}:80"
+      - "${PORTAL_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${PORTAL_HTTPS_PORT:-443}:443"
+    volumes:
+      - portal_caddy_data:/data
+      - portal_caddy_config:/config
+    networks:
+      portal_edge:
+      portal_gateway_egress:
+        gw_priority: 1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    logging: *portal-logging
+    stop_grace_period: 30s
 
 volumes:
   portal_postgres:
+  portal_caddy_data:
+  portal_caddy_config:
 
 networks:
-  portal_internal:
+  # PostgreSQL ist ausschliesslich fuer das Backend erreichbar und hat keinen Egress.
+  portal_database:
     internal: true
-  portal_egress:
+  # Frontend/Backend-Kommunikation ohne externen Zugriff fuer das Frontend.
+  portal_application:
+    internal: true
+  # Verbindung zwischen optionalem Gateway und Frontend.
   portal_edge:
+    internal: true
+  # Eigenstaendige Egress-Netze verhindern den Zugriff auf Datenbank-/App-Netze.
+  portal_backend_egress:
+  portal_gateway_egress:

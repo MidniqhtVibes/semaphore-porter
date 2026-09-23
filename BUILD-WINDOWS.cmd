@@ -20,7 +20,7 @@ if errorlevel 1 (
 )
 
 echo Compiling Semaphore Tenant Configurator for win-x64 ...
-"%DOTNET%" publish ".\src\SemaphoreTenantConfigurator.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -o ".\dist\publish"
+"%DOTNET%" publish ".\src\SemaphoreTenantConfigurator.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -o ".\dist\publish"
 if errorlevel 1 (
     echo.
     echo BUILD FEHLGESCHLAGEN. Erste Fehlermeldung oben pruefen.

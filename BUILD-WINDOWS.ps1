@@ -7,7 +7,7 @@ if ($LASTEXITCODE -ne 0 -or $ver -notmatch '^10\.') { throw "Bitte das .NET 10 S
 $project = Join-Path $PSScriptRoot 'src\SemaphoreTenantConfigurator.csproj'
 $publish = Join-Path $PSScriptRoot 'dist\publish'
 New-Item -ItemType Directory -Force -Path $publish | Out-Null
-& dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -o $publish
+& dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'Publish fehlgeschlagen. Fehlermeldung oben ansehen.' }
 $exe = Join-Path $publish 'SemaphoreTenantConfigurator.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw 'Publish lief durch, aber die EXE fehlt.' }
