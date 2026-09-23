@@ -1,0 +1,2 @@
+"""Semaphore Tenant Portal backend."""
+

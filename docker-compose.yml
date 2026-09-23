@@ -1,0 +1,70 @@
+name: semaphore-tenant-portal
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB fehlt}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER fehlt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+    volumes:
+      - portal_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # The API needs outbound connectivity to the external Semaphore server.
+    # It is not published on the host; PostgreSQL remains on portal_internal only.
+    networks: [portal_internal, portal_egress]
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      PORTAL_SECRET_KEY: ${PORTAL_SECRET_KEY:?PORTAL_SECRET_KEY fehlt}
+      PORTAL_FERNET_KEY: ${PORTAL_FERNET_KEY:?PORTAL_FERNET_KEY fehlt}
+      PORTAL_BOOTSTRAP_ADMIN_EMAIL: ${PORTAL_BOOTSTRAP_ADMIN_EMAIL:?}
+      PORTAL_BOOTSTRAP_ADMIN_PASSWORD: ${PORTAL_BOOTSTRAP_ADMIN_PASSWORD:?}
+      PORTAL_BOOTSTRAP_ADMIN_NAME: ${PORTAL_BOOTSTRAP_ADMIN_NAME:-Portal Administrator}
+      PORTAL_COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-true}
+      PORTAL_ALLOWED_HOSTS: ${PORTAL_ALLOWED_HOSTS:-localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [portal_internal]
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${PORTAL_PUBLIC_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [portal_internal, portal_edge]
+
+volumes:
+  portal_postgres:
+
+networks:
+  portal_internal:
+    internal: true
+  portal_egress:
+  portal_edge:

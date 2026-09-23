@@ -1,0 +1,27 @@
+name: Build legacy Windows configurator
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "BUILD-WINDOWS.*"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Run legacy regression suite
+        run: dotnet run --project tests/TenantConfigurator.Tests.csproj -c Release
+      - name: Publish self-contained executable
+        run: dotnet publish src/SemaphoreTenantConfigurator.csproj -c Release -r win-x64 --self-contained true -o dist -p:PublishSingleFile=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SemaphoreTenantConfigurator-win-x64
+          path: dist/

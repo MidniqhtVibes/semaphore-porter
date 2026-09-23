@@ -1,61 +1,182 @@
-# Semaphore Tenant Configurator v2 (Windows)
+# Semaphore Tenant Portal
 
-**Ziel:** Geführter Konfigurator zum Erstellen neuer Semaphore-Projekte für Mandanten/Tenants. Kein JSON-Handeditieren und keine bloß kosmetische Neuauflage der WinForms-App.
+Webportal zur mandantenfähigen Verwaltung von Semaphore-UI-Projekten und zur kontrollierten Ausführung freigegebener Task Templates. Administratoren verwalten Verbindungen, Projektvorlagen, Tenants, Benutzer, Gruppen, Policies und Berechtigungen. Portalbenutzer sehen nur ihre zugewiesenen Tenants und Tasks.
 
-## Warum C# / WPF / .NET 10?
+Die bisherige Windows/WPF-Anwendung bleibt in `src/` erhalten. Der produktive Zielstack liegt in `frontend/`, `backend/` und `docker-compose.yml`.
 
-WPF stellt Layout-Grids, Data Binding, Scrollbereiche, wiederverwendbare Styles und echte Windows-Dialoge bereit. Der asynchrone API-Client blockiert nicht die Oberfläche, und `dotnet publish` erzeugt eine eigenständige `win-x64`-EXE. Die bisherige PowerShell-App (v1.6) liegt unverändert im Archiv als **Legacy-v1.6.zip**. Der API-Code wurde semantisch neu umgesetzt: getrennte JSON-Projektliste, sichere GET-Redirects, kein POST-Retry, Proxy mit Windows-Konto, DPAPI-Token-Ablage.
+## Architektur
 
-## WICHTIG: Stand der ausgelieferten Datei
-
-Hier ist **Quellcode mit einem Windows-Buildskript** enthalten. Aus dieser Linux-Arbeitsumgebung konnte keine Windows/WPF-EXE kompiliert oder gestartet werden. Die App ist daher **noch nicht als Windows-Release verifiziert**. Bitte nicht als getestete EXE behandeln. Ein Windows-Rechner oder der beigefügte GitHub-Actions-Workflow kompiliert die EXE.
-
-## Einmalig bauen
-
-1. .NET **10 SDK** für Windows installieren: https://dotnet.microsoft.com/download/dotnet/10.0 (Firmenrichtlinien beachten).
-2. `BUILD-WINDOWS.cmd` doppelklicken. Die CMD ruft `dotnet publish` jetzt direkt auf, ohne PowerShell-Execution-Policy. Sie sucht auch das vorhandene x86-SDK unter `C:\Program Files (x86)\dotnet`. Internet/NuGet kann beim ersten Restore notwendig sein.
-3. Danach **`dist\SemaphoreTenantConfigurator.exe` direkt starten**, kein `.bat` nötig. Das SDK wird nur zum Bauen benötigt; die resultierende EXE bündelt .NET selbst.
-4. Alternativ Repository nach GitHub hochladen und Workflow **Build Windows EXE** starten. Die EXE steht als Workflow-Artefakt bereit; GitHub-Actions-Berechtigungen und Firmenrichtlinien beachten.
-
-Die EXE ist **nicht signiert**. Windows SmartScreen, AppLocker oder WDAC können sie auf Firmenrechnern blockieren. Keine Umgehung dieser Richtlinien vorgesehen; im Zweifel Freigabe/Signierung über IT.
-
-## Wizard
-
-1. **Verbindung:** Server-URL, Bearer-Token, Firmenproxy; System-Windows-SSO oder manueller Proxy. Lokale JSON-Quelle ist offline möglich. Bekannte v1.6-DPAPI-Datei und settings.json werden übernommen.
-2. **Vorlage:** Liste vom Server (`GET /api/projects`) oder lokale `.json`/`.backup`, Backup wird per `GET /api/project/{id}/backup` geladen. Original bleibt unangetastet.
-3. **Tenant:** Neuer Projektname, technische Tenant-ID (`tenant_slug`), optionale Anwendung, Datenbanktyp, Testdaten, TTL. Auswahlvorschläge stammen aus vorhandenen Survey-Dropdowns der Vorlage, nicht aus erfundenen Werten.
-4. **Inhalte:** Task Templates und Variablengruppen auswählen, Git-URL/Branch des ersten Repositories ggf. ändern, Tenant-Gruppe zuweisen; Zeitpläne und Webhooks standardmäßig entfernen.
-5. **Presets:** Vorlagen PostgreSQL/MariaDB/MySQL/Registry/Vault/SMTP/Deployment; eigene v1.6-Presets werden gelesen; Gruppenwerte editierbar (`Text`, `Zahl`, `Bool`, `JSON`). Keine Geheimnisse speichern.
-6. **Prüfen:** Strukturvalidierung, Hinweise zu Keys, Vorschau als JSON exportieren, bewusste Bestätigung und erst dann `POST /api/projects/restore`.
-7. **Fertig:** Hinweise zum Key Store und zum manuellen Test-Deployment.
-
-## Was der Wizard bewusst NICHT macht
-
-- Er startet **keinen Ansible-Task** und legt keine Datenbank auf dem Zielhost an. Ein neues Semaphore-Projekt zu erstellen ist nicht dasselbe wie eine neue Laufzeitumgebung zu provisionieren.
-- Kein automatisches Kopieren von SSH-Privatkeys, Vault-Secrets oder Registry-Passwörtern; diese müssen nach dem Restore geprüft bzw. neu hinterlegt werden.
-- Kein Editieren des GitLab-Repositories oder seiner application.yml-Dateien. Die Anwendung kann nur Variablen und Konfigurationsbezüge in einem Semaphore-Projektbackup anpassen.
-- Kein In-Place-Update eines bestehenden Projekts; Restore erzeugt eine neue Projektkopie.
-- Bei jeder Änderung der Gruppen im Wizard sollen Referenzen zu übernommenen Gruppen passen. Vor dem Import Fehlerausgabe beachten.
-
-## Datenschutz/Sicherheit
-
-- Token im Windows-Benutzerprofil per DPAPI verschlüsselt, kompatibel mit bestehender v1.6-Ablage. Einstellungen: `%LOCALAPPDATA%\SemaphoreProjectManager\settings.json`, Token: `credentials.dat`, eigene Presets: `Presets\`.
-- Keine TLS-Zertifikatsprüfung abgeschaltet. Bearer-Token nur zu demselben Host und demselben API-Pfad bei GET-Redirects; POST wird nie automatisch wiederholt.
-- Manuelle Proxy-Passwörter bleiben nur in der laufenden Anwendung und sind nicht persistent.
-- Projekt-Backup/JSON-Vorschau *kann Konfigurationen mit sensiblen Werten enthalten*: nur an vertrauenswürdigem Ort speichern und vor Weitergabe prüfen.
-
-## Technische Grenzen / nächste Ausbaustufe
-
-- Aktuell 7-Schritt-Wizard mit generischen Presets; spezifische Mandanten-Backend-Operationen außerhalb von Semaphore (DNS, eigene DBs, GitLab, Vault, Jobausführung) benötigen zuvor eine explizite Berechtigung und eine getrennte, abgesicherte API-Anbindung.
-- Repository-Übersteuerung wirkt auf das **erste** Repository im Backup. Bei Projekten mit mehreren Repositories die JSON-Vorschau prüfen. Inventories bleiben referenziert, aber ihre Inhalte werden hier noch nicht grafisch bearbeitet.
-- Windows-Build und Firmenproxy bitte am Zielgerät testen. Im Gegensatz zur bestehenden PowerShell-Version wurde dieser neue Client **noch nicht live gegen euren Server getestet**.
-
-## Tests
-
-Auf einem Windows-Rechner mit .NET 10 SDK:
-
-```powershell
-dotnet run --project tests/TenantConfigurator.Tests.csproj -c Release
+```text
+Browser :8080
+    |
+    v
+Nginx + React SPA  ---- internes Netz ---->  FastAPI
+                                              |   |
+                                  internes Netz   +---- Egress ----> Semaphore UI API
+                                              |
+                                          PostgreSQL
 ```
 
-Zusätzlich baut und testet der Workflow unter `.github/workflows/build-windows.yml` auf Windows.
+- Nur Nginx veröffentlicht einen Host-Port.
+- PostgreSQL ist ausschließlich im internen Docker-Netz erreichbar.
+- FastAPI besitzt ein zusätzliches ausgehendes Netz für den Semaphore-Server, aber keinen Host-Port.
+- Tenant-, Template- und Run-Zugriffe werden im Backend anhand interner UUIDs und der aktuellen Mitgliedschaften geprüft.
+- Task-Parameter werden nie direkt durchgereicht: Die serverseitige Policy validiert Eingaben und ergänzt Fixed/Hidden-Werte.
+
+Weitere Details: [Architektur und Sicherheitsmodell](docs/ARCHITECTURE.md) und [Migration vom Windows-Konfigurator](docs/MIGRATION.md).
+
+## Enthaltene Funktionen
+
+- Rollen `system_admin`, `tenant_admin`, `operator` und `viewer`
+- Benutzer, Gruppen, Tenant-Mitgliedschaften und Task-Berechtigungen
+- verschlüsselte Speicherung des Semaphore-Service-Tokens
+- Semaphore-Verbindungstest, Projektauswahl, Backup-Export und Restore-basierter Tenant-Wizard
+- idempotente Creation Jobs mit explizitem Zustand bei unklarem Restore-Ergebnis
+- Synchronisierung der Task Templates und Survey-Felder
+- Policies für `fixed`, `hidden`, `enum`, `integer_range`, `string` und `boolean`
+- secret-freie, versionierte Presets
+- Task-Start, Status, Live-Ausgabe per Server-Sent Events, Abbruch und Historie
+- Audit-Log, Login-Limitierung, Argon2-Passwörter, serverseitige Sessions und CSRF-Schutz
+- Alembic-Migrationen und persistentes PostgreSQL-Volume
+
+## Versionen
+
+Die Images und direkten Abhängigkeiten sind fest versioniert:
+
+- PostgreSQL 17.6 Alpine
+- Python 3.13.7, FastAPI 0.116.1, SQLAlchemy 2.0.43, Alembic 1.16.5
+- Node 22.19.0 für den Build, React 19.1.1, TypeScript 5.9.2, Vite 7.1.5
+- Nginx 1.29.1 Alpine zur Auslieferung und als API-Reverse-Proxy
+
+`frontend/package-lock.json` fixiert den vollständigen Frontend-Dependency-Graph.
+
+## Voraussetzungen
+
+- Docker Engine mit Compose v2
+- erreichbare Semaphore-UI-Instanz und ein Service-Token mit den benötigten Projekt-/Task-Rechten
+- für Produktion: HTTPS-Reverse-Proxy und ein DNS-Name
+- ausreichend Rechte für ein persistentes Docker-Volume
+
+## Installation
+
+1. Konfiguration anlegen:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Alle `CHANGE_ME`-Werte in `.env` ersetzen. Sichere Werte lassen sich ohne lokale Python-Installation erzeugen:
+
+   ```powershell
+   docker run --rm python:3.13.7-slim python -c "import secrets; print(secrets.token_urlsafe(64))"
+   docker run --rm python:3.13.7-slim python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+   ```
+
+   Die erste Ausgabe ist für `PORTAL_SECRET_KEY`, die zweite für `PORTAL_FERNET_KEY`. Für `POSTGRES_PASSWORD` einen langen URL-sicheren Zufallswert verwenden. Der Fernet-Key muss bei Updates und Restores unverändert bleiben, sonst kann das gespeicherte Semaphore-Token nicht mehr entschlüsselt werden.
+
+3. Images bauen und Stack starten:
+
+   ```powershell
+   docker compose build
+   docker compose up -d
+   docker compose ps
+   ```
+
+4. `http://localhost:8080` öffnen und mit `PORTAL_BOOTSTRAP_ADMIN_EMAIL` sowie `PORTAL_BOOTSTRAP_ADMIN_PASSWORD` anmelden. Beim ersten Login ist ein Passwortwechsel erzwungen.
+
+Beim Backend-Start laufen zuerst `alembic upgrade head` und der idempotente Bootstrap für Rollen, integrierte Presets und den ersten Administrator.
+
+## Produktionskonfiguration
+
+- `PORTAL_COOKIE_SECURE=true` setzen und das Portal nur über HTTPS betreiben.
+- `PORTAL_ALLOWED_HOSTS` auf die tatsächlichen, kommaseparierten Hostnamen begrenzen. Die internen Healthcheck-Namen `localhost` und `127.0.0.1` werden automatisch ergänzt.
+- Bootstrap-Passwort nach erfolgreicher Erstinstallation aus `.env` entfernen. Ein bestehender Admin wird dadurch nicht gelöscht.
+- `.env`, Datenbank-Backups und Fernet-Key getrennt und zugriffsgeschützt sichern.
+- Den Backend- oder PostgreSQL-Port nicht zusätzlich veröffentlichen.
+- Bei einem vorgeschalteten Proxy den ursprünglichen Host beibehalten. TLS wird weder für das Portal noch für Semaphore deaktiviert.
+
+## Ersteinrichtung im Portal
+
+1. Unter **Administration → Semaphore** Basis-URL, Service-Token und optional eine HTTP(S)-Proxy-URL speichern. URLs mit eingebetteten Zugangsdaten werden abgelehnt.
+2. Unter **Projektvorlagen** ein vorhandenes Semaphore-Projekt als Vorlage sichern. Das Portal speichert eine unveränderte Backup-Fassung und einen strukturellen Katalog.
+3. Optional Benutzer und Gruppen anlegen.
+4. **Tenant erstellen** starten, Vorlage und Tenant-Daten wählen, Task Templates auswählen, Zugriffe zuordnen und die Zusammenfassung bestätigen.
+5. Nach dem Restore Tasks synchronisieren, Policies prüfen und Task-Berechtigungen vergeben.
+6. Den Tenant erst aktivieren, wenn Projektzuordnung, Policy und Zugriffe vollständig sind.
+
+Der Wizard führt keine Remote-Löschung durch. Auch beim Entfernen eines Portal-Tenants bleibt das Semaphore-Projekt erhalten.
+
+## Policy-Regeln
+
+| Typ | Verhalten |
+|---|---|
+| `fixed` | Fester Wert, nicht im Browser editierbar |
+| `hidden` | Fester interner Wert, nicht an den Browser ausgeliefert |
+| `enum` | Nur ein Wert aus `allowed_values` |
+| `integer_range` | Ganzzahl innerhalb `minimum`/`maximum` |
+| `string` | Text mit optionaler Länge und Regex |
+| `boolean` | Strikter boolescher Wert |
+
+Unbekannte Felder, manipulierte Fixed/Hidden-Werte und Regeln für nicht vorhandene Survey-Variablen werden serverseitig abgelehnt. Passwörter, Tokens oder private Schlüssel gehören in Semaphore Key Store beziehungsweise Vault, nicht in Policies oder Presets.
+
+## Betrieb
+
+Status und Logs:
+
+```powershell
+docker compose ps
+docker compose logs --tail=200 backend
+docker compose logs --tail=200 frontend
+curl.exe --fail http://localhost:8080/api/health
+```
+
+Update:
+
+```powershell
+docker compose build --pull
+docker compose up -d
+```
+
+Vor einem Update Datenbank und `.env`/Fernet-Key sichern. Die Schema-Aktualisierung erfolgt beim Backend-Start über Alembic.
+
+Datenbank sichern und wiederherstellen:
+
+```powershell
+docker compose exec -T postgres pg_dump -U semaphore_portal -d semaphore_portal -Fc > portal.dump
+Get-Content portal.dump -AsByteStream | docker compose exec -T postgres pg_restore -U semaphore_portal -d semaphore_portal --clean --if-exists
+```
+
+Die Werte für Benutzer und Datenbank bei abweichender `.env` entsprechend ersetzen. Ein Restore mit `--clean` überschreibt die Zieldatenbank und gehört in ein Wartungsfenster.
+
+## Entwicklung und Tests
+
+Backend:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python -m pytest
+```
+
+Frontend:
+
+```powershell
+cd frontend
+npm ci
+npm test
+npm run build
+```
+
+API-Schema im laufenden System: `http://localhost:8080/api/docs`.
+
+## Fehlerdiagnose
+
+- **Backend bleibt unhealthy:** `docker compose logs backend` prüfen; häufig fehlen Variablen oder der Fernet-Key ist ungültig.
+- **Login setzt kein Cookie:** Bei lokalem HTTP muss `PORTAL_COOKIE_SECURE=false` gelten; in Produktion ist `true` erforderlich.
+- **Host wird abgelehnt:** Hostnamen zu `PORTAL_ALLOWED_HOSTS` hinzufügen und Backend neu erstellen.
+- **Semaphore nicht erreichbar:** URL, DNS, Zertifikatskette, Proxy und Container-Egress prüfen. Der Client deaktiviert die TLS-Prüfung nicht.
+- **Restore-Ergebnis unklar:** Creation Job im Adminbereich prüfen. Das Portal sucht vor einem erneuten POST exakt nach dem Projektnamen, um Duplikate zu vermeiden.
+- **Task nicht sichtbar/startbar:** aktiver Tenant, synchronisiertes Template, aktive Policy, Tenant-Mitgliedschaft und Task-Berechtigung kontrollieren.
+
+Der Funktionsstand und die noch erforderliche Abnahme gegen die echte Firmeninstanz stehen in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
