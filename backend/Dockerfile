@@ -12,7 +12,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 COPY entrypoint.sh ./entrypoint.sh
-RUN chmod 0555 ./entrypoint.sh && chown -R portal:portal /app
+# Windows checkouts may contain CRLF even before Git attributes are applied.
+RUN sed -i 's/\r$//' ./entrypoint.sh && chmod 0555 ./entrypoint.sh && chown -R portal:portal /app
 USER portal
 EXPOSE 8000
 ENTRYPOINT ["./entrypoint.sh"]

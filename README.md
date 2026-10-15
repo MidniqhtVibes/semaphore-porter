@@ -23,7 +23,7 @@ Caddy (TLS)  ---- internes Edge-Netz ---->  Nginx + React SPA
 
 - Caddy terminiert im mitgelieferten TLS-Profil HTTPS und erneuert Zertifikate automatisch.
 - PostgreSQL und FastAPI veröffentlichen keine Host-Ports; PostgreSQL besitzt auch keinen Internetzugang.
-- Nur FastAPI besitzt ein ausgehendes Netz für den Semaphore-Server.
+- FastAPI besitzt ein eigenes ausgehendes Netz für den Semaphore-Server. Das Frontend erhält eine separate Bridge für die Host-Portfreigabe; diese ermöglicht auch ausgehenden Netzwerkzugriff, aber keinen direkten Datenbankzugriff.
 - Nginx ist ohne TLS-Profil ausschließlich auf `127.0.0.1:8080` erreichbar, etwa für einen bereits vorhandenen Host-Reverse-Proxy.
 - Tenant-, Template- und Run-Zugriffe werden im Backend anhand interner UUIDs und der aktuellen Mitgliedschaften geprüft.
 - Task-Parameter werden nie direkt durchgereicht: Die serverseitige Policy validiert Eingaben und ergänzt Fixed/Hidden-Werte.
@@ -67,6 +67,34 @@ Die Runtime-Images und direkten Abhängigkeiten sind fest versioniert:
 - Zugriff auf GHCR; bei privaten Packages einmalig `docker login ghcr.io` mit einem Token mit Leserecht ausführen
 
 Python, Node.js, .NET und `docker compose build` werden auf dem Server nicht benötigt. Compose zieht die beiden von GitHub Actions gebauten Portal-Images sowie die festgelegten offiziellen PostgreSQL- und Caddy-Images.
+
+## Lokal unter Windows testen
+
+Die vorhandene `.env` mit den ersetzten `CHANGE_ME`-Werten verwenden und für selbst gebaute Images diese Einstellungen setzen:
+
+```dotenv
+PORTAL_IMAGE_REGISTRY=semaphore-portal-local
+PORTAL_IMAGE_TAG=dev
+PORTAL_PULL_POLICY=missing
+PORTAL_COOKIE_SECURE=false
+PORTAL_BIND_ADDRESS=127.0.0.1
+PORTAL_PUBLIC_PORT=18092
+```
+
+In PowerShell im Repository starten:
+
+```powershell
+docker build -t semaphore-portal-local-backend:dev ./backend
+docker build -t semaphore-portal-local-frontend:dev ./frontend
+docker compose -p semaphore-porter-local up -d --wait
+docker compose -p semaphore-porter-local ps
+```
+
+Danach `http://127.0.0.1:18092` öffnen und mit den Bootstrap-Admin-Zugangsdaten aus `.env` anmelden. Der erste Login fordert einen Passwortwechsel. Ohne das Profil `tls` wird `PORTAL_DOMAIN` nicht benötigt; `localhost` und `127.0.0.1` müssen in `PORTAL_ALLOWED_HOSTS` stehen.
+
+Falls Rancher Desktop bei Loopback-Bindung trotz gesunder Container einen Timeout liefert, `PORTAL_BIND_ADDRESS=0.0.0.0` setzen und denselben `up`-Befehl erneut ausführen. Dieser Workaround wurde lokal geprüft; der Frontend-Port ist damit auch auf den übrigen Netzwerkschnittstellen des Rechners veröffentlicht. Die Compose-Vorgabe bleibt `127.0.0.1`.
+
+Status der API: `http://127.0.0.1:18092/api/health`. Beenden mit `docker compose -p semaphore-porter-local stop`; die Datenbank bleibt erhalten. Für spätere Starts denselben Projektnamen verwenden. Nach Codeänderungen die betroffenen Images neu bauen und `docker compose -p semaphore-porter-local up -d --wait --force-recreate` ausführen.
 
 ## Produktive Installation
 

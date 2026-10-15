@@ -11,8 +11,11 @@ Die Dienste sind über getrennte Docker-Netze gekoppelt:
 - `portal_database`: ausschließlich Backend und PostgreSQL
 - `portal_backend_egress`: externer Zugriff nur für das Backend, insbesondere zur Semaphore API
 - `portal_gateway_egress`: externer Zugriff nur für Caddy, insbesondere für ACME
+- `portal_frontend_ingress`: separate nicht-interne Bridge für die Host-Portfreigabe des Frontends (standardmäßig Loopback); ermöglicht auch ausgehenden Netzwerkzugriff, besitzt jedoch keine Verbindung zur Datenbank
 
 Die drei internen Netze besitzen keinen externen Egress. PostgreSQL und Backend veröffentlichen keine Host-Ports. Das Frontend bindet für die Anbindung eines vorhandenen Host-Reverse-Proxys nur an Loopback; bei aktiviertem TLS-Profil ist Caddy der öffentliche Einstiegspunkt.
+
+Die zusätzliche Frontend-Bridge ist für die Host-Portveröffentlichung erforderlich: Auf der lokal geprüften Docker Engine 29.5.3 wurde die angeforderte Portbindung bei ausschließlich internen Netzen nicht eingerichtet. Datenbank- und Anwendungsnetz bleiben intern.
 
 ## Build- und Deployment-Grenze
 

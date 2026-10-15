@@ -90,8 +90,11 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - portal_application
-      - portal_edge
+      portal_application:
+      portal_edge:
+      # Docker does not publish host ports on containers with only internal nets.
+      portal_frontend_ingress:
+        priority: 1000
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -152,7 +155,7 @@ networks:
   # PostgreSQL ist ausschliesslich fuer das Backend erreichbar und hat keinen Egress.
   portal_database:
     internal: true
-  # Frontend/Backend-Kommunikation ohne externen Zugriff fuer das Frontend.
+  # Interne Frontend/Backend-Kommunikation.
   portal_application:
     internal: true
   # Verbindung zwischen optionalem Gateway und Frontend.
@@ -161,3 +164,5 @@ networks:
   # Eigenstaendige Egress-Netze verhindern den Zugriff auf Datenbank-/App-Netze.
   portal_backend_egress:
   portal_gateway_egress:
+  # Dedicated bridge for the frontend's host port. No DB access.
+  portal_frontend_ingress:
