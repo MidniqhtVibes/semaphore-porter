@@ -30,6 +30,8 @@ Caddy (TLS)  ---- internes Edge-Netz ---->  Nginx + React SPA
 
 Weitere Details: [Architektur und Sicherheitsmodell](docs/ARCHITECTURE.md) und [Migration vom Windows-Konfigurator](docs/MIGRATION.md).
 
+Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sowie die gemeinsame Pflege von `tenant_slug` und `runtime_scope_id` in `Semaphore-Defaults` beschreibt [Projektverwaltung](docs/PROJECT_MANAGEMENT.md).
+
 ## Enthaltene Funktionen
 
 - Rollen `system_admin`, `tenant_admin`, `operator` und `viewer`
@@ -50,7 +52,7 @@ Die Runtime-Images und direkten Abhängigkeiten sind fest versioniert:
 
 - PostgreSQL 17.6 Alpine
 - Python 3.13.7, FastAPI 0.116.1, SQLAlchemy 2.0.43, Alembic 1.16.5
-- Node 22.19.0 für den Build, React 19.1.1, TypeScript 5.9.2, Vite 7.1.5
+- Node 22.19.0 und npm 11.6.2 für den Build, React 19.1.1, TypeScript 5.9.2, Vite 7.3.7
 - Nginx 1.29.1 Alpine zur Auslieferung und als API-Reverse-Proxy
 - Caddy 2.10.2 Alpine als optionales TLS-Gateway
 
@@ -129,6 +131,8 @@ Ein Git-Tag `vX.Y.Z` erzeugt zusätzlich SemVer-Tags. Der Image-Job beginnt erst
 
 Der Wizard führt keine Remote-Löschung durch. Auch beim Entfernen eines Portal-Tenants bleibt das Semaphore-Projekt erhalten.
 
+Unter **Semaphore-Projekte** können Administratoren das tatsächliche Remote-Projekt dagegen ausdrücklich bestätigt löschen sowie Ressourcen bearbeiten und neue Tenant-Kopien erstellen.
+
 ## Policy-Regeln
 
 | Typ | Verhalten |
@@ -192,6 +196,7 @@ Frontend:
 
 ```powershell
 cd frontend
+npm install --global npm@11.6.2
 npm ci
 npm test
 npm run build

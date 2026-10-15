@@ -1,5 +1,13 @@
 # Implementierungs- und Abnahmestatus
 
+## Ausbau der Projektverwaltung
+
+Die direkte Verwaltung tatsächlicher Semaphore-Projekte ist ergänzt: Erstellen, Umbenennen, bestätigtes Remote-Löschen, Bearbeiten/Hinzufügen von Variablengruppen, Repositories, Inventories, Templates und Zugangsdaten sowie Duplizieren über den reparierten Tenant-Wizard. `tenant_slug` und `runtime_scope_id` werden gemeinsam in `Semaphore-Defaults` gepflegt und nicht als Survey-Variablen erzeugt. Details, Ablauf und Betriebsgrenzen stehen in [PROJECT_MANAGEMENT.md](PROJECT_MANAGEMENT.md).
+
+Zusätzlich korrigiert: Entwurfswiederaufnahme, Vorlagenwechsel, vollständig leere Gruppenauswahl, initiale Policies für den aktuellen Stack, Statusaktualisierung der Tasklisten, API-seitiger Passwortwechselzwang, Sitzungswiderruf nach Passwortreset und Bedienung von Gruppenmitgliedschaften/Zugriffsentzug.
+
+Lokale Prüfung am 15.10.2026: **39 Backend-Tests und 7 Frontend-Tests bestanden**, TypeScript/Vite-Produktionsbuild erfolgreich, `npm audit` mit **0 bekannten Schwachstellen**. Backend-Prüfung mit SQLite und simulierten Semaphore-Antworten unter WSL; diese Ergebnisse ersetzen weder den PostgreSQL-/Compose-Smoke-Test noch die Live-Abnahme. Frontend-Build und CI verwenden npm 11.6.2; Router, Vite und Vitest wurden mit aktualisierter Lockdatei auf korrigierte Versionen angehoben.
+
 ## Implementiert
 
 - Docker-Architektur mit React/Nginx, FastAPI und PostgreSQL

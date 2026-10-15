@@ -10,6 +10,7 @@ import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPag
 import { SemaphorePage } from './pages/admin/SemaphorePage'
 import { TenantDetailPage, TenantsPage } from './pages/admin/TenantsPage'
 import { TenantWizardPage } from './pages/admin/TenantWizardPage'
+import { ProjectsPage, ProjectEditorPage } from './pages/admin/ProjectsPage'
 import { UsersPage } from './pages/admin/UsersPage'
 import {
   AccountPage, MyProjectsPage, PortalDashboardPage, ProjectDetailPage, RunDetailPage,
@@ -38,6 +39,7 @@ function LoginRoute(){const {user,loading,isAdmin}=useAuth();if(loading)return <
 export function App(){return <Routes>
   <Route path="/login" element={<LoginRoute/>}/>
   <Route element={<Protected admin/>}><Route path="/admin" element={<AdminShell/>}>
+    <Route path="projekte" element={<ProjectsPage/>}/><Route path="projekte/:projectId" element={<ProjectEditorPage/>}/>
     <Route index element={<AdminDashboardPage/>}/><Route path="tenants" element={<TenantsPage/>}/><Route path="tenants/:tenantId" element={<TenantDetailPage/>}/><Route path="tenant-erstellen" element={<TenantWizardPage/>}/><Route path="anwendungen" element={<ApplicationsPage/>}/><Route path="vorlagen" element={<ProjectTemplatesPage/>}/><Route path="presets" element={<PresetsPage/>}/><Route path="benutzer" element={<UsersPage/>}/><Route path="berechtigungen" element={<PermissionsPage/>}/><Route path="tasks" element={<AdminTasksPage/>}/><Route path="audit" element={<AuditPage/>}/><Route path="semaphore" element={<SemaphorePage/>}/>
   </Route></Route>
   <Route element={<Protected/>}><Route path="/portal" element={<PortalShell/>}>

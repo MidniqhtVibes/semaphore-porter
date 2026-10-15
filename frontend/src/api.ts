@@ -8,9 +8,9 @@ export class ApiError extends Error {
 
   constructor(status: number, body: ApiErrorBody) {
     const detail = body.detail
-    super(typeof detail === 'string' ? detail : detail?.message || `HTTP ${status}`)
+    super(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(error=>`${error.loc?.filter(part=>part!=='body').join('.')||'Eingabe'}: ${error.msg}`).join('; ') : detail?.message || `HTTP ${status}`)
     this.status = status
-    this.fields = typeof detail === 'object' ? detail.fields : undefined
+    this.fields = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail.fields : undefined
   }
 }
 

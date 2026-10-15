@@ -21,6 +21,8 @@ Der bisherige WPF-Konfigurator und seine Tests bleiben in `src/` und `tests/` er
 
 DPAPI-Ciphertexte sind an den Windows-Benutzer und Rechnerkontext gebunden. Der Service-Token muss deshalb einmal im Adminbereich neu hinterlegt werden und wird danach mit dem Portal-Fernet-Key verschlüsselt.
 
+`tenant_slug` und `runtime_scope_id` werden im aktuellen Stack gemeinsam in `Semaphore-Defaults` verwaltet. Alte Tenant-/Scope-Survey-Felder müssen bei bestehenden Projekten entfernt und entsprechende Portal-Policies aktualisiert werden. Neue Projektkopien erledigen diese Umstellung automatisch. Der neue Editor kann die festen Werte sowie die übrigen Variablengruppen direkt über die Semaphore-API bearbeiten; siehe [Projektverwaltung](PROJECT_MANAGEMENT.md).
+
 ## Empfohlener Umstieg
 
 1. Bestehende Semaphore-Projekte und ihre verwendeten Task Templates dokumentieren.

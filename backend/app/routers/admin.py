@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
 from app.audit import record_audit
 from app.dependencies import Db, SystemAdmin
+from app.config import get_settings
 from app.models import (
     AuditEvent,
     CreationJob,
@@ -19,6 +21,7 @@ from app.models import (
     GroupMembership,
     Preset,
     PresetVersion,
+    PortalSession,
     ProjectTemplate,
     Role,
     SemaphoreProject,
@@ -36,7 +39,7 @@ from app.models import (
     VariableRule,
     utcnow,
 )
-from app.project_backup import BackupValidationError, parse_backup, prepare_backup, survey_catalog, validate_backup
+from app.project_backup import BackupValidationError, TENANT_VARIABLES, is_defaults, json_object, parse_backup, prepare_backup, public_variables, survey_catalog, validate_backup
 from app.schemas import (
     CreationExecuteRequest,
     CreationJobCreate,
@@ -141,8 +144,10 @@ def creation_json(job: CreationJob) -> dict[str, Any]:
 
 
 @router.get("/dashboard")
-def dashboard(db: Db, admin: SystemAdmin) -> dict[str, Any]:
+async def dashboard(db: Db, admin: SystemAdmin) -> dict[str, Any]:
     del admin
+    from app.routers.portal import refresh_runs
+    await refresh_runs(db, list(db.scalars(select(TaskRun).where(TaskRun.status.in_([TaskRunStatus.QUEUED, TaskRunStatus.RUNNING, TaskRunStatus.UNKNOWN])))))
     latest_audit = list(db.scalars(select(AuditEvent).order_by(AuditEvent.occurred_at.desc()).limit(8)))
     semaphore = db.get(SemaphoreSettings, 1)
     return {
@@ -236,6 +241,7 @@ def reset_password(user_id: uuid.UUID, payload: PasswordReset, request: Request,
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
     user.password_hash = hash_password(payload.password)
     user.must_change_password = payload.must_change_password
+    db.execute(delete(PortalSession).where(PortalSession.user_id == user.id))
     record_audit(db, "password_reset", actor=admin, request=request, target_type="user", target_id=user.id)
     db.commit()
     return {"message": "Passwort wurde zurückgesetzt."}
@@ -424,16 +430,40 @@ async def upload_project_template(
 
 
 # Tenant-Wizard und fehlertoleranter Restore
+@router.get("/project-templates/{template_id}/resources")
+def template_resources(template_id: uuid.UUID, db: Db, admin: SystemAdmin) -> dict[str, Any]:
+    source = db.get(ProjectTemplate, template_id)
+    if source is None:
+        raise HTTPException(404, "Projektvorlage nicht gefunden.")
+    import copy
+    result = copy.deepcopy(source.backup_document)
+    for group in result.get("environments", []):
+        group.pop("password", None)
+        group.pop("secrets", None)
+        for field in ("json", "env"):
+            group[field] = public_variables(json_object(group.get(field)))
+    return {key: result.get(key, []) for key in ("environments", "repositories", "inventories", "templates")}
+
+
 @router.post("/creation-jobs", status_code=201)
 def create_creation_job(payload: CreationJobCreate, db: Db, admin: SystemAdmin) -> dict[str, Any]:
     existing = db.scalar(select(CreationJob).where(CreationJob.idempotency_key == payload.idempotency_key))
     if existing:
+        if existing.project_template_id != payload.project_template_id:
+            raise HTTPException(409, "Dieser Idempotency-Key gehört zu einer anderen Vorlage.")
         return creation_json(existing)
     if db.get(ProjectTemplate, payload.project_template_id) is None:
         raise HTTPException(status_code=404, detail="Projektvorlage nicht gefunden.")
     job = CreationJob(idempotency_key=payload.idempotency_key, project_template_id=payload.project_template_id, created_by_id=admin.id, draft_data={})
     db.add(job)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(CreationJob).where(CreationJob.idempotency_key == payload.idempotency_key))
+        if existing is None or existing.project_template_id != payload.project_template_id:
+            raise HTTPException(409, "Erstellungsvorgang kollidiert mit einem anderen Entwurf.")
+        return creation_json(existing)
     return creation_json(job)
 
 
@@ -453,12 +483,16 @@ def get_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -> dict[str,
 
 @router.put("/creation-jobs/{job_id}")
 def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, admin: SystemAdmin) -> dict[str, Any]:
-    job = db.get(CreationJob, job_id)
+    job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
     if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED}:
         raise HTTPException(status_code=409, detail="Dieser Erstellungsvorgang kann nicht mehr bearbeitet werden.")
-    job.draft_data = payload.draft_data
+    # Drafts are persisted and returned to the browser; credentials belong in live secrets.
+    draft_data = payload.draft_data.model_dump(mode="json", exclude_none=True)
+    if contains_secret(draft_data):
+        raise HTTPException(422, "Entwürfe dürfen keine Zugangsdaten enthalten. Secrets nach der Anlage im Projekteditor setzen.")
+    job.draft_data = draft_data
     job.status = CreationStatus.DRAFT
     job.prepared_backup = None
     job.validation_result = None
@@ -469,9 +503,11 @@ def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, a
 
 @router.post("/creation-jobs/{job_id}/validate")
 async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -> dict[str, Any]:
-    job = db.get(CreationJob, job_id)
+    job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None or job.project_template_id is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
+    if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED} or job.semaphore_project_id is not None:
+        raise HTTPException(409, "Ein bereits gestarteter Restore darf nicht neu validiert werden.")
     source = db.get(ProjectTemplate, job.project_template_id)
     if source is None:
         raise HTTPException(status_code=409, detail="Die zugehörige Projektvorlage existiert nicht mehr.")
@@ -493,8 +529,14 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     except BackupValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     errors, warnings = validate_backup(prepared)
+    for group in source.backup_document.get("environments", []):
+        if is_defaults(str(group.get("name", ""))):
+            old = json_object(group.get("json"))
+            for key in TENANT_VARIABLES:
+                if old.get(key) and old[key] == job.draft_data.get(key):
+                    errors.append(f"{key} muss sich für den neuen Tenant von der Quelle unterscheiden.")
     slug = str(job.draft_data.get("tenant_slug", ""))
-    if db.scalar(select(Tenant.id).where(Tenant.tenant_slug == slug, Tenant.status != TenantStatus.DELETED)):
+    if db.scalar(select(Tenant.id).where(Tenant.tenant_slug == slug)):
         errors.append("Die Tenant-ID ist im Portal bereits vergeben.")
     try:
         projects = await semaphore_client_from_db(db).list_projects()
@@ -519,11 +561,17 @@ async def execute_creation_job(
 ) -> dict[str, Any]:
     if not payload.confirm_project_creation:
         raise HTTPException(status_code=400, detail="Die ausdrückliche Bestätigung der Projektanlage fehlt.")
-    job = db.get(CreationJob, job_id)
+    job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
     if job.status == CreationStatus.COMPLETED:
         return creation_json(job)
+    if job.status == CreationStatus.RESTORING and job.restore_started_at:
+        started = job.restore_started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if (utcnow()-started).total_seconds() < max(60, get_settings().semaphore_request_timeout_seconds * 2):
+            raise HTTPException(409, "Der Restore läuft noch. Bitte vor einer Wiederaufnahme warten.")
     if not job.prepared_backup or not job.validation_result or job.validation_result.get("errors"):
         raise HTTPException(status_code=409, detail="Der Erstellungsvorgang wurde nicht erfolgreich validiert.")
     client = semaphore_client_from_db(db)
@@ -552,7 +600,10 @@ async def execute_creation_job(
     if job.semaphore_project_id is None:
         if job.status not in {CreationStatus.VALIDATED, CreationStatus.VERIFICATION_REQUIRED, CreationStatus.FAILED}:
             raise HTTPException(status_code=409, detail="Der Restore kann in diesem Zustand nicht gestartet werden.")
-        existing = [item for item in await client.list_projects() if item["name"].casefold() == project_name.casefold()]
+        try:
+            existing = [item for item in await client.list_projects() if item["name"].casefold() == project_name.casefold()]
+        except SemaphoreError as exc:
+            raise HTTPException(502, str(exc)) from exc
         if existing:
             raise HTTPException(status_code=409, detail="Das Zielprojekt existiert bereits; Restore wird nicht erneut gesendet.")
         job.status = CreationStatus.RESTORING
@@ -583,6 +634,9 @@ async def execute_creation_job(
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     # Portalregistrierung ist wiederholbar und löscht niemals Semaphore-Ressourcen.
+    db.refresh(job, with_for_update=True)
+    if job.status == CreationStatus.COMPLETED:
+        return creation_json(job)
     if job.tenant_id:
         tenant = db.get(Tenant, job.tenant_id)
     else:
@@ -605,7 +659,10 @@ async def execute_creation_job(
             name=project_name,
             last_verified_at=utcnow(),
         )
-    remote_templates = await client.list_templates(job.semaphore_project_id)
+    try:
+        remote_templates = await client.list_templates(job.semaphore_project_id)
+    except SemaphoreError as exc:
+        raise HTTPException(502, str(exc)) from exc
     existing_ids = {item.semaphore_template_id: item for item in tenant.task_templates}
     for remote in remote_templates:
         remote_id = remote.get("id")
@@ -623,7 +680,7 @@ async def execute_creation_job(
         selected_names = set(job.draft_data.get("task_template_names") or [])
         if item.name in selected_names and job.draft_data.get("create_default_policies", True):
             rules = _default_policy_rules(item.survey_schema, job.draft_data)
-            if rules:
+            if rules or not item.survey_schema:
                 policy = item.policy or TaskPolicy(task_template_id=item.id, name=f"{item.name} · Tenant Policy")
                 policy.variable_rules.clear()
                 db.flush()
@@ -692,28 +749,43 @@ def _default_policy_rules(survey: list[dict[str, Any]], draft: dict[str, Any]) -
     fields = {str(item.get("name")): item for item in survey if isinstance(item, dict) and item.get("name")}
     rules: list[dict[str, Any]] = []
     fixed = {
-        "tenant_slug": draft.get("tenant_slug"),
-        "application_id": draft.get("application_id"),
-        "database_type": draft.get("database_type"),
         "host_port": 0,
     }
     for name, value in fixed.items():
         if name in fields and value not in (None, ""):
             rules.append({"variable_name": name, "title": str(fields[name].get("title") or name), "help_text": str(fields[name].get("description") or "Serverseitig festgelegt"), "rule_type": "fixed", "fixed_value": value, "is_required": True})
+    for name in ("application_id", "database_type", "existing_environment_policy"):
+        if name in fields:
+            allowed = _survey_allowed(fields[name])
+            if allowed:
+                requested = draft.get(name)
+                rules.append({"variable_name": name, "title": str(fields[name].get("title") or name), "rule_type": "enum", "allowed_values": allowed, "default_value": requested if requested in allowed else fields[name].get("default_value") if fields[name].get("default_value") in allowed else allowed[0], "is_required": True})
     if "dataset_id" in fields:
         allowed = _survey_allowed(fields["dataset_id"])
         requested = draft.get("dataset_id")
-        if requested not in (None, "") and requested not in allowed:
-            allowed.append(requested)
         if allowed:
-            rules.append({"variable_name": "dataset_id", "title": str(fields["dataset_id"].get("title") or "Testdatensatz"), "help_text": str(fields["dataset_id"].get("description") or "Freigegebener Testdatensatz"), "rule_type": "enum", "allowed_values": allowed, "default_value": requested or allowed[0], "is_required": True})
+            rules.append({"variable_name": "dataset_id", "title": str(fields["dataset_id"].get("title") or "Testdatensatz"), "help_text": str(fields["dataset_id"].get("description") or "Freigegebener Testdatensatz"), "rule_type": "enum", "allowed_values": allowed, "default_value": requested if requested in allowed else allowed[0], "is_required": True})
     if "ttl_minutes" in fields:
         try:
             default_ttl = int(draft.get("ttl_minutes") or 60)
         except (TypeError, ValueError):
             default_ttl = 60
-        default_ttl = min(180, max(15, default_ttl))
-        rules.append({"variable_name": "ttl_minutes", "title": str(fields["ttl_minutes"].get("title") or "Laufzeit"), "help_text": str(fields["ttl_minutes"].get("description") or "Laufzeit in Minuten"), "rule_type": "integer_range", "minimum": 15, "maximum": 180, "default_value": default_ttl, "is_required": True})
+        default_ttl = min(1440, max(5, default_ttl))
+        rules.append({"variable_name": "ttl_minutes", "title": str(fields["ttl_minutes"].get("title") or "Laufzeit"), "help_text": str(fields["ttl_minutes"].get("description") or "Laufzeit in Minuten"), "rule_type": "integer_range", "minimum": 5, "maximum": 1440, "default_value": default_ttl, "is_required": True})
+    for name in ("application_release_id", "pdf_api_release_id"):
+        if name in fields:
+            allowed = _survey_allowed(fields[name])
+            default = fields[name].get("default_value") or "latest"
+            rule = {"variable_name": name, "title": str(fields[name].get("title") or name), "is_required": False}
+            if allowed:
+                rule.update(rule_type="enum", allowed_values=allowed, default_value=default if default in allowed else allowed[0])
+            else:
+                rule.update(rule_type="string", regex_pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$", max_length=128, default_value=default)
+            rules.append(rule)
+    if "send_deployment_mail" in fields:
+        rules.append({"variable_name": "send_deployment_mail", "title": str(fields["send_deployment_mail"].get("title") or "Deployment-Mail senden"), "rule_type": "boolean", "default_value": False, "is_required": False})
+    if "mail_user" in fields:
+        rules.append({"variable_name": "mail_user", "title": str(fields["mail_user"].get("title") or "Mail-Empfänger"), "rule_type": "string", "regex_pattern": r"^$|^[^\s@]+@[^\s@]+\.[^\s@]+$", "max_length": 254, "default_value": "", "is_required": False})
     return rules
 
 
@@ -935,6 +1007,8 @@ def get_policy(template_id: uuid.UUID, db: Db, admin: SystemAdmin) -> dict[str, 
 
 @router.put("/task-templates/{template_id}/policy")
 def save_policy(template_id: uuid.UUID, payload: TaskPolicyInput, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
+    if any(rule.variable_name in TENANT_VARIABLES for rule in payload.rules):
+        raise HTTPException(422, "Tenant/Scope werden ausschließlich in Semaphore-Defaults gepflegt.")
     template = db.scalar(select(TaskTemplate).where(TaskTemplate.id == template_id).options(selectinload(TaskTemplate.policy).selectinload(TaskPolicy.variable_rules)))
     if template is None:
         raise HTTPException(status_code=404, detail="Task Template nicht gefunden.")
@@ -1061,16 +1135,19 @@ def update_preset(preset_id: uuid.UUID, payload: PresetInput, request: Request, 
 
 
 @router.get("/task-runs")
-def admin_task_runs(db: Db, admin: SystemAdmin, limit: int = Query(default=100, ge=1, le=500)) -> list[dict[str, Any]]:
+async def admin_task_runs(db: Db, admin: SystemAdmin, limit: int = Query(default=100, ge=1, le=500)) -> list[dict[str, Any]]:
     del admin
     rows = db.scalars(select(TaskRun).order_by(TaskRun.started_at.desc()).limit(limit)).all()
+    from app.routers.portal import refresh_runs
+    await refresh_runs(db, list(rows))
     return [
         {
             "id": str(row.id),
             "tenant": row.tenant.display_name,
             "tenant_id": str(row.tenant_id),
             "task_template": row.task_template.name,
-            "user": row.started_by.display_name,
+            "started_by": row.started_by.display_name,
+            "sync_error": getattr(row, "sync_error", None),
             "semaphore_task_id": row.semaphore_task_id,
             "status": row.status.value,
             "started_at": row.started_at,

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import SemaphoreSettings
+from app.project_backup import is_secret_name
 from app.security import decrypt_secret
 from app.semaphore_client import SemaphoreClient, SemaphoreConnection
 
@@ -20,7 +21,7 @@ SECRET_NAME = re.compile(
 
 def contains_secret(value: Any) -> bool:
     if isinstance(value, dict):
-        return any(SECRET_NAME.search(str(key)) or contains_secret(item) for key, item in value.items())
+        return any(is_secret_name(str(key)) or contains_secret(item) for key, item in value.items())
     if isinstance(value, list):
         return any(contains_secret(item) for item in value)
     return False

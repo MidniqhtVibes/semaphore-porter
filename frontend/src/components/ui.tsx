@@ -10,7 +10,7 @@ export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement
 }
 
 export function Button({ variant = 'primary', loading, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost'; loading?: boolean }) {
-  return <button className={`button button-${variant}`} disabled={loading || props.disabled} {...props}>
+  return <button className={`button button-${variant}`} {...props} disabled={loading || props.disabled}>
     {loading && <LoaderCircle size={16} className="spin" />}{children}
   </button>
 }

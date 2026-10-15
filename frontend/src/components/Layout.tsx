@@ -10,6 +10,7 @@ import { Button } from './ui'
 
 const adminItems = [
   ['/admin', 'Dashboard', LayoutDashboard],
+  ['/admin/projekte', 'Semaphore-Projekte', ServerCog],
   ['/admin/tenants', 'Tenants', Boxes],
   ['/admin/tenant-erstellen', 'Tenant erstellen', Workflow],
   ['/admin/anwendungen', 'Anwendungen', AppWindow],

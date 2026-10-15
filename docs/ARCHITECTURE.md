@@ -22,7 +22,9 @@ Beide Anwendungsimages verwenden denselben Release- oder Commit-Tag. Damit wird 
 
 ## Vertrauensgrenzen
 
-Der Browser gilt als nicht vertrauenswürdig. Er erhält interne Portal-UUIDs, aber keine frei wählbaren Semaphore-Projekt- oder Template-IDs für schreibende Aufrufe. Jeder Tenant-, Task- und Run-Endpunkt lädt das Objekt serverseitig und prüft Benutzerstatus, Rolle, direkte beziehungsweise gruppenbasierte Mitgliedschaft und Task-Berechtigung erneut.
+Der Browser gilt als nicht vertrauenswürdig. Das Benutzerportal verwendet interne Portal-UUIDs und keine frei wählbaren Semaphore-Projekt- oder Template-IDs für Taskstarts. Jeder Tenant-, Task- und Run-Endpunkt lädt das Objekt serverseitig und prüft Benutzerstatus, Rolle, direkte beziehungsweise gruppenbasierte Mitgliedschaft und Task-Berechtigung erneut.
+
+Die direkte Projektverwaltung unter `/api/admin/semaphore/projects` verwendet hingegen die tatsächlichen Semaphore-Ressourcen-IDs und ist ausschließlich Systemadministratoren zugänglich. Ressourcentypen und schreibbare Felder sind serverseitig begrenzt. Vor einer Änderung wird die geladene Revision geprüft; eine Projektlöschung benötigt zusätzlich den exakten Projektnamen. Details stehen in [PROJECT_MANAGEMENT.md](PROJECT_MANAGEMENT.md).
 
 Die dynamischen Formulare sind Komfort, keine Sicherheitsgrenze. Vor jedem Semaphore-Task-Start validiert die Policy Engine:
 

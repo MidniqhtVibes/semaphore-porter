@@ -8,7 +8,7 @@ import type { User } from '../../types'
 type Group = { id: string; name: string; description: string; user_ids: string[] }
 
 export function UsersPage() {
-  const qc=useQueryClient(), [newUser,setNewUser]=useState(false), [newGroup,setNewGroup]=useState(false)
+  const qc=useQueryClient(), [newUser,setNewUser]=useState(false), [newGroup,setNewGroup]=useState(false),[editingGroup,setEditingGroup]=useState<Group|null>(null)
   const users=useQuery({queryKey:['admin-users'],queryFn:()=>api<User[]>('/admin/users')})
   const groups=useQuery({queryKey:['admin-groups'],queryFn:()=>api<Group[]>('/admin/groups')})
   if(users.isLoading||groups.isLoading)return <Loading/>
@@ -17,8 +17,16 @@ export function UsersPage() {
     <div className="tabs"><span className="active">Benutzer <Badge>{users.data?.length||0}</Badge></span><span>Gruppen <Badge>{groups.data?.length||0}</Badge></span></div>
     <Card><div className="table-wrap"><table><thead><tr><th>Benutzer</th><th>Rollen</th><th>Status</th><th>Letzte Anmeldung</th></tr></thead><tbody>{users.data?.map(user=><UserRow key={user.id} user={user} onSaved={refresh}/>)}</tbody></table></div></Card>
     <div className="section-heading"><h2>Benutzergruppen</h2><p>Gruppen können Tenant- und Task-Rechte erhalten.</p></div><div className="cards-grid">{groups.data?.map(group=><Card key={group.id}><div className="card-heading"><div className="name-cell"><div className="square-icon"><Users size={17}/></div><div><strong>{group.name}</strong><span>{group.description||'Keine Beschreibung'}</span></div></div><Badge>{group.user_ids.length} Mitglieder</Badge></div></Card>)}</div>
+    <Card><h2>Gruppenmitgliedschaften</h2>{groups.data?.map(group=><div className="button-row" key={group.id}><span>{group.name} · {group.user_ids.length} Mitglieder</span><Button variant="secondary" onClick={()=>setEditingGroup(group)}>Mitglieder bearbeiten</Button></div>)}</Card>
+    {editingGroup&&<GroupMembers group={editingGroup} users={users.data||[]} onClose={()=>setEditingGroup(null)} onSaved={()=>{setEditingGroup(null);refresh()}}/>}
     {newUser&&<NewUserModal onClose={()=>setNewUser(false)} onSaved={()=>{setNewUser(false);refresh()}}/>}{newGroup&&<NewGroupModal onClose={()=>setNewGroup(false)} onSaved={()=>{setNewGroup(false);refresh()}}/>}
   </>
+}
+
+function GroupMembers({group,users,onClose,onSaved}:{group:Group;users:User[];onClose:()=>void;onSaved:()=>void}){
+  const [ids,setIds]=useState(group.user_ids)
+  const mutation=useMutation({mutationFn:()=>api(`/admin/groups/${group.id}/members`,{method:'PUT',body:JSON.stringify({user_ids:ids})}),onSuccess:onSaved})
+  return <Modal title={`Mitglieder · ${group.name}`} onClose={onClose}>{mutation.error&&<Notice type="error">{mutation.error.message}</Notice>}<div className="check-grid">{users.map(user=><label key={user.id}><input type="checkbox" checked={ids.includes(user.id)} onChange={e=>setIds(current=>e.target.checked?[...current,user.id]:current.filter(id=>id!==user.id))}/>{user.display_name}</label>)}</div><Button loading={mutation.isPending} onClick={()=>mutation.mutate()}>Mitglieder speichern</Button></Modal>
 }
 
 function UserRow({user,onSaved}:{user:User;onSaved:()=>void}){

@@ -21,7 +21,6 @@ def seed_task():
         tenant.task_templates.append(task)
         policy = TaskPolicy(name="Kunde A Policy", is_active=True)
         policy.variable_rules = [
-            VariableRule(variable_name="tenant_slug", title="Tenant", rule_type=RuleType.FIXED, fixed_value="kunde-a"),
             VariableRule(variable_name="deployment_context", title="Kontext", rule_type=RuleType.HIDDEN, fixed_value="internal-secret"),
             VariableRule(variable_name="ttl_minutes", title="TTL", rule_type=RuleType.INTEGER_RANGE, minimum=15, maximum=180, default_value=60),
         ]
@@ -63,7 +62,6 @@ def test_task_start_uses_database_project_and_template_ids(client, operator_head
         payload = json.loads(route.calls[0].request.content)
         assert payload["template_id"] == 12
         assert json.loads(payload["environment"]) == {
-            "tenant_slug": "kunde-a",
             "deployment_context": "internal-secret",
             "ttl_minutes": 60,
         }
@@ -82,3 +80,15 @@ def test_manipulated_tenant_id_does_not_expose_task(client, operator_headers):
         json={"variables": {"ttl_minutes": 60}},
     )
     assert response.status_code == 404
+
+
+def test_run_list_refreshes_remote_status_without_open_detail(client, operator_headers):
+    tenant_id, task_id = seed_task()
+    with respx.mock as mock:
+        mock.post("https://semaphore.example/api/project/7/tasks").respond(201, json={"id": 91, "status": "running"})
+        mock.get("https://semaphore.example/api/project/7/tasks/91").respond(200, json={"id": 91, "status": "success"})
+        assert client.post(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/runs", headers=operator_headers, json={"variables": {"ttl_minutes": 60}}).status_code == 201
+        response = client.get("/api/portal/runs")
+        assert response.status_code == 200
+        assert response.json()[0]["status"] == "success"
+        assert response.json()[0]["finished_at"] is not None

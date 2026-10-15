@@ -29,8 +29,9 @@ from app.models import (
 )
 from app.permissions import can_access_tenant, task_actions
 from app.policy import PolicyViolation, build_form_schema, enforce_policy
+from app.project_backup import TENANT_VARIABLES
 from app.schemas import TaskStartRequest
-from app.security import user_has_role
+from app.security import SESSION_COOKIE, get_session, user_has_role
 from app.semaphore_client import SemaphoreError
 from app.services import semaphore_client_from_db
 
@@ -81,6 +82,8 @@ def _run_payload(run: TaskRun) -> dict[str, Any]:
         "started_at": run.started_at,
         "finished_at": run.finished_at,
         "duration_seconds": duration,
+        "last_synced_at": run.last_synced_at,
+        "sync_error": getattr(run, "sync_error", None),
     }
 
 
@@ -116,6 +119,43 @@ async def _sync_run(db: Db, run: TaskRun) -> dict[str, Any]:
     return remote
 
 
+async def refresh_runs(db: Db, runs: list[TaskRun]) -> None:
+    """Read remote state concurrently; apply database changes in one transaction."""
+    active = []
+    for run in runs:
+        synced = run.last_synced_at
+        if synced and synced.tzinfo is None:
+            synced = synced.replace(tzinfo=timezone.utc)
+        if run.status in {TaskRunStatus.QUEUED, TaskRunStatus.RUNNING, TaskRunStatus.UNKNOWN} and (not synced or (utcnow()-synced).total_seconds() >= 10):
+            active.append((run, run.tenant.semaphore_project))
+    if not active:
+        return
+    try:
+        client = semaphore_client_from_db(db)
+    except RuntimeError:
+        return
+    gate = asyncio.Semaphore(6)
+    async def fetch(run, project):
+        if project is None:
+            return None
+        async with gate:
+            try:
+                return await client.get_task(project.semaphore_project_id, run.semaphore_task_id)
+            except SemaphoreError:
+                return None
+    results = await asyncio.gather(*(fetch(run, project) for run, project in active))
+    for (run, _), remote in zip(active, results):
+        if remote is None:
+            run.sync_error = "Semaphore-Status konnte nicht aktualisiert werden."
+            continue
+        run.status = _map_status(remote.get("status"))
+        run.remote_snapshot = sanitize(remote)
+        run.last_synced_at = utcnow()
+        if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED} and run.finished_at is None:
+            run.finished_at = utcnow()
+    db.commit()
+
+
 def _authorized_run(db: Db, user: User, run_id: uuid.UUID, *, action: str = "view") -> TaskRun:
     run = db.scalar(
         select(TaskRun)
@@ -135,8 +175,10 @@ def _authorized_run(db: Db, user: User, run_id: uuid.UUID, *, action: str = "vie
 
 
 @router.get("/dashboard")
-def portal_dashboard(db: Db, user: CurrentUser) -> dict[str, Any]:
+async def portal_dashboard(db: Db, user: CurrentUser) -> dict[str, Any]:
     tenant_ids = _tenant_ids_for_user(db, user)
+    active_runs = list(db.scalars(select(TaskRun).where(TaskRun.tenant_id.in_(tenant_ids), TaskRun.started_by_id == user.id, TaskRun.status.in_([TaskRunStatus.QUEUED, TaskRunStatus.RUNNING, TaskRunStatus.UNKNOWN]))))
+    await refresh_runs(db, active_runs)
     runs = list(
         db.scalars(
             select(TaskRun)
@@ -148,7 +190,7 @@ def portal_dashboard(db: Db, user: CurrentUser) -> dict[str, Any]:
     )
     return {
         "project_count": len(tenant_ids),
-        "running_count": sum(run.status in {TaskRunStatus.QUEUED, TaskRunStatus.RUNNING} for run in runs),
+        "running_count": sum(run.status in {TaskRunStatus.QUEUED, TaskRunStatus.RUNNING} for run in active_runs),
         "recent_runs": [_run_payload(run) for run in runs],
     }
 
@@ -251,6 +293,10 @@ async def start_task(
         raise HTTPException(status_code=409, detail="Für diesen Task ist keine aktive Policy vorhanden.")
     try:
         variables = enforce_policy(template.policy.variable_rules, payload.variables)
+        if TENANT_VARIABLES.intersection(variables):
+            raise HTTPException(409, "Veraltete Tenant-/Scope-Policy: Semaphore-Defaults konfigurieren und Policy aktualisieren.")
+        if variables.get("send_deployment_mail") is True and not variables.get("mail_user"):
+            raise HTTPException(422, "Für eine Deployment-Mail ist eine Empfängeradresse erforderlich.")
     except PolicyViolation as exc:
         raise HTTPException(status_code=422, detail={"message": str(exc), "fields": exc.errors}) from exc
     try:
@@ -308,7 +354,7 @@ async def start_task(
 
 
 @router.get("/runs")
-def list_runs(db: Db, user: CurrentUser) -> list[dict[str, Any]]:
+async def list_runs(db: Db, user: CurrentUser) -> list[dict[str, Any]]:
     tenant_ids = _tenant_ids_for_user(db, user)
     rows = db.scalars(
         select(TaskRun)
@@ -317,7 +363,9 @@ def list_runs(db: Db, user: CurrentUser) -> list[dict[str, Any]]:
         .order_by(TaskRun.started_at.desc())
         .limit(200)
     ).all()
-    return [_run_payload(run) for run in rows if "view" in task_actions(db, user, run.task_template_id)]
+    visible = [run for run in rows if can_access_tenant(db, user, run.tenant) and "view" in task_actions(db, user, run.task_template_id)]
+    await refresh_runs(db, visible)
+    return [_run_payload(run) for run in visible]
 
 
 @router.get("/runs/{run_id}")
@@ -331,6 +379,7 @@ async def run_detail(run_id: uuid.UUID, db: Db, user: CurrentUser) -> dict[str, 
     except (SemaphoreError, RuntimeError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     result = _run_payload(run)
+    result["can_stop"] = "stop" in task_actions(db, user, run.task_template_id)
     result.update({"remote": {"id": remote.get("id"), "status": remote.get("status")}, "output": output})
     return result
 
@@ -349,16 +398,18 @@ async def stop_run(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUse
 
 
 @router.get("/runs/{run_id}/events")
-def run_events(run_id: uuid.UUID, db: Db, user: CurrentUser) -> StreamingResponse:
+def run_events(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUser) -> StreamingResponse:
     _authorized_run(db, user, run_id)
     user_id = user.id
+    session_cookie = request.cookies.get(SESSION_COOKIE)
 
     async def stream():
         last_lines = 0
         for _ in range(900):  # maximal 30 Minuten pro Verbindung
             with SessionLocal() as poll_db:
-                poll_user = poll_db.get(User, user_id)
-                if poll_user is None or not poll_user.is_active:
+                poll_session = get_session(poll_db, session_cookie)
+                poll_user = poll_session.user if poll_session else None
+                if poll_user is None or poll_user.id != user_id or not poll_user.is_active or poll_user.must_change_password:
                     yield "event: error\ndata: {\"message\":\"Zugriff beendet\"}\n\n"
                     return
                 try:

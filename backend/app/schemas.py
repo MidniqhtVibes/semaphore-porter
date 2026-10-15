@@ -156,8 +156,38 @@ class CreationJobCreate(BaseModel):
     project_template_id: uuid.UUID
 
 
+class CopyResources(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    environments: list[dict[str, Any]]
+    repositories: list[dict[str, Any]]
+    inventories: list[dict[str, Any]]
+    templates: list[dict[str, Any]]
+
+
+class CreationDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_name: str = Field(default="", max_length=255)
+    tenant_slug: str = Field(default="", max_length=31)
+    runtime_scope_id: str = Field(default="", max_length=31)
+    display_name: str = Field(default="", max_length=160)
+    description: str = Field(default="", max_length=5000)
+    application_id: str = Field(default="", max_length=160)
+    database_type: str = Field(default="", max_length=160)
+    dataset_id: str = Field(default="", max_length=160)
+    ttl_minutes: int = Field(default=60, ge=5, le=1440)
+    task_template_names: list[str] = Field(default_factory=list)
+    environment_names: list[str] = Field(default_factory=list)
+    preset_ids: list[uuid.UUID] = Field(default_factory=list)
+    resource_overrides: CopyResources | None = None
+    repository_url: str | None = Field(default=None, max_length=2000)
+    repository_branch: str | None = Field(default=None, max_length=255)
+    access_assignments: list[TenantMembershipInput] = Field(default_factory=list)
+    create_default_policies: bool = True
+    activate_after_creation: bool = False
+
+
 class CreationJobUpdate(BaseModel):
-    draft_data: dict[str, Any]
+    draft_data: CreationDraft
 
 
 class CreationExecuteRequest(BaseModel):

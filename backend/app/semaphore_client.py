@@ -78,7 +78,7 @@ class SemaphoreClient:
                     url = target
                 else:
                     raise SemaphoreError("Zu viele Semaphore-Weiterleitungen.")
-        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+        except httpx.TransportError as exc:
             uncertain = method != "GET"
             raise SemaphoreError(
                 "Semaphore ist nicht erreichbar; bei schreibenden Anfragen ist das Ergebnis unklar."
@@ -91,9 +91,9 @@ class SemaphoreClient:
         if response.status_code == 407:
             raise SemaphoreError("Der Firmenproxy verlangt eine Anmeldung (HTTP 407).", status_code=407)
         if response.status_code >= 400:
-            detail = response.text[:500].strip()
             raise SemaphoreError(
-                f"Semaphore-API-Fehler HTTP {response.status_code}: {detail or 'keine Fehlerbeschreibung'}",
+                f"Semaphore-API-Fehler HTTP {response.status_code}. Details im Semaphore-Serverlog prüfen.",
+                uncertain=method != "GET" and response.status_code >= 500,
                 status_code=response.status_code,
             )
         if not expect_json:
@@ -102,8 +102,8 @@ class SemaphoreClient:
             return response.json()
         except ValueError as exc:
             if response.text.lstrip().startswith("<"):
-                raise SemaphoreError("Semaphore lieferte HTML statt JSON; Reverse Proxy und Server-URL prüfen.") from exc
-            raise SemaphoreError("Semaphore lieferte ungültiges JSON.") from exc
+                raise SemaphoreError("Semaphore lieferte HTML statt JSON; Reverse Proxy und Server-URL prüfen.", uncertain=method != "GET") from exc
+            raise SemaphoreError("Semaphore lieferte ungültiges JSON.", uncertain=method != "GET") from exc
 
     @staticmethod
     def normalize_projects(payload: Any) -> list[dict[str, Any]]:
@@ -130,6 +130,40 @@ class SemaphoreClient:
 
     async def list_projects(self) -> list[dict[str, Any]]:
         return self.normalize_projects(await self._request("GET", "projects"))
+
+    async def get_project(self, project_id: int) -> dict[str, Any]:
+        return await self._request("GET", f"project/{project_id}")
+
+    async def create_project(self, values: dict[str, Any]) -> dict[str, Any]:
+        remote = await self._request("POST", "projects", payload=values)
+        if not isinstance(remote, dict) or type(remote.get("id")) is not int:
+            raise SemaphoreError("Projektanlage wurde nicht mit einer Projekt-ID bestätigt. Projektliste vor einem erneuten Versuch prüfen.", uncertain=True)
+        return remote
+
+    async def update_project(self, project_id: int, values: dict[str, Any]) -> None:
+        await self._request("PUT", f"project/{project_id}", payload=values, expect_json=False)
+
+    async def delete_project(self, project_id: int) -> None:
+        await self._request("DELETE", f"project/{project_id}", expect_json=False)
+
+    async def list_resources(self, project_id: int, kind: str) -> list[dict[str, Any]]:
+        if kind not in {"environment", "repositories", "inventory", "templates", "keys"}:
+            raise ValueError("Unbekannter Ressourcentyp")
+        result = await self._request("GET", f"project/{project_id}/{kind}?sort=name&order=asc")
+        if not isinstance(result, list):
+            raise SemaphoreError("Semaphore-Ressourcen sind keine Liste.")
+        return result
+
+    async def get_resource(self, project_id: int, kind: str, resource_id: int) -> dict[str, Any]:
+        if kind not in {"environment", "repositories", "inventory", "templates", "keys"}:
+            raise ValueError("Unbekannter Ressourcentyp")
+        return await self._request("GET", f"project/{project_id}/{kind}/{resource_id}")
+
+    async def save_resource(self, project_id: int, kind: str, values: dict[str, Any], resource_id: int | None = None) -> Any:
+        if kind not in {"environment", "repositories", "inventory", "templates", "keys"}:
+            raise ValueError("Unbekannter Ressourcentyp")
+        path = f"project/{project_id}/{kind}" + (f"/{resource_id}" if resource_id else "")
+        return await self._request("PUT" if resource_id else "POST", path, payload=values, expect_json=resource_id is None)
 
     async def get_project_backup(self, project_id: int) -> dict[str, Any]:
         payload = await self._request("GET", f"project/{project_id}/backup")

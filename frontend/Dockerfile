@@ -1,7 +1,7 @@
 FROM node:22.19.0-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install --global npm@11.6.2 && npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 

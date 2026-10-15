@@ -19,6 +19,10 @@ def current_user(request: Request, db: Db) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Anmeldung erforderlich.")
     request.state.portal_session = portal_session
     request.state.user = portal_session.user
+    if portal_session.user.must_change_password and request.url.path not in {
+        "/api/auth/me", "/api/auth/csrf", "/api/auth/password", "/api/auth/logout"
+    }:
+        raise HTTPException(status_code=403, detail="Bitte zuerst das Passwort ändern.")
     return portal_session.user
 
 

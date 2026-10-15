@@ -47,7 +47,10 @@ export type TaskRun = {
   started_at: string
   finished_at?: string | null
   duration_seconds?: number | null
+  last_synced_at?: string | null
+  sync_error?: string | null
+  can_stop?: boolean
 }
 
-export type ApiErrorBody = { detail?: string | { message?: string; fields?: Record<string, string> } }
+export type ApiErrorBody = { detail?: string | { message?: string; fields?: Record<string, string> } | Array<{loc?:Array<string|number>;msg:string}> }
 
