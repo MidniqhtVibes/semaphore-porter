@@ -24,7 +24,7 @@ Caddy (TLS)  ---- internes Edge-Netz ---->  Nginx + React SPA
 - Caddy terminiert im mitgelieferten TLS-Profil HTTPS und erneuert Zertifikate automatisch.
 - PostgreSQL und FastAPI veröffentlichen keine Host-Ports; PostgreSQL besitzt auch keinen Internetzugang.
 - FastAPI besitzt ein eigenes ausgehendes Netz für den Semaphore-Server. Das Frontend erhält eine separate Bridge für die Host-Portfreigabe; diese ermöglicht auch ausgehenden Netzwerkzugriff, aber keinen direkten Datenbankzugriff.
-- Nginx ist ohne TLS-Profil ausschließlich auf `127.0.0.1:8080` erreichbar, etwa für einen bereits vorhandenen Host-Reverse-Proxy.
+- Nginx ist standardmäßig auf `127.0.0.1:8080` erreichbar, etwa für einen bereits vorhandenen Host-Reverse-Proxy. Adresse und Port lassen sich über `PORTAL_BIND_ADDRESS` und `PORTAL_PUBLIC_PORT` ändern; der lokale Test unten verwendet Port 18092.
 - Tenant-, Template- und Run-Zugriffe werden im Backend anhand interner UUIDs und der aktuellen Mitgliedschaften geprüft.
 - Task-Parameter werden nie direkt durchgereicht: Die serverseitige Policy validiert Eingaben und ergänzt Fixed/Hidden-Werte.
 
@@ -39,6 +39,9 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 - Anmeldung mit Benutzername oder E-Mail-Adresse; eindeutige Benutzernamen in der Benutzerverwaltung
 - verschlüsselte Speicherung des Semaphore-Service-Tokens
 - Semaphore-Verbindungstest, Projektauswahl, Backup-Export und Restore-basierter Tenant-Wizard
+- direkte Projektverwaltung: erstellen, bearbeiten, bestätigt löschen und als neuen Tenant duplizieren
+- gemeinsame Pflege von `tenant_slug` und `runtime_scope_id` in `Semaphore-Defaults`
+- Mehrfachauswahl von Anwendungen, Datenbankprovidern und Testdatensätzen im Tenant-Wizard
 - idempotente Creation Jobs mit explizitem Zustand bei unklarem Restore-Ergebnis
 - Synchronisierung der Task Templates und Survey-Felder
 - Policies für `fixed`, `hidden`, `enum`, `integer_range`, `string` und `boolean`
@@ -74,7 +77,29 @@ Python, Node.js, .NET und `docker compose build` werden auf dem Server nicht ben
 
 ## Lokal unter Windows testen
 
-Die vorhandene `.env` mit den ersetzten `CHANGE_ME`-Werten verwenden und für selbst gebaute Images diese Einstellungen setzen:
+Benötigt werden eine laufende Docker Engine für Linux-Container und Docker Compose. Python und Node.js müssen auf dem Windows-Host nicht installiert sein, da die Builds in Docker stattfinden.
+
+In PowerShell im Repository-Stamm eine `.env` anlegen, falls noch keine existiert:
+
+```powershell
+if (!(Test-Path -LiteralPath .env)) {
+    Copy-Item -LiteralPath .env.example -Destination .env
+}
+```
+
+Die `CHANGE_ME`-Platzhalter stehen in `.env.example` und nach dem Kopieren in `.env`. Vor dem ersten Start folgende Werte in `.env` ersetzen:
+
+| Variable | Einzutragender Wert |
+|---|---|
+| `POSTGRES_PASSWORD` | Eigenes zufälliges Datenbankpasswort aus URL-sicheren Zeichen, z. B. Hex-Zeichen |
+| `PORTAL_SECRET_KEY` | Eigener zufälliger Schlüssel mit mindestens 32 Zeichen |
+| `PORTAL_FERNET_KEY` | URL-safe Base64 aus genau 32 Zufallsbytes; kein frei gewähltes Passwort |
+| `PORTAL_BOOTSTRAP_ADMIN_EMAIL` | E-Mail-Adresse des ersten Administrators |
+| `PORTAL_BOOTSTRAP_ADMIN_PASSWORD` | Initiales Administratorpasswort; mindestens 12 Zeichen verwenden |
+
+Die Docker-Befehle zur Erzeugung zufälliger Werte stehen unter [Produktive Installation](#produktive-installation), Schritt 2. Bestehende Schlüssel und Datenbankpasswörter bei einem späteren Start beibehalten.
+
+Zusätzlich für selbst gebaute lokale Images diese Einstellungen setzen:
 
 ```dotenv
 PORTAL_IMAGE_REGISTRY=semaphore-portal-local
@@ -94,11 +119,26 @@ docker compose -p semaphore-porter-local up -d --wait
 docker compose -p semaphore-porter-local ps
 ```
 
-Danach `http://127.0.0.1:18092` öffnen und mit den Bootstrap-Admin-Zugangsdaten aus `.env` anmelden. Der erste Login fordert einen Passwortwechsel. Ohne das Profil `tls` wird `PORTAL_DOMAIN` nicht benötigt; `localhost` und `127.0.0.1` müssen in `PORTAL_ALLOWED_HOSTS` stehen.
+Danach `http://127.0.0.1:18092` öffnen und mit den Bootstrap-Admin-Zugangsdaten aus `.env` anmelden. Bei einem neu angelegten Konto fordert der erste Login einen Passwortwechsel. Nach einem bereits erfolgten Passwortwechsel gilt das neue Kontopasswort; der Bootstrap überschreibt es nicht.
+
+Die Anmeldung akzeptiert Benutzername oder E-Mail-Adresse. Für den ersten Administrator wird der Benutzername automatisch aus dem Teil vor `@` gebildet; bei Namenskonflikten oder unzulässigen Zeichen wird er angepasst. Den tatsächlich vergebenen Namen unter **Benutzer & Gruppen → Benutzername** ansehen und bei Bedarf ändern. Bestehende Konten erhalten ihren Namen beim Update automatisch. Details stehen in [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md#anmeldung-mit-benutzername-oder-e-mail-adresse).
+
+Ohne das Profil `tls` wird `PORTAL_DOMAIN` nicht verwendet und kann leer bleiben. Eine eigene Domain oder ein DNS-Eintrag ist für den lokalen Test nicht erforderlich. `localhost` und `127.0.0.1` sind als erlaubte Hosts bereits enthalten; eigene Hostnamen in `PORTAL_ALLOWED_HOSTS` ergänzen. Port 18092 kann durch einen anderen freien Port ersetzt werden; die Browser-Adresse entsprechend anpassen.
 
 Falls Rancher Desktop bei Loopback-Bindung trotz gesunder Container einen Timeout liefert, `PORTAL_BIND_ADDRESS=0.0.0.0` setzen und denselben `up`-Befehl erneut ausführen. Dieser Workaround wurde lokal geprüft; der Frontend-Port ist damit auch auf den übrigen Netzwerkschnittstellen des Rechners veröffentlicht. Die Compose-Vorgabe bleibt `127.0.0.1`.
 
-Status der API: `http://127.0.0.1:18092/api/health`. Beenden mit `docker compose -p semaphore-porter-local stop`; die Datenbank bleibt erhalten. Für spätere Starts denselben Projektnamen verwenden. Nach Codeänderungen die betroffenen Images neu bauen und `docker compose -p semaphore-porter-local up -d --wait --force-recreate` ausführen.
+Status der API: `http://127.0.0.1:18092/api/health`.
+
+Den lokalen Stack stoppen und später mit derselben `.env` wieder starten:
+
+```powershell
+docker compose -p semaphore-porter-local stop
+docker compose -p semaphore-porter-local up -d --wait
+```
+
+Die beiden Befehle werden je nach gewünschter Aktion einzeln ausgeführt. Zum erneuten Start nach dem Stoppen in Rancher genügt der zweite Befehl, sobald die Docker Engine wieder läuft. Der Projektname `semaphore-porter-local` und das Datenbank-Volume bleiben dabei erhalten; ein Neubau der Images ist für einen Neustart nicht erforderlich.
+
+Nach Codeänderungen die betroffenen Images mit den oben gezeigten `docker build`-Befehlen neu bauen und anschließend `docker compose -p semaphore-porter-local up -d --wait --force-recreate` ausführen. Auch bei lokalen Status-, Log- und Backup-Befehlen immer `-p semaphore-porter-local` verwenden, damit sie denselben Stack ansprechen.
 
 ## Produktive Installation
 
@@ -112,7 +152,7 @@ Status der API: `http://127.0.0.1:18092/api/health`. Beenden mit `docker compose
    chmod 600 .env
    ```
 
-2. Alle `CHANGE_ME`-Werte sowie `PORTAL_DOMAIN` und `PORTAL_ALLOWED_HOSTS` in `.env` ersetzen. Sichere Werte lassen sich mit einem temporären Python-Container erzeugen:
+2. Alle `CHANGE_ME`-Werte sowie die Bootstrap-Admin-E-Mail und `PORTAL_ALLOWED_HOSTS` in `.env` anpassen. Für das mitgelieferte TLS-Gateway außerdem `PORTAL_DOMAIN` auf den eigenen DNS-Namen setzen. Bei einem vorhandenen Reverse-Proxy ohne Profil `tls` wird diese Variable nicht verwendet. Sichere Werte lassen sich mit einem temporären Python-Container erzeugen:
 
    ```bash
    docker run --rm python:3.13.7-slim python -c "import secrets; print(secrets.token_hex(48))"
@@ -154,6 +194,8 @@ Ein Git-Tag `vX.Y.Z` erzeugt zusätzlich SemVer-Tags. Der Image-Job beginnt erst
 
 ## Ersteinrichtung im Portal
 
+Portal-Konten sind von Semaphore-Konten getrennt. Benutzer benötigen für die freigegebenen Portal-Tasks keinen eigenen Semaphore-Login. Die globale Rolle `tenant_admin` hat derzeit keine eigene Verwaltungsoberfläche; die Administration erfordert `system_admin`. Tenant-Zuordnungen, Task-Rechte und Policies sind in [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md) erklärt.
+
 1. Unter **Administration → Semaphore** Basis-URL, Service-Token und optional eine HTTP(S)-Proxy-URL speichern. URLs mit eingebetteten Zugangsdaten werden abgelehnt.
 2. Unter **Projektvorlagen** ein vorhandenes Semaphore-Projekt als Vorlage sichern. Das Portal speichert eine unveränderte Backup-Fassung und einen strukturellen Katalog.
 3. Optional Benutzer und Gruppen anlegen.
@@ -164,6 +206,8 @@ Ein Git-Tag `vX.Y.Z` erzeugt zusätzlich SemVer-Tags. Der Image-Job beginnt erst
 Der Wizard führt keine Remote-Löschung durch. Auch beim Entfernen eines Portal-Tenants bleibt das Semaphore-Projekt erhalten.
 
 Unter **Semaphore-Projekte** können Administratoren das tatsächliche Remote-Projekt dagegen ausdrücklich bestätigt löschen sowie Ressourcen bearbeiten und neue Tenant-Kopien erstellen.
+
+Die Mehrfachauswahl in Schritt 3 des Wizards legt die erlaubten Anwendungen, Datenbankprovider und Testdatensätze für die Projektkopie und ihre Initial-Policies fest. Die Anlage des Tenants startet keinen Deployment-Task und importiert keine Testdaten. Bei einer späteren Task-Ausführung wird jeweils ein Wert pro Variable ausgewählt; die Kompatibilität der Kombination prüft der Deployment-Stack. Ablauf und Grenzen stehen in [Projektverwaltung](docs/PROJECT_MANAGEMENT.md).
 
 ## Policy-Regeln
 
@@ -215,6 +259,8 @@ Ein Restore mit `--clean` überschreibt die Zieldatenbank. Datenbank-Backup und 
 
 ## Entwicklung und Tests
 
+Für die folgenden Befehle werden Python 3.13 beziehungsweise Node.js 22.19.0 und npm 11.6.2 auf dem Entwicklungsrechner benötigt. Beide Abschnitte jeweils im Repository-Stamm beginnen, beispielsweise in getrennten PowerShell-Fenstern.
+
 Backend:
 
 ```powershell
@@ -234,7 +280,7 @@ npm test
 npm run build
 ```
 
-API-Schema im laufenden System: `https://<PORTAL_DOMAIN>/api/docs` beziehungsweise lokal `http://127.0.0.1:8080/api/docs`.
+API-Dokumentation im laufenden System: `https://<PORTAL_DOMAIN>/api/docs` beziehungsweise beim lokalen Test oben `http://127.0.0.1:18092/api/docs`. Das maschinenlesbare Schema steht unter `/api/openapi.json`. Bei einem anderen `PORTAL_PUBLIC_PORT` die lokale Adresse entsprechend anpassen.
 
 ## Fehlerdiagnose
 
