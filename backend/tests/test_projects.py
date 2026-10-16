@@ -1,11 +1,10 @@
 import json
 
-import httpx
 import respx
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import SemaphoreSettings, User, PortalSession
+from app.models import SemaphoreSettings, User
 from app.security import encrypt_secret
 from app.routers.projects import revision
 

@@ -5,7 +5,7 @@ import respx
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import CreationJob, CreationStatus, ProjectTemplate, SemaphoreSettings, Tenant, User
+from app.models import ProjectTemplate, SemaphoreSettings, Tenant, User
 from app.security import encrypt_secret
 
 

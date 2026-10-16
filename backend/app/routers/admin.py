@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
-from sqlalchemy import delete, func, or_, select
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
@@ -61,6 +61,7 @@ from app.security import encrypt_secret, hash_password
 from app.semaphore_client import SemaphoreClient, SemaphoreConnection, SemaphoreError
 from app.services import contains_secret, semaphore_client_from_db
 from app.tenant_options import SELECTION_FIELDS, allowed_options, selected_options
+from app.usernames import suggest_username
 
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
@@ -70,6 +71,7 @@ def user_json(user: User) -> dict[str, Any]:
     return {
         "id": str(user.id),
         "email": user.email,
+        "username": user.username,
         "display_name": user.display_name,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
@@ -200,20 +202,28 @@ def create_user(payload: UserCreate, request: Request, db: Db, admin: SystemAdmi
     email = payload.email.lower().strip()
     if db.scalar(select(User.id).where(func.lower(User.email) == email)):
         raise HTTPException(status_code=409, detail="Diese E-Mail-Adresse ist bereits vergeben.")
+    username = payload.username or suggest_username(email, list(db.scalars(select(User.username).where(User.username.is_not(None)))))
+    if db.scalar(select(User.id).where(func.lower(User.username) == username)):
+        raise HTTPException(status_code=409, detail="Dieser Benutzername ist bereits vergeben.")
     roles = list(db.scalars(select(Role).where(Role.code.in_(payload.role_codes))))
     if len(roles) != len(set(payload.role_codes)):
         raise HTTPException(status_code=400, detail="Mindestens eine unbekannte Rolle wurde angegeben.")
     user = User(
         email=email,
+        username=username,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
         must_change_password=payload.must_change_password,
     )
     user.roles = roles
     db.add(user)
-    db.flush()
-    record_audit(db, "user_created", actor=admin, request=request, target_type="user", target_id=user.id, details={"roles": payload.role_codes})
-    db.commit()
+    try:
+        db.flush()
+        record_audit(db, "user_created", actor=admin, request=request, target_type="user", target_id=user.id, details={"roles": payload.role_codes, "username": username})
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="E-Mail-Adresse oder Benutzername ist bereits vergeben.")
     return user_json(user)
 
 
@@ -222,6 +232,9 @@ def update_user(user_id: uuid.UUID, payload: UserUpdate, request: Request, db: D
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+    if payload.username is not None:
+        if db.scalar(select(User.id).where(func.lower(User.username) == payload.username, User.id != user.id)):
+            raise HTTPException(status_code=409, detail="Dieser Benutzername ist bereits vergeben.")
     if payload.display_name is not None:
         user.display_name = payload.display_name.strip()
     if payload.is_active is not None:
@@ -233,8 +246,14 @@ def update_user(user_id: uuid.UUID, payload: UserUpdate, request: Request, db: D
         if len(roles) != len(set(payload.role_codes)):
             raise HTTPException(status_code=400, detail="Unbekannte Rolle.")
         user.roles = roles
+    if payload.username is not None:
+        user.username = payload.username
     record_audit(db, "user_updated", actor=admin, request=request, target_type="user", target_id=user.id, details=payload.model_dump(exclude_none=True))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Dieser Benutzername ist bereits vergeben.")
     return user_json(user)
 
 

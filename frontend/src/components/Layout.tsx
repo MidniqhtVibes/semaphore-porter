@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../auth'
 import { Button } from './ui'
 import { BrandMark } from './BrandMark'
+import { SiteFooter } from './SiteFooter'
 
 const adminItems = [
   ['/admin', 'Dashboard', LayoutDashboard],
@@ -53,6 +54,7 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
     <div className="main-wrap">
       <header className="topbar"><button className="menu-button" onClick={() => setOpen(true)}><Menu/></button><div className="breadcrumbs"><ClipboardList size={16}/><span>{location.pathname.startsWith('/admin') ? 'Administration' : 'Portal'}</span></div><div className="profile"><div className="avatar">{user?.display_name.slice(0, 2).toUpperCase()}</div><div><strong>{user?.display_name}</strong><span>{user?.email}</span></div><ChevronDown size={15}/><Button variant="ghost" onClick={() => void logout()}>Abmelden</Button></div></header>
       <main className="content">{children}</main>
+      <SiteFooter/>
     </div>
   </div>
 }

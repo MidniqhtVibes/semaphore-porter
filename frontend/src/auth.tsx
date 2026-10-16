@@ -5,7 +5,7 @@ import type { User } from './types'
 type AuthContextValue = {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<User>
+  login: (identifier: string, password: string) => Promise<User>
   logout: () => Promise<void>
   refresh: () => Promise<void>
   isAdmin: boolean
@@ -33,9 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void refresh() }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     const result = await api<{ user: User; csrf_token: string }>('/auth/login', {
-      method: 'POST', body: JSON.stringify({ email, password }), headers: { 'Content-Type': 'application/json' },
+      method: 'POST', body: JSON.stringify({ identifier, password }), headers: { 'Content-Type': 'application/json' },
     })
     setCsrfToken(result.csrf_token)
     setUser(result.user)

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Check, ChevronLeft, ChevronRight, CircleCheck, Database, FileCheck2, Layers3, PackageCheck, Rocket, Settings2, ShieldCheck, Users } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
-import { Badge, Button, Card, Field, Loading, Notice, PageHeader } from '../../components/ui'
+import { Button, Card, Field, Loading, Notice, PageHeader } from '../../components/ui'
 import type { User } from '../../types'
 
 type Template = {id:string;name:string;description:string;survey_catalog:Record<string,unknown[]>;task_templates:string[];environments:string[]}

@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.database import SessionLocal
 from app.models import Preset, PresetVersion, Role, User
 from app.security import hash_password
+from app.usernames import suggest_username
 
 
 ROLES = [
@@ -47,6 +48,7 @@ def bootstrap() -> None:
                 admin_role = db.scalar(select(Role).where(Role.code == "system_admin"))
                 user = User(
                     email=email,
+                    username=suggest_username(email, list(db.scalars(select(User.username).where(User.username.is_not(None))))),
                     display_name=settings.portal_bootstrap_admin_name,
                     password_hash=hash_password(settings.portal_bootstrap_admin_password.get_secret_value()),
                     must_change_password=True,

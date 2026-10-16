@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Activity, ArrowRight, Boxes, CheckCircle2, Clock3, KeyRound, Play, Square } from 'lucide-react'
+import { ArrowRight, Boxes, CheckCircle2, KeyRound, Play, Square } from 'lucide-react'
 import { api, ApiError } from '../../api'
 import { useAuth } from '../../auth'
 import { Badge, Button, Card, Empty, Field, Loading, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'

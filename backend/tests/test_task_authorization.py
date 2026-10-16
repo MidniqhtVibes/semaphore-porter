@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import (
-    AuditEvent, Role, RuleType, SemaphoreProject, SemaphoreSettings, TaskPermission, TaskPolicy,
+    AuditEvent, RuleType, SemaphoreProject, SemaphoreSettings, TaskPermission, TaskPolicy,
     TaskRun, TaskTemplate, Tenant, TenantMembership, TenantStatus, User, VariableRule,
 )
 from app.security import encrypt_secret

@@ -1,12 +1,18 @@
 # Implementierungs- und Abnahmestatus
 
-## SIT-Marke und Website-Symbole vom 16.10.2026
+## Bereinigter Web-App-Zwischenstand vom 16.10.2026
 
-SIT Hell und SIT Dunkel zeigen die vom Betreiber bereitgestellte transparente weiße PNG-Marke in Navigation und Anmeldung. Die Datei wird bytegenau unverändert lokal ausgeliefert. GitHub Black bleibt neutral. Unter **Designs → Website-Symbol** lassen sich Portal-Tor, Mandanten-Verbund und SP-Monogramm unabhängig vom Farbschema auswählen; die Auswahl bleibt im Browser erhalten.
+Das aktuelle Repository enthält ausschließlich die Web-App. Alte Desktop-Quellen, Desktop-Tests, Windows-Bauskripte und der Windows-Build-Workflow sowie rund 150 MB versionierte EXE-/DLL-/Build-Artefakte wurden entfernt. Frühere Stände bleiben in der Git-Historie erreichbar. Temporäre lokale Vorschauen und Downloads, überholte Symbolvarianten, doppelte Abhängigkeitslisten und ungenutzte Hilfsfunktionen/Imports sind bereinigt. Die Ignore-Regeln schließen lokale Konfiguration und neue Build-Ausgaben aus; der TypeScript-Build prüft zusätzlich auf ungenutzte Imports und Variablen. Der Funktionsumfang dieses Zwischenstands steht in [CHANGELOG.md](../CHANGELOG.md).
 
-Enthalten sind SVG- und ICO-Favicons, Touch-Icons sowie 192-/512-Pixel-App-Symbole mit drei Manifesten für Edge-/Windows-App-Verknüpfungen. Die Windows-App-Installation ist eine Benutzeraktion; es wurde keine App auf dem Rechner installiert oder angeheftet.
+## SIT-Marke, festes Website-Symbol und Benutzernamen vom 16.10.2026
 
-Prüfung: **26 Frontend-Tests bestanden**, TypeScript/Vite- und Docker-Build erfolgreich. Logoanzeige, mobile Darstellung, Anmeldung und alle drei Manifest-Wechsel wurden in Edge mit Testdaten geprüft; keine CSP-Verstöße und keine horizontalen Überläufe. Details zu Symbolwahl und Taskleiste stehen in [DESIGNS.md](DESIGNS.md).
+SIT Hell zeigt die Marke dunkel, SIT Dunkel weiß, jeweils ohne farbige Hintergrundfläche in Navigation, Designvorschau und Anmeldung. Die PNG-Datei wird bytegenau unverändert lokal ausgeliefert. GitHub Black bleibt neutral. Das Portal-Tor ist fest als Website-Symbol hinterlegt; die frühere Symbolauswahl ist entfernt und alte gespeicherte Symbolwerte werden ignoriert.
+
+Enthalten sind SVG- und ICO-Favicons, Touch-Icons sowie 192-/512-Pixel-App-Symbole mit dem Portal-Manifest für Edge-/Windows-App-Verknüpfungen. Die Windows-App-Installation ist eine Benutzeraktion; es wurde keine App auf dem Rechner installiert oder angeheftet.
+
+Die Anmeldung ist um die drei gewünschten Werbetexte reduziert. Anmeldung und Portal enthalten einen kleinen Hinweis „Verantwortlich: Louis Findeisen“. Benutzer können sich mit Benutzername oder E-Mail-Adresse am selben Konto anmelden. Benutzernamen lassen sich bei der Erstellung vergeben und später in der Benutzerverwaltung ändern. Eine additive Migration vergibt eindeutige Namen für bestehende Konten; E-Mail-Anmeldungen und Kennwörter bleiben erhalten. Details stehen in [PERMISSIONS.md](PERMISSIONS.md) und [DESIGNS.md](DESIGNS.md).
+
+Prüfung: **59 Backend-Tests und 28 Frontend-Tests bestanden**, TypeScript/Vite- und beide Docker-Builds erfolgreich. Beide SIT-Anmeldeansichten, Designwechsel, festes Manifest und mobile Darstellung wurden in Edge geprüft; keine CSP-Verstöße und keine horizontalen Überläufe. Der lokale Stack auf Port 18092 ist gesund, alle Marken-/Symboldateien antworten erfolgreich. Migration `20261016_0003` ist in PostgreSQL angewendet; Vergleichswerte bestätigen unveränderte IDs, E-Mail-Adressen, Passwort-Hashes, Aktivierungszustände und Rollen beider bestehenden Konten. Beide Anmeldewege sind automatisiert geprüft. Eine Anmeldung am laufenden Stack mit den ursprünglichen Bootstrap-Zugangsdaten wurde ausgelassen, da diese nicht mehr zum aktuellen Konto passen; kein Passwort wurde zurückgesetzt.
 
 ## Designauswahl vom 16.10.2026
 

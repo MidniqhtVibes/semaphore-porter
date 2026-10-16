@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { BUILTIN_THEMES, FONT_STACKS, parseThemeFile, resolveCustomTheme, type Theme, type ThemeFile } from './themes'
-import { applyWebsiteSymbol, isWebsiteSymbolId, type WebsiteSymbolId } from './websiteSymbols'
+import { applyWebsiteSymbol } from './websiteSymbols'
 
 export const THEME_STORAGE_KEY='semaphore-porter.designs.v1'
-type ThemeState={selected:string;custom:ThemeFile[];websiteSymbol:WebsiteSymbolId}
-type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;websiteSymbol:WebsiteSymbolId;selectWebsiteSymbol:(id:WebsiteSymbolId)=>void;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void}
+type ThemeState={selected:string;custom:ThemeFile[]}
+type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void}
 const ThemeContext=createContext<ThemeContextValue|null>(null)
-const initial:ThemeState={selected:'github-dark',custom:[],websiteSymbol:'portal'}
+const initial:ThemeState={selected:'github-dark',custom:[]}
 
 function readState(): ThemeState {
   try{
@@ -17,7 +17,7 @@ function readState(): ThemeState {
       try{const parsed=parseThemeFile(value);if(!custom.some(theme=>theme.id===parsed.id))custom.push(parsed)}catch{/* Ignore invalid stored packages. */}
     }
     const selected=String(stored.selected)
-    return {custom,selected:BUILTIN_THEMES.some(theme=>theme.id===selected)||custom.some(theme=>`custom:${theme.id}`===selected)?selected:'github-dark',websiteSymbol:isWebsiteSymbolId(stored.websiteSymbol)?stored.websiteSymbol:'portal'}
+    return {custom,selected:BUILTIN_THEMES.some(theme=>theme.id===selected)||custom.some(theme=>`custom:${theme.id}`===selected)?selected:'github-dark'}
   }catch{return initial}
 }
 export function applyTheme(theme: Theme){
@@ -37,7 +37,7 @@ export function ThemeProvider({children}:{children:ReactNode}){
   const themes=useMemo(()=>[...BUILTIN_THEMES,...state.custom.map(resolveCustomTheme)],[state.custom])
   const active=themes.find(theme=>theme.id===state.selected)||BUILTIN_THEMES[0]
   useLayoutEffect(()=>applyTheme(active),[active])
-  useLayoutEffect(()=>applyWebsiteSymbol(state.websiteSymbol),[state.websiteSymbol])
+  useLayoutEffect(()=>applyWebsiteSymbol(),[])
   useEffect(()=>{
     const update=(event:StorageEvent)=>{if(event.key===THEME_STORAGE_KEY||event.key===null)setState(readState())}
     window.addEventListener('storage',update)
@@ -56,8 +56,7 @@ export function ThemeProvider({children}:{children:ReactNode}){
     return theme
   }
   const remove=(id:string)=>save({...state,selected:state.selected===id?'github-dark':state.selected,custom:state.custom.filter(theme=>`custom:${theme.id}`!==id)})
-  const selectWebsiteSymbol=(id:WebsiteSymbolId)=>{if(isWebsiteSymbolId(id))save({...state,websiteSymbol:id})}
-  return <ThemeContext.Provider value={{themes,active,storageWarning,websiteSymbol:state.websiteSymbol,selectWebsiteSymbol,select,importTheme,remove}}>{children}</ThemeContext.Provider>
+  return <ThemeContext.Provider value={{themes,active,storageWarning,select,importTheme,remove}}>{children}</ThemeContext.Provider>
 }
 export function useTheme(){
   const value=useContext(ThemeContext)

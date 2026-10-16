@@ -4,13 +4,21 @@ Systemadmins können Portal-Konten anlegen und deaktivieren, Passwörter zurück
 
 ## Einrichtung
 
-1. Unter **Benutzer & Gruppen** Portal-Konten anlegen, aktivieren/deaktivieren und Passwörter zurücksetzen; Gruppen anlegen und ihre Mitglieder pflegen. Nach einem Passwortreset sind bisherige Sitzungen ungültig.
+1. Unter **Benutzer & Gruppen** Portal-Konten anlegen, Benutzernamen vergeben/ändern, aktivieren/deaktivieren und Passwörter zurücksetzen; Gruppen anlegen und ihre Mitglieder pflegen. Nach einem Passwortreset sind bisherige Sitzungen ungültig.
 2. Unter **Tenants → Tenant öffnen → Zuweisen** Benutzer oder Gruppe dem Mandanten zuordnen.
 3. Unter **Berechtigungsmatrix** den Tenant und sein Task Template auswählen. Dem Benutzer oder der Gruppe **Nur sehen** oder **Sehen, starten, abbrechen** zuweisen.
 4. Im Tenant die Task-Policy prüfen. Die Policy bestimmt die erlaubten Variablen, Werte, Standardwerte und Laufzeitgrenzen. Tenant, Task-Freigabe und Policy müssen aktiv sein.
 5. Im **Benutzerportal → Meine Projekte → Projekt → Task** die Werte auswählen und starten. Status, Live-Logs und Abbruch sind im Portal verfügbar; die Historie zeigt die im Portal registrierten Ausführungen.
 
 Schritt 6 des Tenant-Wizards kann Tenant-Zuordnungen und die Task-Rechte initial gemeinsam als Operator-Freigabe anlegen. Eine spätere Tenant-Zuordnung außerhalb des Wizards vergibt allein noch keine Task-Rechte.
+
+## Anmeldung mit Benutzername oder E-Mail-Adresse
+
+Beide Anmeldewege verwenden dasselbe lokale Portalkonto und Passwort. Benutzernamen sind eindeutig, werden kleingeschrieben gespeichert und erlauben 2–64 Zeichen aus `a–z`, `0–9`, `.`, `_` und `-`; das erste Zeichen muss ein Buchstabe oder eine Ziffer sein. Groß-/Kleinschreibung spielt bei der Anmeldung keine Rolle.
+
+Die Migration `20261016_0003` ergänzt bestehende Konten automatisch um einen Benutzernamen aus dem Teil vor `@` der E-Mail-Adresse. Unzulässige Zeichen werden ersetzt; bei Dopplungen wird `-2`, `-3` usw. angehängt. Bei zu kurzen oder leeren Ergebnissen dient `user` als Basis. Dasselbe gilt für neue Konten ohne ausdrücklich vergebenen Benutzernamen und den Bootstrap-Admin. Der tatsächlich vergebene Name steht unter **Benutzer & Gruppen → Benutzername** und kann dort mit **Ändern** angepasst werden. Die E-Mail-Anmeldung, Passwörter, Rollen und bestehenden Sitzungen bleiben erhalten.
+
+Die Begrenzung fehlgeschlagener Anmeldeversuche gilt gemeinsam für beide Anmeldewege. Die API akzeptiert nun `identifier` (Benutzername oder E-Mail-Adresse); bisherige Login-Aufrufe mit `email` funktionieren weiterhin.
 
 ## Welche Rechte wirken?
 

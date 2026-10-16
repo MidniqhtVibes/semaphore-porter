@@ -43,19 +43,24 @@ describe('Portal-Flows', () => {
     expect(screen.queryByRole('img',{name:'Südwestfalen-IT'})).not.toBeInTheDocument()
   })
 
-  it('speichert das Website-Symbol unabhängig vom Design und aktualisiert alle Verknüpfungen',async()=>{
+  it('verwendet auch bei einer früheren Symbolauswahl immer das Portal-Tor und behält das Design',async()=>{
     window.history.replaceState({}, '', '/admin/designs')
+    localStorage.setItem(THEME_STORAGE_KEY,JSON.stringify({selected:'sit-light',custom:[],websiteSymbol:'tenants'}))
     vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).endsWith('/api/auth/me')?json(admin):json({csrf_token:'csrf'})))
     const view=renderApp(), user=userEvent.setup()
-    await user.click(await screen.findByRole('button',{name:/Mandanten-Verbund/}))
-    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/tenants.svg')
-    expect(document.getElementById('portal-manifest')).toHaveAttribute('href','/manifests/tenants.webmanifest')
+    await screen.findByRole('button',{name:'SIT Hell ist aktiv'})
+    expect(document.documentElement).toHaveAttribute('data-theme','sit-light')
+    expect(screen.queryByRole('region',{name:'Website-Symbol'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:/Mandanten-Verbund|SP-Monogramm|Portal-Tor/})).not.toBeInTheDocument()
+    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/portal.svg')
+    expect(document.getElementById('portal-manifest')).toHaveAttribute('href','/manifests/portal.webmanifest')
     await user.click(screen.getByRole('button',{name:'SIT Dunkel verwenden'}))
-    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/tenants.svg')
-    expect(document.getElementById('portal-touch-icon')).toHaveAttribute('href','/icons/tenants-180.png')
+    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/portal.svg')
+    expect(document.getElementById('portal-touch-icon')).toHaveAttribute('href','/icons/portal-180.png')
     view.unmount()
     renderApp()
-    expect(await screen.findByRole('button',{name:/Mandanten-Verbund/})).toHaveAttribute('aria-pressed','true')
+    expect(await screen.findByRole('button',{name:'SIT Dunkel ist aktiv'})).toBeDisabled()
+    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/portal.svg')
     expect(document.documentElement).toHaveAttribute('data-theme','sit-dark')
   })
 
@@ -193,23 +198,49 @@ describe('Portal-Flows', () => {
     await userEvent.type(screen.getByLabelText('Projektname zur Löschbestätigung'),'Kunde A')
     expect(button).toBeEnabled()
   })
-  it('meldet einen Administrator an und zeigt die Adminnavigation', async () => {
+  it.each(['admin','admin@example.com'])('meldet einen Administrator mit %s an und zeigt die Adminnavigation', async (identifier) => {
     let authenticated = false
-    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    let submitted:unknown
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL,options?:RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/me')) return authenticated ? json(admin) : json({detail:'Anmeldung erforderlich'},401)
-      if (url.endsWith('/api/auth/login')) { authenticated = true; return json({user:admin,csrf_token:'csrf'}) }
+      if (url.endsWith('/api/auth/login')) { submitted=JSON.parse(String(options?.body)); authenticated = true; return json({user:admin,csrf_token:'csrf'}) }
       if (url.endsWith('/api/admin/dashboard')) return json({tenant_count:0,active_user_count:1,project_count:0,running_task_count:0,failed_task_count:0,incomplete_tenant_count:0,semaphore:{configured:false,healthy:null,message:'Nicht konfiguriert'},recent_audit:[]})
       return json({csrf_token:'csrf'})
     }))
     renderApp()
     const user = userEvent.setup()
-    await user.type(await screen.findByLabelText('E-Mail-Adresse'), 'admin@example.com')
+    await user.type(await screen.findByLabelText('Benutzername oder E-Mail-Adresse'), identifier)
+    expect(screen.queryByText(/KONTROLLIERTE AUTOMATISIERUNG|Serverseitige Task Policies|Keine API-Tokens im Browser/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Verantwortlich: Louis Findeisen')
     await user.type(screen.getByLabelText('Passwort'), 'correct-horse-battery')
     await user.click(screen.getByRole('button', {name:'Sicher anmelden'}))
     expect(await screen.findByText('Admin Dashboard')).toBeInTheDocument()
+    expect(submitted).toEqual({identifier,password:'correct-horse-battery'})
     expect(screen.getAllByText('Tenants').length).toBeGreaterThan(0)
     expect(screen.getByText('Audit-Log')).toBeInTheDocument()
+  })
+
+  it('ändert den Benutzernamen eines bestehenden Kontos über die Benutzerverwaltung',async()=>{
+    window.history.replaceState({}, '', '/admin/benutzer')
+    let username='admin', saved:unknown
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,options?:RequestInit)=>{
+      const url=String(input)
+      if(url.endsWith('/api/auth/me'))return json(admin)
+      if(url.endsWith('/api/auth/csrf'))return json({csrf_token:'csrf'})
+      if(url.endsWith('/admin/users/1')){saved=JSON.parse(String(options?.body));username=(saved as {username:string}).username.toLowerCase();return json({...admin,username})}
+      if(url.endsWith('/admin/users'))return json([{...admin,username}])
+      return json([])
+    }))
+    renderApp()
+    const user=userEvent.setup()
+    await user.click(await screen.findByRole('button',{name:'Benutzername ändern · Admin'}))
+    const dialog=screen.getByRole('dialog'),input=within(dialog).getByRole('textbox',{name:/^Benutzername/})
+    await user.clear(input);await user.type(input,'Louis.Findeisen')
+    await user.click(within(dialog).getByRole('button',{name:'Benutzername speichern'}))
+    await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(saved).toEqual({username:'Louis.Findeisen'})
+    expect(await screen.findByText('louis.findeisen')).toBeInTheDocument()
   })
 
   it('behält den Wizard im ersten Schritt, solange keine Vorlage gewählt ist', async () => {

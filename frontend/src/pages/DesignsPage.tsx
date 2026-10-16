@@ -3,7 +3,6 @@ import { Check, Download, Palette, Trash2, Upload } from 'lucide-react'
 import { Badge, Button, Card, Field, Notice, PageHeader } from '../components/ui'
 import { useTheme } from '../designs/ThemeProvider'
 import { exportThemeFile, FONT_STACKS, type Theme } from '../designs/themes'
-import { WEBSITE_SYMBOLS } from '../designs/websiteSymbols'
 
 function ThemePreview({theme}:{theme:Theme}){
   const style=Object.fromEntries(Object.entries(theme.colors).map(([key,value])=>[`--${key}`,value])) as CSSProperties
@@ -25,7 +24,7 @@ function downloadTheme(theme:Theme){
   window.setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 export function DesignsPage(){
-  const {themes,active,select,importTheme,remove,storageWarning,websiteSymbol,selectWebsiteSymbol}=useTheme()
+  const {themes,active,select,importTheme,remove,storageWarning}=useTheme()
   const [message,setMessage]=useState(''), [error,setError]=useState('')
   const builtins=themes.filter(theme=>!theme.definition), custom=themes.filter(theme=>theme.definition)
   const choose=(theme:Theme)=>{select(theme.id);setMessage(`${theme.name} ist jetzt aktiv.`);setError('')}
@@ -60,14 +59,6 @@ export function DesignsPage(){
     <div className="section-heading"><h2>Verfügbare Designs</h2><p>GitHub Black bleibt die Voreinstellung. Die SIT-Varianten folgen dem Look &amp; Feel mit Sora, Anthrazit und Grün.</p></div>
     <div className="cards-grid theme-grid">{builtins.map(themeCard)}</div>
     {custom.length>0&&<><div className="section-heading"><h2>Eigene Designs</h2><p>Importierte Varianten können jederzeit wieder exportiert oder entfernt werden.</p></div><div className="cards-grid theme-grid">{custom.map(themeCard)}</div></>}
-    <section aria-label="Website-Symbol"><div className="section-heading"><h2>Website-Symbol</h2><p>Drei Vorschläge für Browser-Tabs, Favoriten und App-Verknüpfungen. Das Symbol lässt sich unabhängig vom Design auswählen.</p></div>
-      <div className="cards-grid symbol-grid">{WEBSITE_SYMBOLS.map(symbol=><button key={symbol.id} className={`symbol-option ${websiteSymbol===symbol.id?'selected':''}`} aria-pressed={websiteSymbol===symbol.id} onClick={()=>{selectWebsiteSymbol(symbol.id);setMessage(`${symbol.name} ist jetzt das Website-Symbol.`);setError('')}}>
-        <span className="symbol-option-top"><img src={`/icons/${symbol.id}.svg`} width={56} height={56} alt=""/><span><strong>{symbol.name}</strong>{symbol.recommended&&<Badge>Empfohlen</Badge>}</span>{websiteSymbol===symbol.id&&<Check size={18}/>}</span>
-        <span className="symbol-description">{symbol.description}</span>
-        <span className="symbol-tab"><img src={`/icons/${symbol.id}.svg`} width={16} height={16} alt=""/>Semaphore Tenant Portal</span>
-      </button>)}</div>
-      <p className="symbol-note">Für ein eigenes Windows-Taskleistensymbol die Seite nach der Auswahl in Edge über „Apps → Diese Website als App installieren“ installieren und anheften. Bereits installierte Verknüpfungen übernehmen einen späteren Symbolwechsel möglicherweise erst nach erneuter Installation.</p>
-    </section>
     <Card className="theme-import"><div className="card-heading"><div><h2><Upload size={18}/>Eigenes Design verwenden</h2><p>Eine Vorlage herunterladen, Farben anpassen und die JSON-Datei importieren. Das Design wird nur in diesem Browser gespeichert.</p></div></div>
       <div className="theme-import-grid"><Field label="Design-Datei (.json)" help="Maximal 50 KB. Ein Import mit derselben Design-ID aktualisiert die vorhandene Variante."><input type="file" accept=".json,application/json" onChange={event=>void upload(event)}/></Field>
         <div className="button-row"><a className="button button-secondary" href="/themes/example.theme.json" download><Download size={16}/>JSON-Vorlage</a><a className="row-link" href="/themes/theme.schema.json" download>Formatbeschreibung herunterladen</a></div>

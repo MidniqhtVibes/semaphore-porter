@@ -1,6 +1,6 @@
 # Migration vom Windows-Konfigurator
 
-Der bisherige WPF-Konfigurator und seine Tests bleiben in `src/` und `tests/` erhalten. Er ist kein Laufzeitbestandteil des Portals. Das Portal übernimmt die bewährten fachlichen Regeln, nicht die lokale Desktop-Konfiguration.
+Der bisherige WPF-Konfigurator, seine Tests, die Windows-Bauskripte und sämtliche eingecheckten EXE-/DLL-/Build-Artefakte wurden aus dem aktuellen Repository entfernt. Frühere Desktop-Stände bleiben über die Git-Historie verfügbar. Das Repository wird ausschließlich als Web-App weitergeführt; das Portal übernimmt die bewährten fachlichen Regeln, nicht die lokale Desktop-Konfiguration.
 
 ## Übernommene Konzepte
 
@@ -32,6 +32,6 @@ DPAPI-Ciphertexte sind an den Windows-Benutzer und Rechnerkontext gebunden. Der 
 5. Einen nicht produktiven Tenant über den Wizard erstellen.
 6. Synchronisierte Survey-Felder und generierte Policies fachlich prüfen.
 7. Task-Ausführung, Live-Ausgabe, Abbruch und Audit gegen die echte Semaphore-Instanz abnehmen.
-8. Erst danach produktive Tenants migrieren und den Desktop-Konfigurator nur noch als Archiv verwenden.
+8. Erst danach produktive Tenants migrieren. Bei Bedarf lässt sich der frühere Desktop-Konfigurator aus einem älteren Git-Stand getrennt archivieren.
 
 Bestehende Semaphore-Projekte werden nicht automatisch zu Portal-Tenants erklärt. Diese explizite Zuordnung verhindert, dass Benutzer aufgrund eines Namensmusters versehentlich Zugriff auf fremde Projekte erhalten.

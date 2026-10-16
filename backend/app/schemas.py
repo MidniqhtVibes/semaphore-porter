@@ -10,8 +10,29 @@ from app.models import RuleType
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    identifier: str = Field(min_length=1, max_length=320)
     password: str = Field(min_length=1, max_length=512)
+
+    @model_validator(mode="before")
+    @classmethod
+    def legacy_login_fields(cls, value):
+        if isinstance(value, dict) and "identifier" not in value:
+            return {**value, "identifier": value.get("email", value.get("username"))}
+        return value
+
+    @field_validator("identifier", mode="before")
+    @classmethod
+    def trim_identifier(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class UsernameFields(BaseModel):
+    username: str | None = Field(default=None, min_length=2, max_length=64, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def normalize_username(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 class PasswordChangeRequest(BaseModel):
@@ -19,7 +40,7 @@ class PasswordChangeRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=512)
 
 
-class UserCreate(BaseModel):
+class UserCreate(UsernameFields):
     email: EmailStr
     display_name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=512)
@@ -27,7 +48,7 @@ class UserCreate(BaseModel):
     must_change_password: bool = True
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(UsernameFields):
     display_name: str | None = Field(default=None, min_length=2, max_length=160)
     is_active: bool | None = None
     role_codes: list[str] | None = None

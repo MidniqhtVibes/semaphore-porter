@@ -28,6 +28,7 @@ def _user_payload(user: User) -> dict:
     return {
         "id": str(user.id),
         "email": user.email,
+        "username": user.username,
         "display_name": user.display_name,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
@@ -38,9 +39,11 @@ def _user_payload(user: User) -> dict:
 @router.post("/login")
 def login(payload: LoginRequest, request: Request, response: Response, db: Db) -> dict:
     settings = get_settings()
-    email = payload.email.lower().strip()
+    identifier = payload.identifier.lower().strip()
+    user = db.scalar(select(User).where(or_(func.lower(User.email) == identifier, func.lower(User.username) == identifier)))
     ip = request.client.host if request.client else "unknown"
-    identity_hash = stable_digest(email)
+    # Both login identifiers share the same account-level failure limit.
+    identity_hash = stable_digest(f"user:{user.id}" if user else f"identifier:{identifier}")
     ip_hash = stable_digest(ip)
     cutoff = utcnow() - timedelta(minutes=15)
     failures = db.scalar(
@@ -51,17 +54,16 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Db) -
         )
     ) or 0
     if failures >= 8:
-        record_audit(db, "login_rate_limited", request=request, details={"email": email}, success=False)
+        record_audit(db, "login_rate_limited", request=request, details={"identifier": identifier}, success=False)
         db.commit()
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Zu viele Anmeldeversuche. Bitte später erneut versuchen.")
 
-    user = db.scalar(select(User).where(func.lower(User.email) == email))
     valid = bool(user and user.is_active and verify_password(payload.password, user.password_hash))
     db.add(LoginAttempt(identity_hash=identity_hash, ip_hash=ip_hash, success=valid))
     if not valid:
-        record_audit(db, "login_failed", request=request, details={"email": email}, success=False)
+        record_audit(db, "login_failed", request=request, details={"identifier": identifier}, success=False)
         db.commit()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="E-Mail-Adresse oder Passwort ist ungültig.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzername, E-Mail-Adresse oder Passwort ist ungültig.")
 
     assert user is not None
     token, csrf = create_session(db, user, ip, request.headers.get("user-agent"))

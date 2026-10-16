@@ -1,6 +1,7 @@
 export type User = {
   id: string
   email: string
+  username?: string | null
   display_name: string
   is_active: boolean
   must_change_password: boolean

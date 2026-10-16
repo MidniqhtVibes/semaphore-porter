@@ -1,4 +1,10 @@
+# Local configuration and credentials
 .env
+.env.*
+!.env.example
+*.dump
+
+# Python environments and caches
 .venv/
 .uv-cache/
 __pycache__/
@@ -8,16 +14,25 @@ __pycache__/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
-backend/.env
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
-postgres-data/
+
+# Dependencies and generated builds
+node_modules/
+*.tsbuildinfo
 dist/
-src/bin/
-src/obj/
+build/
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+
+# Local tools, database files and editor metadata
+postgres-data/
 *.user
 *.suo
 .DS_Store
+Thumbs.db
 
 .tools/

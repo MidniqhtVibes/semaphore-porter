@@ -2,7 +2,7 @@
 
 Webportal zur mandantenfähigen Verwaltung von Semaphore-UI-Projekten und zur kontrollierten Ausführung freigegebener Task Templates. Administratoren verwalten Verbindungen, Projektvorlagen, Tenants, Benutzer, Gruppen, Policies und Berechtigungen. Portalbenutzer sehen nur ihre zugewiesenen Tenants und Tasks.
 
-Die bisherige Windows/WPF-Anwendung bleibt in `src/` erhalten. Der produktive Zielstack liegt in `frontend/`, `backend/` und `docker-compose.yml`.
+Dieses Repository enthält ausschließlich die Web-App in `frontend/`, `backend/` und `docker-compose.yml`. Die frühere Windows-Anwendung einschließlich EXE-/DLL-Artefakten, Desktop-Tests und Windows-Build wurde entfernt; frühere Stände bleiben über die Git-Historie erreichbar.
 
 ## Architektur
 
@@ -36,6 +36,7 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 
 - Rollen `system_admin`, `tenant_admin`, `operator` und `viewer`
 - Benutzer, Gruppen, Tenant-Mitgliedschaften und Task-Berechtigungen
+- Anmeldung mit Benutzername oder E-Mail-Adresse; eindeutige Benutzernamen in der Benutzerverwaltung
 - verschlüsselte Speicherung des Semaphore-Service-Tokens
 - Semaphore-Verbindungstest, Projektauswahl, Backup-Export und Restore-basierter Tenant-Wizard
 - idempotente Creation Jobs mit explizitem Zustand bei unklarem Restore-Ergebnis
@@ -45,6 +46,9 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 - Task-Start, Status, Live-Ausgabe per Server-Sent Events, Abbruch und Historie
 - Audit-Log, Login-Limitierung, Argon2-Passwörter, serverseitige Sessions und CSRF-Schutz
 - Alembic-Migrationen und persistentes PostgreSQL-Volume
+- GitHub Black, SIT Hell/Dunkel und importierbare Unternehmensdesigns; festes Portal-Tor als Website-Symbol
+
+Der aktuelle Release-Zwischenstand ist in [CHANGELOG.md](CHANGELOG.md) dokumentiert. Die noch ausstehende Abnahme gegen die konkrete Semaphore-Instanz steht im [Implementierungsstatus](docs/IMPLEMENTATION_STATUS.md).
 
 ## Versionen
 
