@@ -5,7 +5,7 @@ import respx
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import CreationJob, CreationStatus, ProjectTemplate, SemaphoreSettings, Tenant
+from app.models import CreationJob, CreationStatus, ProjectTemplate, SemaphoreSettings, Tenant, User
 from app.security import encrypt_secret
 
 
@@ -79,3 +79,48 @@ def test_copy_rejects_source_identity(client, admin_headers):
         client.put(f"/api/admin/creation-jobs/{job['id']}", headers=admin_headers, json={"draft_data": {"project_name": "New", "tenant_slug": "source-a", "runtime_scope_id": "source-scope", "task_template_names": ["deploy"], "environment_names": ["Semaphore-Defaults"]}})
         response = client.post(f"/api/admin/creation-jobs/{job['id']}/validate", headers=admin_headers)
         assert len(response.json()["validation_result"]["errors"]) == 2
+
+
+def test_multiple_choices_reach_tenant_policy_and_task_start(client, admin_headers):
+    source_id = seed_source()
+    choices = {"application_id": ["azubiorga", "wordpress", "other"], "database_type": ["postgresql", "mariadb", "mysql"], "dataset_id": ["none", "smoke-v1", "private-data"]}
+    surveys = [{"name": name, "type": "enum", "values": [{"value": value} for value in values]} for name, values in choices.items()]
+    with SessionLocal() as db:
+        import uuid
+        source = db.get(ProjectTemplate, uuid.UUID(source_id))
+        source.backup_document = {**source.backup_document, "templates": [{**source.backup_document["templates"][0], "survey_vars": surveys}]}
+        operator_id = str(db.scalar(select(User).where(User.email == "operator@example.com")).id)
+        db.commit()
+    with respx.mock as mock:
+        mock.get("https://semaphore.example/api/projects").respond(200, json=[])
+        restore = mock.post("https://semaphore.example/api/projects/restore").respond(201, json={"id": 77})
+        # Even if a remote response returns the full catalog, policies remain restricted.
+        mock.get("https://semaphore.example/api/project/77/templates").respond(200, json=[{"id": 10, "name": "deploy", "survey_vars": surveys}])
+        start = mock.post("https://semaphore.example/api/project/77/tasks").respond(201, json={"id": 100, "status": "waiting"})
+        job = client.post("/api/admin/creation-jobs", headers=admin_headers, json={"idempotency_key": "multiple-choices-creation", "project_template_id": source_id}).json()
+        draft = {"project_name": "Multi Tenant", "display_name": "Multi Tenant", "tenant_slug": "multi-a", "runtime_scope_id": "multi-scope", "application_ids": ["wordpress", "azubiorga"], "database_types": ["mariadb", "postgresql"], "dataset_ids": ["smoke-v1", "none"], "wizard_step": 6, "task_template_names": ["deploy"], "environment_names": ["Semaphore-Defaults"], "access_assignments": [{"user_id": operator_id, "role_code": "operator"}], "activate_after_creation": True}
+        response = client.put(f"/api/admin/creation-jobs/{job['id']}", headers=admin_headers, json={"draft_data": draft})
+        assert response.status_code == 200, response.text
+        assert response.json()["draft_data"]["wizard_step"] == 6
+        validated = client.post(f"/api/admin/creation-jobs/{job['id']}/validate", headers=admin_headers)
+        assert validated.json()["status"] == "validated", validated.text
+        response = client.post(f"/api/admin/creation-jobs/{job['id']}/execute", headers=admin_headers, json={"confirm_project_creation": True})
+        assert response.status_code == 200, response.text
+        tenant_id = response.json()["tenant_id"]
+        tenant = client.get(f"/api/admin/tenants/{tenant_id}").json()
+        assert tenant["application_ids"] == ["wordpress", "azubiorga"]
+        assert tenant["database_types"] == ["mariadb", "postgresql"]
+        assert tenant["dataset_ids"] == ["smoke-v1", "none"]
+        task_id = tenant["task_templates"][0]["id"]
+        assert restore.call_count == 1
+        login = client.post("/api/auth/login", json={"email": "operator@example.com", "password": "correct-horse-battery"})
+        headers = {"X-CSRF-Token": login.json()["csrf_token"]}
+        form = client.get(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/form").json()
+        fields = {field["name"]: field for field in form["fields"]}
+        assert fields["application_id"]["allowed_values"] == ["wordpress", "azubiorga"]
+        assert fields["database_type"]["allowed_values"] == ["mariadb", "postgresql"]
+        path = f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/runs"
+        assert client.post(path, headers=headers, json={"variables": {"database_type": "mysql"}}).status_code == 422
+        assert start.call_count == 0
+        assert client.post(path, headers=headers, json={"variables": {"application_id": "azubiorga", "database_type": "postgresql", "dataset_id": "none"}}).status_code == 201
+        assert start.call_count == 1

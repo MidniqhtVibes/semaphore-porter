@@ -5,6 +5,8 @@ import json
 import re
 from typing import Any
 
+from app.tenant_options import SELECTION_FIELDS, allowed_options, selected_options
+
 
 TENANT_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}$")
 TENANT_VARIABLES = {"tenant_slug", "runtime_scope_id"}
@@ -121,6 +123,33 @@ def prepare_backup(source: dict[str, Any], draft: dict[str, Any]) -> dict[str, A
         raise BackupValidationError("Mindestens ein Task Template muss ausgewählt sein.")
     result["templates"] = templates
 
+    catalog = survey_catalog(result)
+    for name, plural in SELECTION_FIELDS.items():
+        selected = selected_options(draft, name)
+        if selected is None:
+            continue
+        available = catalog.get(name, [])
+        # Legacy scalar fields may belong to a fixed variable group without a survey.
+        if draft.get(plural) is None and not available:
+            continue
+        if available and not selected:
+            raise BackupValidationError(f"{name}: Mindestens einen Wert in Schritt 3 auswählen.")
+        unknown = [value for value in selected if value not in available]
+        if unknown:
+            raise BackupValidationError(f"{name}: Werte fehlen in den ausgewählten Task-Surveys: {', '.join(unknown)}")
+        for template in templates:
+            for field in template.get("survey_vars") or []:
+                if not isinstance(field, dict) or field.get("name") != name:
+                    continue
+                values = field.get("values") or []
+                if not values:
+                    raise BackupValidationError(f"Task {template.get('name')}: {name} benötigt eine Survey-Auswahlliste.")
+                allowed = allowed_options(draft, name, [item.get("value") for item in values if isinstance(item, dict) and "value" in item])
+                if not allowed:
+                    raise BackupValidationError(f"Task {template.get('name')}: Keine freigegebene Auswahl für {name} vorhanden.")
+                field["values"] = [item for item in values if isinstance(item, dict) and item.get("value") in allowed]
+                field["default_value"] = allowed[0]
+
     chosen_groups = set(draft.get("environment_names") or [])
     environments = [item for item in result.get("environments", []) if isinstance(item, dict)]
     if "environment_names" in draft:
@@ -147,9 +176,12 @@ def prepare_backup(source: dict[str, Any], draft: dict[str, Any]) -> dict[str, A
     # Mandantenspezifische Werte gewinnen bei Konflikten immer gegen Presets.
     tenant_values["tenant_slug"] = tenant_slug
     tenant_values["runtime_scope_id"] = scope
-    for key in ("application_id", "database_type", "dataset_id", "ttl_minutes"):
-        if key in draft and draft[key] not in (None, ""):
-            tenant_values[key] = draft[key]
+    for key in SELECTION_FIELDS:
+        selected = selected_options(draft, key)
+        if selected:
+            tenant_values[key] = selected[0]
+    if draft.get("ttl_minutes") is not None:
+        tenant_values["ttl_minutes"] = draft["ttl_minutes"]
     default_group["json"] = _compact_json(tenant_values)
     if not defaults:
         environments.append(default_group)
@@ -177,6 +209,11 @@ def prepare_backup(source: dict[str, Any], draft: dict[str, Any]) -> dict[str, A
         by_name = {item.get("name"): item for item in surveys}
         for key, value in tenant_values.items():
             if key in by_name:
+                if key in SELECTION_FIELDS:
+                    # A task may support only a subset of the tenant-wide choices.
+                    allowed = [item.get("value") for item in by_name[key].get("values") or [] if isinstance(item, dict)]
+                    if allowed and value not in allowed:
+                        continue
                 by_name[key]["default_value"] = value if isinstance(value, (str, list)) else json.dumps(value)
 
     repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]

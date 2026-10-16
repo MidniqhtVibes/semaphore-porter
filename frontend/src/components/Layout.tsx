@@ -2,11 +2,12 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Activity, AppWindow, Boxes, ChevronDown, CircleUserRound, ClipboardList, FileClock,
-  Gauge, KeyRound, LayoutDashboard, ListChecks, Menu, PackageOpen, PanelLeftClose,
-  ScrollText, ServerCog, ShieldCheck, Users, Workflow, X,
+  Gauge, LayoutDashboard, ListChecks, Menu, PackageOpen, PanelLeftClose,
+  ScrollText, ServerCog, ShieldCheck, Users, Workflow, X, Palette,
 } from 'lucide-react'
 import { useAuth } from '../auth'
 import { Button } from './ui'
+import { BrandMark } from './BrandMark'
 
 const adminItems = [
   ['/admin', 'Dashboard', LayoutDashboard],
@@ -21,6 +22,7 @@ const adminItems = [
   ['/admin/tasks', 'Task-Überwachung', Activity],
   ['/admin/audit', 'Audit-Log', ScrollText],
   ['/admin/semaphore', 'Semaphore', ServerCog],
+  ['/admin/designs', 'Designs', Palette],
 ] as const
 
 const portalItems = [
@@ -29,6 +31,7 @@ const portalItems = [
   ['/portal/laufende-tasks', 'Laufende Tasks', Activity],
   ['/portal/historie', 'Task-Historie', FileClock],
   ['/portal/konto', 'Mein Konto', CircleUserRound],
+  ['/portal/designs', 'Designs', Palette],
 ] as const
 
 export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children: ReactNode }) {
@@ -38,7 +41,7 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
   const items = mode === 'admin' ? adminItems : portalItems
   return <div className="shell">
     <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
-      <div className="brand"><div className="brand-mark"><KeyRound size={21}/></div><div><strong>Semaphore</strong><span>Tenant Portal</span></div><button className="mobile-close" onClick={() => setOpen(false)}><X/></button></div>
+      <div className="brand"><BrandMark/><div><strong>Semaphore</strong><span>Tenant Portal</span></div><button className="mobile-close" onClick={() => setOpen(false)}><X/></button></div>
       <div className="mode-label">{mode === 'admin' ? 'ADMINPORTAL' : 'BENUTZERPORTAL'}</div>
       <nav>{items.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === `/${mode}`} onClick={() => setOpen(false)} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><Icon size={18}/><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-bottom">

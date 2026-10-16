@@ -60,6 +60,7 @@ from app.schemas import (
 from app.security import encrypt_secret, hash_password
 from app.semaphore_client import SemaphoreClient, SemaphoreConnection, SemaphoreError
 from app.services import contains_secret, semaphore_client_from_db
+from app.tenant_options import SELECTION_FIELDS, allowed_options, selected_options
 
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
@@ -85,6 +86,9 @@ def tenant_json(tenant: Tenant, *, detail: bool = False) -> dict[str, Any]:
         "display_name": tenant.display_name,
         "description": tenant.description,
         "application_id": tenant.application_id,
+        "application_ids": tenant.application_ids or ([tenant.application_id] if tenant.application_id else []),
+        "database_types": tenant.database_types,
+        "dataset_ids": tenant.dataset_ids,
         "status": tenant.status.value,
         "configuration_complete": tenant.configuration_complete,
         "created_at": tenant.created_at,
@@ -643,11 +647,14 @@ async def execute_creation_job(
         tenant = None
     if tenant is None:
         draft = job.draft_data
+        catalog = survey_catalog(job.prepared_backup)
+        selections = {plural: selected_options(draft, name) or catalog.get(name, []) for name, plural in SELECTION_FIELDS.items()}
         tenant = Tenant(
             tenant_slug=str(draft["tenant_slug"]),
             display_name=str(draft.get("display_name") or draft["tenant_slug"]),
             description=str(draft.get("description") or ""),
-            application_id=str(draft.get("application_id") or "") or None,
+            application_id=next(iter(selections["application_ids"]), None),
+            **selections,
             status=TenantStatus.DRAFT,
         )
         db.add(tenant)
@@ -679,7 +686,14 @@ async def execute_creation_job(
 
         selected_names = set(job.draft_data.get("task_template_names") or [])
         if item.name in selected_names and job.draft_data.get("create_default_policies", True):
-            rules = _default_policy_rules(item.survey_schema, job.draft_data)
+            try:
+                rules = _default_policy_rules(item.survey_schema, job.draft_data)
+            except BackupValidationError as exc:
+                # A changed remote survey must never broaden the tenant's selection.
+                result = dict(job.validation_result or {})
+                result["warnings"] = [*(result.get("warnings") or []), f"Task {item.name} bleibt deaktiviert: {exc}"]
+                job.validation_result = result
+                continue
             if rules or not item.survey_schema:
                 policy = item.policy or TaskPolicy(task_template_id=item.id, name=f"{item.name} · Tenant Policy")
                 policy.variable_rules.clear()
@@ -754,17 +768,16 @@ def _default_policy_rules(survey: list[dict[str, Any]], draft: dict[str, Any]) -
     for name, value in fixed.items():
         if name in fields and value not in (None, ""):
             rules.append({"variable_name": name, "title": str(fields[name].get("title") or name), "help_text": str(fields[name].get("description") or "Serverseitig festgelegt"), "rule_type": "fixed", "fixed_value": value, "is_required": True})
-    for name in ("application_id", "database_type", "existing_environment_policy"):
+    for name in ("application_id", "database_type", "dataset_id", "existing_environment_policy"):
         if name in fields:
-            allowed = _survey_allowed(fields[name])
+            available = _survey_allowed(fields[name])
+            allowed = allowed_options(draft, name, available)
+            if selected_options(draft, name) is not None and not allowed:
+                raise BackupValidationError(f"Keine freigegebene Survey-Auswahl für {name} vorhanden.")
             if allowed:
-                requested = draft.get(name)
+                selected = selected_options(draft, name)
+                requested = selected[0] if selected else draft.get(name)
                 rules.append({"variable_name": name, "title": str(fields[name].get("title") or name), "rule_type": "enum", "allowed_values": allowed, "default_value": requested if requested in allowed else fields[name].get("default_value") if fields[name].get("default_value") in allowed else allowed[0], "is_required": True})
-    if "dataset_id" in fields:
-        allowed = _survey_allowed(fields["dataset_id"])
-        requested = draft.get("dataset_id")
-        if allowed:
-            rules.append({"variable_name": "dataset_id", "title": str(fields["dataset_id"].get("title") or "Testdatensatz"), "help_text": str(fields["dataset_id"].get("description") or "Freigegebener Testdatensatz"), "rule_type": "enum", "allowed_values": allowed, "default_value": requested if requested in allowed else allowed[0], "is_required": True})
     if "ttl_minutes" in fields:
         try:
             default_ttl = int(draft.get("ttl_minutes") or 60)

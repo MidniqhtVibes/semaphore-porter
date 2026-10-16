@@ -132,6 +132,9 @@ class Tenant(Base, TimestampMixin):
     display_name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text, default="")
     application_id: Mapped[str | None] = mapped_column(String(160))
+    application_ids: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    database_types: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    dataset_ids: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     status: Mapped[TenantStatus] = mapped_column(
         Enum(TenantStatus, name="tenant_status", native_enum=False), default=TenantStatus.DRAFT, index=True
     )

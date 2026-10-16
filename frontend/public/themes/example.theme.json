@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "meine-firma",
+  "name": "Meine Firma",
+  "description": "Ein eigenes Design auf Basis von GitHub Black.",
+  "base": "github-dark",
+  "font": "system",
+  "radius": 6,
+  "colors": {
+    "accent": "#b6a4ff",
+    "accent-hover": "#d2c6ff",
+    "accent-soft": "#b6a4ff1a",
+    "accent-border": "#b6a4ff66",
+    "nav-indicator": "#b6a4ff",
+    "primary": "#b6a4ff",
+    "primary-hover": "#d2c6ff",
+    "primary-border": "#b6a4ff",
+    "on-primary": "#161b22"
+  }
+}

@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { AuthProvider } from '../auth'
+import { ThemeProvider, THEME_STORAGE_KEY } from '../designs/ThemeProvider'
 
 const admin = { id:'1', email:'admin@example.com', display_name:'Admin', is_active:true, must_change_password:false, roles:['system_admin'] }
 const operator = { ...admin, id:'2', email:'operator@example.com', display_name:'Operator', roles:['operator'] }
@@ -12,12 +13,108 @@ const json = (value: unknown, status=200) => Promise.resolve(new Response(JSON.s
 
 function renderApp() {
   const client = new QueryClient({ defaultOptions:{ queries:{ retry:false }, mutations:{ retry:false } } })
-  return render(<QueryClientProvider client={client}><BrowserRouter><AuthProvider><App/></AuthProvider></BrowserRouter></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><BrowserRouter><ThemeProvider><AuthProvider><App/></AuthProvider></ThemeProvider></BrowserRouter></QueryClientProvider>)
 }
 
-beforeEach(() => { vi.restoreAllMocks(); window.history.replaceState({}, '', '/') })
+beforeEach(() => { vi.restoreAllMocks(); localStorage.clear(); window.history.replaceState({}, '', '/') })
 
 describe('Portal-Flows', () => {
+  it('speichert die Designwahl und übernimmt sie auch in die Benutzeransicht',async()=>{
+    window.history.replaceState({}, '', '/admin/designs')
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>{
+      if(String(input).endsWith('/api/auth/me'))return json(admin)
+      if(String(input).endsWith('/api/auth/csrf'))return json({csrf_token:'csrf'})
+      return json([])
+    }))
+    const view=renderApp(), user=userEvent.setup()
+    await user.click(await screen.findByRole('button',{name:'SIT Hell verwenden'}))
+    expect(document.documentElement).toHaveAttribute('data-theme','sit-light')
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(screen.getByRole('img',{name:'Südwestfalen-IT'})).toHaveAttribute('src','/branding/sit-logo.png')
+    expect(JSON.parse(localStorage.getItem(THEME_STORAGE_KEY)! ).selected).toBe('sit-light')
+    view.unmount()
+    window.history.replaceState({}, '', '/portal/designs')
+    renderApp()
+    expect(await screen.findByRole('button',{name:'SIT Hell ist aktiv'})).toBeDisabled()
+    expect(screen.getByRole('link',{name:'Designs'})).toHaveAttribute('href','/portal/designs')
+    await user.click(screen.getByRole('button',{name:'GitHub Black verwenden'}))
+    expect(document.documentElement).toHaveAttribute('data-theme','github-dark')
+    expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#0d1117')
+    expect(screen.queryByRole('img',{name:'Südwestfalen-IT'})).not.toBeInTheDocument()
+  })
+
+  it('speichert das Website-Symbol unabhängig vom Design und aktualisiert alle Verknüpfungen',async()=>{
+    window.history.replaceState({}, '', '/admin/designs')
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).endsWith('/api/auth/me')?json(admin):json({csrf_token:'csrf'})))
+    const view=renderApp(), user=userEvent.setup()
+    await user.click(await screen.findByRole('button',{name:/Mandanten-Verbund/}))
+    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/tenants.svg')
+    expect(document.getElementById('portal-manifest')).toHaveAttribute('href','/manifests/tenants.webmanifest')
+    await user.click(screen.getByRole('button',{name:'SIT Dunkel verwenden'}))
+    expect(document.getElementById('portal-favicon')).toHaveAttribute('href','/icons/tenants.svg')
+    expect(document.getElementById('portal-touch-icon')).toHaveAttribute('href','/icons/tenants-180.png')
+    view.unmount()
+    renderApp()
+    expect(await screen.findByRole('button',{name:/Mandanten-Verbund/})).toHaveAttribute('aria-pressed','true')
+    expect(document.documentElement).toHaveAttribute('data-theme','sit-dark')
+  })
+
+  it('importiert ein eigenes Design und behält bei fehlerhaftem Import die aktive Variante',async()=>{
+    window.history.replaceState({}, '', '/admin/designs')
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).endsWith('/api/auth/me')?json(admin):json({csrf_token:'csrf'})))
+    renderApp()
+    const user=userEvent.setup()
+    const input=await screen.findByLabelText(/Design-Datei/)
+    const definition={schema_version:1,id:'firma-a',name:'Firma A',base:'github-dark',colors:{accent:'#b6a4ff'}}
+    const file=new File([JSON.stringify(definition)],'firma.theme.json',{type:'application/json'})
+    Object.defineProperty(file,'text',{value:async()=>JSON.stringify(definition)})
+    await user.upload(input,file)
+    expect(await screen.findByRole('button',{name:'Firma A ist aktiv'})).toBeDisabled()
+    expect(document.documentElement).toHaveAttribute('data-theme','custom:firma-a')
+    const bad={...definition,colors:{bg:'url(https://example.com/track)'}}
+    const invalid=new File([JSON.stringify(bad)],'invalid.json',{type:'application/json'})
+    Object.defineProperty(invalid,'text',{value:async()=>JSON.stringify(bad)})
+    await user.upload(input,invalid)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Hex-Farbwert')
+    expect(document.documentElement).toHaveAttribute('data-theme','custom:firma-a')
+    await user.click(screen.getByRole('button',{name:'Firma A entfernen'}))
+    expect(document.documentElement).toHaveAttribute('data-theme','github-dark')
+    expect(screen.queryByRole('heading',{name:'Firma A'})).not.toBeInTheDocument()
+  })
+
+  it('behält besuchte Schritte und speichert mehrere Anwendungen, Provider und Datensätze',async()=>{
+    window.history.replaceState({}, '', '/admin/tenant-erstellen')
+    let saved:Record<string,unknown>|undefined
+    const draft={project_name:'Multi',tenant_slug:'multi-a',runtime_scope_id:'multi-scope',display_name:'Multi',wizard_step:3,application_ids:['azubiorga'],database_types:['postgresql'],dataset_ids:['none'],task_template_names:['deploy'],environment_names:['Semaphore-Defaults']}
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,options?:RequestInit)=>{
+      const url=String(input)
+      if(url.endsWith('/api/auth/me'))return json(admin)
+      if(url.endsWith('/api/auth/csrf'))return json({csrf_token:'csrf'})
+      if(url.endsWith('/project-templates'))return json([{id:'source',name:'Quelle',survey_catalog:{application_id:['azubiorga','wordpress'],database_type:['none','postgresql','mariadb','mysql'],dataset_id:['none','public-v1','mariadb-smoke-v1']},task_templates:['deploy'],environments:['Semaphore-Defaults']}])
+      if(url.endsWith('/creation-jobs'))return json([{id:'job-multi',project_template_id:'source',status:'draft',draft_data:draft}])
+      if(url.endsWith('/creation-jobs/job-multi')){saved=JSON.parse(String(options?.body)).draft_data as Record<string,unknown>;return json({id:'job-multi',project_template_id:'source',status:'draft',draft_data:saved})}
+      if(url.endsWith('/resources'))return json({templates:[{name:'deploy'}],environments:[{name:'Semaphore-Defaults'}],repositories:[],inventories:[]})
+      return json([])
+    }))
+    renderApp()
+    const user=userEvent.setup()
+    await user.click(await screen.findByRole('button',{name:'Fortsetzen'}))
+    await screen.findByRole('heading',{name:'Task Templates und Ressourcen'})
+    await user.click(screen.getByRole('button',{name:'Zurück'}))
+    const nav=screen.getByLabelText('Wizard-Schritte')
+    expect(within(nav).getByRole('button',{name:/3\. Anwendung/})).toHaveAttribute('aria-current','step')
+    expect(within(nav).getByRole('button',{name:/4\. Ressourcen/})).toBeEnabled()
+    expect(within(nav).getByRole('button',{name:/4\. Ressourcen/})).toHaveClass('visited')
+    await user.click(within(screen.getByRole('region',{name:'Anwendungen'})).getByRole('checkbox',{name:'wordpress'}))
+    await user.click(screen.getByRole('button',{name:'Alle Datenbankprovider auswählen'}))
+    await user.click(screen.getByRole('button',{name:'Alle Testdatensätze auswählen'}))
+    await user.click(screen.getByRole('button',{name:/Speichern & weiter/}))
+    await waitFor(()=>expect(saved?.application_ids).toEqual(['azubiorga','wordpress']))
+    expect(saved?.database_types).toEqual(['none','postgresql','mariadb','mysql'])
+    expect(saved?.dataset_ids).toEqual(['none','public-v1','mariadb-smoke-v1'])
+    expect(saved?.wizard_step).toBe(3)
+  })
+
   it('beginnt nach einem Vorlagenwechsel einen neuen Creation Job', async()=>{
     window.history.replaceState({}, '', '/admin/tenant-erstellen')
     const created:string[]=[]

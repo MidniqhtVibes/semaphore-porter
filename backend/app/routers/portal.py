@@ -59,6 +59,7 @@ def _tenant_payload(tenant: Tenant) -> dict[str, Any]:
         "display_name": tenant.display_name,
         "description": tenant.description,
         "application_id": tenant.application_id,
+        "application_ids": tenant.application_ids or ([tenant.application_id] if tenant.application_id else []),
         "status": tenant.status.value,
     }
 

@@ -1,6 +1,10 @@
 from copy import deepcopy
 
+import json
+import pytest
+
 from app.project_backup import prepare_backup, survey_catalog, validate_backup
+from app.project_backup import BackupValidationError
 
 
 SOURCE = {
@@ -103,4 +107,42 @@ def test_initial_policy_matches_stack_and_keeps_identity_outside_survey():
 
 def test_survey_catalog_uses_only_actual_values():
     assert survey_catalog(SOURCE) == {"dataset_id": ["none", "smoke-v1"]}
+
+
+def test_multiple_options_filter_surveys_and_keep_scalar_defaults():
+    source = deepcopy(SOURCE)
+    source["templates"][0]["survey_vars"] += [
+        {"name": name, "values": [{"value": value} for value in values]}
+        for name, values in {"application_id": ["azubiorga", "wordpress", "other"], "database_type": ["postgresql", "mariadb", "mysql"]}.items()
+    ]
+    draft = {"project_name": "New", "tenant_slug": "new-a", "runtime_scope_id": "scope-a", "application_ids": ["wordpress", "azubiorga"], "database_types": ["mariadb", "postgresql"], "dataset_ids": ["smoke-v1", "none"]}
+    prepared = prepare_backup(source, draft)
+    variables = json.loads(next(group["json"] for group in prepared["environments"] if group["name"] == "Semaphore-Defaults"))
+    assert variables["application_id"] == "wordpress"
+    assert variables["database_type"] == "mariadb"
+    assert variables["dataset_id"] == "smoke-v1"
+    assert not any(isinstance(variables[name], list) for name in ("application_id", "database_type", "dataset_id"))
+    catalog = survey_catalog(prepared)
+    assert catalog["application_id"] == ["azubiorga", "wordpress"]
+    assert catalog["database_type"] == ["postgresql", "mariadb"]
+    assert source["templates"][0]["survey_vars"][-1]["values"][-1]["value"] == "mysql"
+    from app.routers.admin import _default_policy_rules
+    rules = {rule["variable_name"]: rule for rule in _default_policy_rules(source["templates"][0]["survey_vars"], draft)}
+    assert rules["application_id"]["allowed_values"] == ["wordpress", "azubiorga"]
+    assert rules["dataset_id"]["default_value"] == "smoke-v1"
+
+
+@pytest.mark.parametrize("selection", [[], ["not-in-source"]])
+def test_explicit_empty_or_unknown_choices_fail_closed(selection):
+    with pytest.raises(BackupValidationError, match="dataset_id"):
+        prepare_backup(SOURCE, {"project_name": "New", "tenant_slug": "new-a", "runtime_scope_id": "scope-a", "dataset_ids": selection})
+
+
+def test_each_task_keeps_a_supported_default_for_its_subset():
+    source = deepcopy(SOURCE)
+    source["templates"].append({**deepcopy(source["templates"][0]), "name": "second", "survey_vars": [{"name": "dataset_id", "values": [{"value": "other-data"}]}]})
+    prepared = prepare_backup(source, {"project_name": "New", "tenant_slug": "new-a", "runtime_scope_id": "scope-a", "dataset_ids": ["smoke-v1", "other-data"]})
+    assert prepared["templates"][1]["survey_vars"][0]["default_value"] == "other-data"
+    with pytest.raises(BackupValidationError, match="second"):
+        prepare_backup(source, {"project_name": "New", "tenant_slug": "new-a", "runtime_scope_id": "scope-a", "dataset_ids": ["smoke-v1"]})
 

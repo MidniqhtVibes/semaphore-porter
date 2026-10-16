@@ -19,6 +19,7 @@ Die übrigen Variablen und Ressourcen lassen sich als JSON bearbeiten. Bei Task 
 
 1. Quellprojekt öffnen und **Als neuen Tenant duplizieren** wählen. Dabei wird eine unveränderte Projektvorlage gespeichert.
 2. Im Wizard neuen Projektnamen, Tenant-ID und Runtime-Scope ausdrücklich festlegen. Tenant-ID und Scope müssen sich von den Werten der Quell-Defaults unterscheiden.
+   In Schritt 3 mehrere Anwendungen, Datenbankprovider und Testdatensätze freigeben. „Alle auswählen“ übernimmt alle vorhandenen Survey-Werte; pro Liste lässt sich eine Vorgabe festlegen. Fehlende Optionen zunächst im Quellprojekt ergänzen und die Vorlage neu importieren.
 3. Im Ressourcenschritt Variablengruppen, Repository/Branch, Inventories und Template-Zuordnungen auf der Kopie bearbeiten. **Ressourcen übernehmen** anklicken und danach die Auswahl prüfen.
 4. Presets und Portalzugriffe zuweisen, validieren und die Projektanlage bestätigen.
 5. Im erstellten Projekt SSH-/Vault-Zugänge neu setzen, die Zuordnungen und Policies prüfen und den Portal-Tenant anschließend aktivieren.
@@ -27,11 +28,17 @@ Der Kopiervorgang schreibt beide Kennungen in eine einzelne Defaults-Gruppe, ent
 
 Gespeicherte Entwürfe können auf der ersten Wizard-Seite fortgesetzt werden. Ein Vorlagenwechsel beginnt einen neuen Vorgang. Nach einem unklaren Restore wird zunächst nach dem exakten Projektnamen gesucht; ein erneuter Restore bei nachgewiesenem Fehlen benötigt eine separate Bestätigung. Während eines noch laufenden Restore-Aufrufs ist keine sofortige Wiederholung erlaubt. Gleichnamige Projekte nach einem Timeout müssen vor der Übernahme auch betrieblich eindeutig dem Vorgang zugeordnet sein.
 
+Bereits erreichte Schritte bleiben auch beim Zurückgehen markiert und zugänglich. Der erreichte Fortschritt wird im Entwurf gespeichert. Änderungen machen die bisherige Validierung ungültig; beim erneuten Aufrufen der Validierung wird der aktuelle Entwurf gespeichert und geprüft.
+
+Die Auswahl in Schritt 3 bestimmt die später erlaubten Alternativen. Beim Restore werden die Survey-Auswahllisten der ausgewählten Tasks eingeschränkt und ihre Vorgaben gesetzt. Die Initial-Policies erlauben dieselben Werte im Portal. In `Semaphore-Defaults` stehen weiterhin einzelne Werte für `application_id`, `database_type` und `dataset_id`; Ansible erwartet je Ausführung einen Wert. Listen werden nicht an diese skalaren Variablen übergeben. Der Wizard legt ein Projekt an und startet keinen Deployment-Task. Erst beim späteren Task-Start werden die gewählte Anwendung, ihr Provider und optional ihr Testdatensatz tatsächlich bereitgestellt beziehungsweise importiert.
+
+Die Auswahl muss in den ausgewählten Task-Surveys vorhanden sein. Hat ein Task keine Überschneidung mit einer Freigabeliste, blockiert die Validierung die Anlage. Ändert sich der Remote-Survey bis zur Registrierung unvereinbar, bleibt der betroffene Portal-Task deaktiviert. Bei deaktivierter Erzeugung von Initial-Policies müssen die Portal-Policies anschließend manuell konfiguriert werden.
+
 ## Stack-Variablen
 
 Die Initial-Policies berücksichtigen die Surveys des Projekts:
 
-- `application_id`, `database_type`, `existing_environment_policy` und `dataset_id`: erlaubte Werte aus dem jeweiligen Survey.
+- `application_id`, `database_type`, `dataset_id`: Schnittmenge der Wizard-Freigabe und der Werte des jeweiligen Surveys; `existing_environment_policy`: Werte aus dem Survey.
 - `ttl_minutes`: 5–1440 Minuten entsprechend dem aktuellen Deployment-Stack.
 - `host_port`: automatisch `0` zur Portvergabe durch den Stack.
 - `application_release_id`, `pdf_api_release_id`: Survey-Enums oder validierte Image-Tags.

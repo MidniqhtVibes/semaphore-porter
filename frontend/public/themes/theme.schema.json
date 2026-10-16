@@ -1,0 +1,197 @@
+{
+    "$schema":  "https://json-schema.org/draft/2020-12/schema",
+    "title":  "Semaphore Porter Theme",
+    "description":  "Version 1: Design-Datei. Text- und Schaltflächenkontrast werden zusätzlich beim Import geprüft.",
+    "type":  "object",
+    "additionalProperties":  false,
+    "required":  [
+                     "schema_version",
+                     "id",
+                     "name",
+                     "base"
+                 ],
+    "properties":  {
+                       "schema_version":  {
+                                              "const":  1
+                                          },
+                       "id":  {
+                                  "type":  "string",
+                                  "pattern":  "^[a-z0-9][a-z0-9-]{1,47}$"
+                              },
+                       "name":  {
+                                    "type":  "string",
+                                    "minLength":  1,
+                                    "maxLength":  80
+                                },
+                       "description":  {
+                                           "type":  "string",
+                                           "maxLength":  240
+                                       },
+                       "base":  {
+                                    "enum":  [
+                                                 "github-dark",
+                                                 "sit-light",
+                                                 "sit-dark"
+                                             ]
+                                },
+                       "font":  {
+                                    "enum":  [
+                                                 "system",
+                                                 "sora"
+                                             ]
+                                },
+                       "radius":  {
+                                      "type":  "integer",
+                                      "minimum":  0,
+                                      "maximum":  16
+                                  },
+                       "colors":  {
+                                      "type":  "object",
+                                      "additionalProperties":  false,
+                                      "properties":  {
+                                                         "bg":  {
+                                                                    "type":  "string",
+                                                                    "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                },
+                                                         "header":  {
+                                                                        "type":  "string",
+                                                                        "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                    },
+                                                         "surface":  {
+                                                                         "type":  "string",
+                                                                         "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                     },
+                                                         "surface-alt":  {
+                                                                             "type":  "string",
+                                                                             "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                         },
+                                                         "surface-soft":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                          },
+                                                         "hover":  {
+                                                                       "type":  "string",
+                                                                       "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                   },
+                                                         "border":  {
+                                                                        "type":  "string",
+                                                                        "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                    },
+                                                         "border-soft":  {
+                                                                             "type":  "string",
+                                                                             "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                         },
+                                                         "text":  {
+                                                                      "type":  "string",
+                                                                      "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                  },
+                                                         "muted":  {
+                                                                       "type":  "string",
+                                                                       "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                   },
+                                                         "accent":  {
+                                                                        "type":  "string",
+                                                                        "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                    },
+                                                         "accent-hover":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                          },
+                                                         "accent-soft":  {
+                                                                             "type":  "string",
+                                                                             "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                         },
+                                                         "accent-border":  {
+                                                                               "type":  "string",
+                                                                               "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                           },
+                                                         "nav-indicator":  {
+                                                                               "type":  "string",
+                                                                               "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                           },
+                                                         "primary":  {
+                                                                         "type":  "string",
+                                                                         "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                     },
+                                                         "primary-hover":  {
+                                                                               "type":  "string",
+                                                                               "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                           },
+                                                         "primary-border":  {
+                                                                                "type":  "string",
+                                                                                "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                            },
+                                                         "on-primary":  {
+                                                                            "type":  "string",
+                                                                            "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                        },
+                                                         "success":  {
+                                                                         "type":  "string",
+                                                                         "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                     },
+                                                         "success-soft":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                          },
+                                                         "success-border":  {
+                                                                                "type":  "string",
+                                                                                "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                            },
+                                                         "warning":  {
+                                                                         "type":  "string",
+                                                                         "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                     },
+                                                         "warning-soft":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                          },
+                                                         "warning-border":  {
+                                                                                "type":  "string",
+                                                                                "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                            },
+                                                         "danger":  {
+                                                                        "type":  "string",
+                                                                        "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                    },
+                                                         "danger-soft":  {
+                                                                             "type":  "string",
+                                                                             "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                         },
+                                                         "danger-border":  {
+                                                                               "type":  "string",
+                                                                               "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                           },
+                                                         "danger-hover":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                          },
+                                                         "on-danger":  {
+                                                                           "type":  "string",
+                                                                           "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                       },
+                                                         "on-emphasis":  {
+                                                                             "type":  "string",
+                                                                             "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                         },
+                                                         "overlay":  {
+                                                                         "type":  "string",
+                                                                         "pattern":  "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+                                                                     },
+                                                         "selection":  {
+                                                                           "type":  "string",
+                                                                           "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                       },
+                                                         "on-selection":  {
+                                                                              "type":  "string",
+                                                                              "pattern":  "^#[0-9a-fA-F]{6}$"
+                                                                          }
+                                                     }
+                                  },
+                       "branding":  {
+                                        "enum":  [
+                                                     "neutral",
+                                                     "sit"
+                                                 ]
+                                    }
+                   }
+}

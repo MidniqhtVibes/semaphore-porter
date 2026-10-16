@@ -15,6 +15,9 @@ export type Tenant = {
   display_name: string
   description: string
   application_id?: string | null
+  application_ids?: string[]
+  database_types?: string[]
+  dataset_ids?: string[]
   status: 'draft' | 'active' | 'inactive' | 'deleted'
   configuration_complete?: boolean
   semaphore_project?: { id: number; name: string; last_verified_at?: string | null; last_error?: string | null } | null

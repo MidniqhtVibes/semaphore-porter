@@ -234,6 +234,10 @@ API-Schema im laufenden System: `https://<PORTAL_DOMAIN>/api/docs` beziehungswei
 
 ## Fehlerdiagnose
 
+Unter **Designs** lassen sich GitHub Black, SIT Hell, SIT Dunkel und eigene JSON-Varianten auswählen. Format und Bedienung stehen in [Designs und Unternehmensfarben](docs/DESIGNS.md).
+
+Die Einrichtung von Portal-Konten, Tenant-Zugriffen und Task-Rechten ist in [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md) beschrieben.
+
 - **Backend bleibt unhealthy:** `docker compose logs backend` prüfen; häufig fehlen Variablen oder der Fernet-Key ist ungültig.
 - **GHCR-Pull wird abgelehnt:** Package-Sichtbarkeit prüfen oder `docker login ghcr.io` mit einem Token mit Package-Leserecht wiederholen.
 - **Caddy erhält kein Zertifikat:** DNS-Auflösung, Firewall/NAT für TCP 80 und 443 sowie `docker compose --profile tls logs gateway` prüfen.
