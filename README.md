@@ -53,6 +53,8 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 
 Der aktuelle Release-Zwischenstand ist in [CHANGELOG.md](CHANGELOG.md) dokumentiert. Die noch ausstehende Abnahme gegen die konkrete Semaphore-Instanz steht im [Implementierungsstatus](docs/IMPLEMENTATION_STATUS.md).
 
+Die konkret durchzuführenden Prüfungen stehen im [Abnahmetestplan](docs/ABNAHMETESTS.md). Die [Bewertung einer automatischen Vault-Secret-Anlage](docs/VAULT_BEWERTUNG.md) beschreibt einen möglichen späteren Ausbau; diese Funktion ist derzeit nicht implementiert.
+
 ## Versionen
 
 Die Runtime-Images und direkten Abhängigkeiten sind fest versioniert:
