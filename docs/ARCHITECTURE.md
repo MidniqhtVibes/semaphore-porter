@@ -71,6 +71,14 @@ Vor dem externen Restore wird der Creation Job mit Idempotency-Key persistiert. 
 
 Die gespeicherte Projektvorlage bleibt unverändert. Tenant-spezifische Anpassungen erfolgen auf einer tiefen Kopie und werden vor dem Restore strukturell validiert.
 
+## Vault-Provisionierung
+
+Die optionale Integration verwendet einen separaten create-only-KV-v2-Client und einen aus Stack-Manifesten exportierten Katalog. Nur Systemadministratoren können die Verbindung, AppRole-Zugänge und zentralen Registry-Passwörter verwalten. `vault_settings` speichert die gesamte Konfiguration verschlüsselt mit dem vorhandenen Fernet-Key. API-Antworten enthalten nur öffentliche Konfiguration und Belegt-Flags.
+
+Creation Jobs speichern den öffentlichen Zielplan, Metadatenbelege und eine temporäre verschlüsselte Ausführungspayload. Eine Datenbank-Lease sperrt parallele Ausführungen desselben Jobs auch über Commit-Grenzen hinweg. Sämtliche Zielmetadaten werden vor dem ersten Write geprüft; `cas=0` verhindert Überschreiben bei konkurrierender Anlage. Vault und Semaphore bilden keine gemeinsame Transaktion. Bei unklaren Ergebnissen bleibt der Job angehalten, bis ein Administrator den tatsächlichen Ausgang geprüft hat. Nach vollständiger Anlage und Credential-Übergabe wird die Job-Payload gelöscht.
+
+Der Vault-Client folgt keinen Redirects, prüft TLS und schreibt keine Payloads oder Serverantworten in Fehlermeldungen. FastAPI-Validierungsfehler geben abgewiesene Eingabewerte nicht zurück. Vault-Policies, AppRoles und Secret-IDs werden vom Portal nicht erzeugt oder geändert. Details stehen in [VAULT_IMPLEMENTIERUNG.md](VAULT_IMPLEMENTIERUNG.md).
+
 ## Datenmodell
 
 Zentrale Entitäten sind `users`, `roles`, `groups`, `tenants`, `semaphore_projects`, `task_templates`, `task_policies`, `variable_rules`, `task_permissions`, `task_runs`, `creation_jobs`, `project_templates`, `presets`, `portal_sessions` und `audit_events`. Fremdschlüssel und Unique-/Check-Constraints sichern die wichtigsten Invarianten zusätzlich zur Anwendungsschicht ab.

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import timezone
+from datetime import timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
@@ -62,6 +62,8 @@ from app.semaphore_client import SemaphoreClient, SemaphoreConnection, Semaphore
 from app.services import contains_secret, semaphore_client_from_db
 from app.tenant_options import SELECTION_FIELDS, allowed_options, selected_options
 from app.usernames import suggest_username
+from app import vault_service
+from app.vault_client import VaultError
 
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
@@ -144,6 +146,9 @@ def creation_json(job: CreationJob) -> dict[str, Any]:
         "validation_result": job.validation_result,
         "semaphore_project_id": job.semaphore_project_id,
         "last_error": job.last_error,
+        "vault_plan": job.vault_plan,
+        "vault_progress": job.vault_progress,
+        "vault_values_saved": bool(job.encrypted_vault_payload),
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
@@ -509,6 +514,8 @@ def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, a
     job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
+    if job.encrypted_vault_payload or job.execution_started_at:
+        raise HTTPException(409, "Ein gestarteter Vorgang kann nicht mehr geändert werden; gespeicherte Werte zur Wiederaufnahme verwenden.")
     if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED}:
         raise HTTPException(status_code=409, detail="Dieser Erstellungsvorgang kann nicht mehr bearbeitet werden.")
     # Drafts are persisted and returned to the browser; credentials belong in live secrets.
@@ -519,6 +526,8 @@ def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, a
     job.status = CreationStatus.DRAFT
     job.prepared_backup = None
     job.validation_result = None
+    job.vault_plan = None
+    job.vault_progress = None
     job.last_error = None
     db.commit()
     return creation_json(job)
@@ -529,6 +538,8 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None or job.project_template_id is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
+    if job.encrypted_vault_payload or job.execution_started_at:
+        raise HTTPException(409, "Ein gestarteter Vorgang darf nicht neu validiert werden.")
     if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED} or job.semaphore_project_id is not None:
         raise HTTPException(409, "Ein bereits gestarteter Restore darf nicht neu validiert werden.")
     source = db.get(ProjectTemplate, job.project_template_id)
@@ -549,7 +560,8 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     enriched_draft["preset_values"] = preset_values
     try:
         prepared = prepare_backup(source.backup_document, enriched_draft)
-    except BackupValidationError as exc:
+        job.vault_plan = vault_service.prepare_plan(db, job.draft_data, prepared) if job.draft_data.get("provision_vault") else None
+    except (BackupValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     errors, warnings = validate_backup(prepared)
     for group in source.backup_document.get("environments", []):
@@ -576,6 +588,30 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
 
 @router.post("/creation-jobs/{job_id}/execute")
 async def execute_creation_job(
+    job_id: uuid.UUID, payload: CreationExecuteRequest, request: Request, db: Db, admin: SystemAdmin,
+) -> dict[str, Any]:
+    # A persisted lease spans commits around external calls and excludes a second
+    # worker for this job. CAS protects targets against different creation jobs.
+    job = db.get(CreationJob, job_id)
+    if job is None:
+        raise HTTPException(404, "Erstellungsvorgang nicht gefunden.")
+    if job.status == CreationStatus.COMPLETED:
+        return creation_json(job)
+    claimed = db.execute(update(CreationJob).where(CreationJob.id == job_id,
+        or_(CreationJob.execution_started_at.is_(None), CreationJob.execution_started_at < utcnow() - timedelta(minutes=15)))
+        .values(execution_started_at=utcnow()).execution_options(synchronize_session=False))
+    if claimed.rowcount != 1:
+        raise HTTPException(409, "Dieser Vorgang wird bereits ausgeführt. Eine hängende Ausführung wird nach 15 Minuten freigegeben.")
+    db.commit()
+    try:
+        return await _execute_creation_job(job_id, payload, request, db, admin)
+    finally:
+        db.rollback()
+        db.execute(update(CreationJob).where(CreationJob.id == job_id).values(execution_started_at=None))
+        db.commit()
+
+
+async def _execute_creation_job(
     job_id: uuid.UUID,
     payload: CreationExecuteRequest,
     request: Request,
@@ -599,6 +635,25 @@ async def execute_creation_job(
         raise HTTPException(status_code=409, detail="Der Erstellungsvorgang wurde nicht erfolgreich validiert.")
     client = semaphore_client_from_db(db)
     project_name = str(job.prepared_backup["meta"]["name"])
+
+    if job.draft_data.get("provision_vault"):
+        try:
+            if job.semaphore_project_id is None and job.status in {CreationStatus.VALIDATED, CreationStatus.FAILED}:
+                if any(p["name"].casefold() == project_name.casefold() for p in await client.list_projects()):
+                    raise HTTPException(409, "Das Zielprojekt existiert bereits; Vault-Anlage wird nicht gestartet.")
+            await vault_service.provision(db, job, payload.vault_inputs)
+            if not (job.vault_progress or {}).get("audit_recorded"):
+                record_audit(db, "vault_objects_created", actor=admin, request=request,
+                    target_type="creation_job", target_id=job.id,
+                    details={"paths": [obj["path"] for obj in job.vault_plan["objects"]]})
+                job.vault_progress = {**(job.vault_progress or {}), "audit_recorded": True}
+                db.commit()
+        except (VaultError, ValueError) as exc:
+            job.last_error = str(exc)
+            record_audit(db, "vault_provisioning_failed", actor=admin, request=request,
+                target_type="creation_job", target_id=job.id, success=False, details={"message": str(exc)})
+            db.commit()
+            raise HTTPException(409 if isinstance(exc, ValueError) or getattr(exc, "conflict", False) else 502, str(exc)) from exc
 
     if job.semaphore_project_id is None and job.status in {CreationStatus.RESTORING, CreationStatus.VERIFICATION_REQUIRED}:
         try:
@@ -655,6 +710,19 @@ async def execute_creation_job(
             job.last_error = str(exc)
             db.commit()
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if job.draft_data.get("provision_vault"):
+        try:
+            await vault_service.install_reader_access(job, client)
+        except (SemaphoreError, ValueError) as exc:
+            job.last_error = str(exc)
+            record_audit(db, "vault_access_install_failed", actor=admin, request=request,
+                target_type="creation_job", target_id=job.id, success=False)
+            db.commit()
+            raise HTTPException(502, str(exc)) from exc
+        job.vault_progress = {**(job.vault_progress or {}), "access_installed": True}
+        job.last_error = None
+        db.commit()
 
     # Portalregistrierung ist wiederholbar und löscht niemals Semaphore-Ressourcen.
     db.refresh(job, with_for_update=True)
@@ -760,6 +828,7 @@ async def execute_creation_job(
     if job.draft_data.get("activate_after_creation") and tenant.configuration_complete:
         tenant.status = TenantStatus.ACTIVE
     job.status = CreationStatus.COMPLETED
+    job.encrypted_vault_payload = None
     record_audit(db, "tenant_created", actor=admin, request=request, target_type="tenant", target_id=tenant.id, details={"semaphore_project_id": job.semaphore_project_id})
     db.commit()
     return creation_json(job)

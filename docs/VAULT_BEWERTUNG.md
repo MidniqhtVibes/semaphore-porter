@@ -1,6 +1,6 @@
 # Automatische Vault-Provisionierung – Recherche und Bewertung
 
-Stand: 16.10.2026. **Dies ist eine Bewertung für einen späteren Ausbau. Es wurde keine Vault-Integration implementiert, kein Vault-Endpunkt aufgerufen und kein Secret angelegt oder verändert.**
+Stand der ursprünglichen Recherche: 16.10.2026, vor der Implementierung. **Diese historische Bewertung wurde durch die vereinbarte [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md) ergänzt. Aktuelles Zielbild und Einrichtungsanleitung stehen dort.** Insbesondere werden keine AppRoles/Policies automatisch angelegt; der bestehende breite Semaphore-Lesezugang wird auf Wunsch weiterverwendet. Die folgenden Empfehlungen beschreiben den damaligen Recherchestand, nicht den aktuellen Funktionsumfang. Es wurden keine Live-Vault-Objekte angelegt oder verändert.
 
 ## Ergebnis
 

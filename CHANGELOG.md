@@ -1,5 +1,14 @@
 # Änderungen
 
+## Lokale Vault-Erweiterung – 16.10.2026
+
+- Zentrale verschlüsselte AppRole- und Registry-Konfiguration im Menü **Vault**.
+- Tenant-Wizard mit Manifestkatalog, konkreten KV-Zielen und Eingabe oder ausdrücklicher Generierung von Secret-Werten.
+- Vorprüfung aller Ziele, Neuanlage ausschließlich mit `cas=0`, Fortschrittsbelege und Wiederaufnahme ohne Überschreiben oder Neugenerieren.
+- Bestehenden Semaphore-Lesezugang geschützt in neue Tenant-Projekte eintragen; AppRoles und Policies bleiben extern verwaltet.
+- Additive Migration `20261016_0004`, Fehlerfalltests, Einrichtungsanleitung und 14 weitere Abnahmefälle.
+- Keine Veröffentlichung oder Push durchgeführt; Live-Abnahme gegen die Firmeninstanzen bleibt offen.
+
 ## Release-Zwischenstand – 16.10.2026
 
 Das Repository wird ausschließlich als Web-App weitergeführt. Dieser Zwischenstand bündelt die bisherige Migration; die Abnahme gegen die konkrete Semaphore-Instanz steht noch aus.

@@ -1,5 +1,15 @@
 # Implementierungs- und Abnahmestatus
 
+## Vault-Integration vom 16.10.2026
+
+Die [vereinbarte Spezifikation und Einrichtungsanleitung](VAULT_IMPLEMENTIERUNG.md) ist umgesetzt: zentrale verschlüsselte AppRole-/Registry-Konfiguration unter **Vault**, versionierter Manifestkatalog, konkrete Zielobjekte im Tenant-Wizard sowie manuelle oder ausdrücklich generierte Secret-Werte. Vorgegebene Crypto-Werte bleiben unverändert. Neue Projekte erhalten den zentral hinterlegten bestehenden Semaphore-Lesezugang als geschützte Variablen.
+
+Die Provisionierung prüft die Metadaten aller benötigten Objekte vor dem ersten Schreiben und verwendet ausschließlich KV-v2 `cas=0`. Vorhandene Objekte einschließlich Löschhistorie werden nicht übernommen oder überschrieben. Fortschritt, Vault-Version und Erstellungszeit sowie eine verschlüsselte temporäre Ausführungspayload ermöglichen die Wiederaufnahme. Unklare Schreibergebnisse benötigen eine ausdrückliche Prüfung; automatische Rollbacks oder Neugenerierungen erfolgen nicht. Eine persistierte Ausführungssperre verhindert gleichzeitige Ausführungen desselben Jobs. Die Job-Payload wird nach erfolgreichem Abschluss entfernt.
+
+AppRoles, Policies, Secret-ID-Ausstellung und Vault-Löschungen bleiben außerhalb des Porter. Die vom Nutzer vorgegebene bestehende AppRole mit breiten Leserechten bleibt erhalten. Die tatsächlichen Firmenendpunkte, ACLs und Deployment-Läufe müssen noch live abgenommen werden; die Tests verwenden simulierte APIs.
+
+Prüfung: **101 Backend- und 33 Frontend-Tests bestanden**, Produktionsbuild und beide Docker-Builds erfolgreich. Der bestehende lokale Stack ist auf Port 18092 gesund und auf Migration `20261016_0004` aktualisiert. Eine vorherige Datenbanksicherung und Vergleichswerte bestätigen unveränderte Bestandskonten und Tenant-Daten. Health, Vault-Seitenroute, API-Schema und die Anmeldepflicht der Vault-API sind geprüft.
+
 ## Bereinigter Web-App-Zwischenstand vom 16.10.2026
 
 Das aktuelle Repository enthält ausschließlich die Web-App. Alte Desktop-Quellen, Desktop-Tests, Windows-Bauskripte und der Windows-Build-Workflow sowie rund 150 MB versionierte EXE-/DLL-/Build-Artefakte wurden entfernt. Frühere Stände bleiben in der Git-Historie erreichbar. Temporäre lokale Vorschauen und Downloads, überholte Symbolvarianten, doppelte Abhängigkeitslisten und ungenutzte Hilfsfunktionen/Imports sind bereinigt. Die Ignore-Regeln schließen lokale Konfiguration und neue Build-Ausgaben aus; der TypeScript-Build prüft zusätzlich auf ungenutzte Imports und Variablen. Der Funktionsumfang dieses Zwischenstands steht in [CHANGELOG.md](../CHANGELOG.md).
@@ -55,7 +65,7 @@ Lokale Prüfung am 15.10.2026: **39 Backend-Tests und 7 Frontend-Tests bestanden
 
 ## Noch vor Produktivfreigabe abzunehmen
 
-Der [Abnahmetestplan](ABNAHMETESTS.md) enthält 52 Fälle mit Voraussetzungen, Prüfschritten und erwarteten Ergebnissen. Die [Vault-Bewertung](VAULT_BEWERTUNG.md) dokumentiert die Recherche zur automatischen Secret-/AppRole-Anlage; diese ist noch nicht implementiert und wurde nicht gegen einen Vault-Server ausgeführt.
+Der [Abnahmetestplan](ABNAHMETESTS.md) enthält 66 Fälle einschließlich 14 Vault-Fällen mit Voraussetzungen, Prüfschritten und erwarteten Ergebnissen. Die aktuelle [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md) ergänzt die historische [Vault-Bewertung](VAULT_BEWERTUNG.md). Ein Live-Test gegen die Firmeninstanzen steht aus.
 
 Ein Live-End-to-End-Test gegen die konkrete Firmeninstanz von Semaphore ist ohne deren URL und Service-Token nicht Bestandteil des lokalen Tests. Vor Produktivfreigabe sind deshalb mindestens folgende Punkte in einer Testumgebung zu bestätigen:
 
@@ -68,4 +78,4 @@ Ein Live-End-to-End-Test gegen die konkrete Firmeninstanz von Semaphore ist ohne
 - Datenbank-Backup und Wiederherstellung zusammen mit demselben Fernet-Key
 - erfolgreicher Lauf des Portal-CI-Workflows für den freizugebenden Commit und Pull der zugehörigen veröffentlichten Images auf dem Zielserver
 
-Das Portal schreibt weder in GitLab noch in Vault und kopiert keine privaten Schlüssel. Solche Integrationen benötigen einen eigenen, explizit autorisierten Ausbau.
+Das Portal kann bei aktivierter Integration neue Vault-KV-Objekte anlegen und den zentral eingerichteten Vault-Lesezugang in neue Semaphore-Projekte übertragen. Es schreibt nicht in GitLab, kopiert keine privaten SSH-Schlüssel und verwaltet keine Vault-Policies oder AppRoles.

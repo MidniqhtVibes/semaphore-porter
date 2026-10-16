@@ -46,11 +46,11 @@ Die Initial-Policies berücksichtigen die Surveys des Projekts:
 
 Anwendung und Datenbanktyp werden nicht mehr pauschal auf eine einzelne Anwendung fixiert. Die Kombinationen aus Programm, Provider und Datensatz prüft weiterhin der Plan-Compiler des Deployment-Stacks; die Semaphore-Surveys allein enthalten keinen vollständigen relationalen Programmkatalog.
 
-Vault-Pfade wie `vault_tenant_secret_root`, `vault_provider_secret_paths`, `vault_program_secret_paths` und `vault_tenant_secret_paths` bleiben editierbar. Für neue Mandanten müssen bestehende explizite Pfad-Overrides ebenfalls auf den neuen Mandanten angepasst werden.
+Vault-Pfade wie `vault_tenant_secret_root`, `vault_provider_secret_paths`, `vault_program_secret_paths` und `vault_tenant_secret_paths` bleiben im Projekteditor editierbar. Ohne automatische Vault-Anlage müssen bestehende explizite Pfad-Overrides für neue Mandanten angepasst werden. Mit aktivierter Vault-Anlage entfernt der validierte Plan solche alten Zuordnungen aus der Kopie und verwendet die administrierte Tenantwurzel mit den neuen Tenant-/Profilpfaden; diese Ziele sind vor der Ausführung sichtbar.
 
 ## Zugangsdaten und Löschung
 
-Bestehende geschützte Werte werden nicht an den Browser zurückgegeben. Änderungen normaler Variablen behalten bestehende geheime Werte bei. Neue Geheimnisse werden über separate Eingaben direkt an Semaphore geschrieben; Entwürfe und Auditdetails enthalten diese Werte nicht. Beim Duplizieren werden Vault-Bootstrap-Zugangsdaten und private Key-Inhalte nicht kopiert und müssen für den neuen Mandanten neu gesetzt werden. Vault-AppRoles, Vault-Inhalte und Zielhosts müssen bereits bereitgestellt sein; ihre externe Provisionierung erfolgt nicht über die Semaphore-API.
+Bestehende geschützte Werte werden nicht an den Browser zurückgegeben. Änderungen normaler Variablen behalten bestehende geheime Werte bei. Neue Geheimnisse werden über separate Eingaben direkt an Semaphore geschrieben; Entwürfe und Auditdetails enthalten diese Werte nicht. Beim normalen Duplizieren werden Quell-Credentials und private Key-Inhalte entfernt. Mit aktivierter [Vault-Integration](VAULT_IMPLEMENTIERUNG.md) legt der Porter die benötigten KV-Objekte direkt über die Vault-API an und ergänzt den einmalig zentral hinterlegten Semaphore-Lesezugang. AppRoles, Policies und Zielhosts werden weiterhin extern bereitgestellt.
 
 Für den vorliegenden Stack in `Vault-Access` die AppRole Role ID als geschützte Extra Variable `vault_approle_role_id` (Typ `var`) und die Secret ID als geschützte Prozessvariable `ANSIBLE_HASHI_VAULT_SECRET_ID` (Typ `env`) setzen. Adresse, Mounts und Tenantwurzel bleiben normale editierbare Variablen.
 

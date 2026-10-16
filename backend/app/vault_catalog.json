@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "source_revision": "182007c75a6c21b2644ae865f7fc3e0c624941e1",
+  "applications": {
+    "azubiorga": {
+      "profile": "azubiorga",
+      "fields": [
+        {
+          "key": "registry_password",
+          "source": "registry",
+          "generate": null,
+          "min_length": 1,
+          "max_length": 4096,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        },
+        {
+          "key": "crypto_secret",
+          "source": "input",
+          "generate": "password",
+          "min_length": 1,
+          "max_length": 4096,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        },
+        {
+          "key": "crypto_salt",
+          "source": "input",
+          "generate": "hex",
+          "min_length": 16,
+          "max_length": 4096,
+          "hex": true,
+          "even_length": true,
+          "forbid_whitespace": true,
+          "forbid_newlines": true
+        }
+      ],
+      "display_name": "AzubiOrga",
+      "database_types": {
+        "postgresql": "postgresql-v1"
+      },
+      "datasets": {
+        "smoke-v1": {
+          "database_type": "postgresql",
+          "provider_ids": [
+            "postgresql-v1"
+          ]
+        },
+        "public-v1": {
+          "database_type": "postgresql",
+          "provider_ids": [
+            "postgresql-v1"
+          ]
+        }
+      }
+    },
+    "wordpress": {
+      "profile": "wordpress",
+      "fields": [
+        {
+          "key": "registry_password",
+          "source": "registry",
+          "generate": null,
+          "min_length": 1,
+          "max_length": 4096,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        }
+      ],
+      "display_name": "WordPress",
+      "database_types": {
+        "mariadb": "mariadb-v1",
+        "mysql": "mysql-v1"
+      },
+      "datasets": {
+        "mariadb-smoke-v1": {
+          "database_type": "mariadb",
+          "provider_ids": [
+            "mariadb-v1"
+          ]
+        },
+        "mysql-smoke-v1": {
+          "database_type": "mysql",
+          "provider_ids": [
+            "mysql-v1"
+          ]
+        }
+      }
+    }
+  },
+  "providers": {
+    "none": {
+      "profile": "none-v1",
+      "fields": [],
+      "provider_id": "none-v1"
+    },
+    "postgresql": {
+      "profile": "postgresql-v1",
+      "fields": [
+        {
+          "key": "postgres_password",
+          "source": "input",
+          "generate": "password",
+          "min_length": 10,
+          "max_length": 256,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        }
+      ],
+      "provider_id": "postgresql-v1"
+    },
+    "mariadb": {
+      "profile": "mariadb-v1",
+      "fields": [
+        {
+          "key": "mariadb_password",
+          "source": "input",
+          "generate": "password",
+          "min_length": 10,
+          "max_length": 256,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        }
+      ],
+      "provider_id": "mariadb-v1"
+    },
+    "mysql": {
+      "profile": "mysql-v1",
+      "fields": [
+        {
+          "key": "mysql_password",
+          "source": "input",
+          "generate": "password",
+          "min_length": 10,
+          "max_length": 256,
+          "hex": false,
+          "even_length": false,
+          "forbid_whitespace": false,
+          "forbid_newlines": true
+        }
+      ],
+      "provider_id": "mysql-v1"
+    }
+  }
+}

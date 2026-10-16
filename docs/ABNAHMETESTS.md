@@ -1,6 +1,6 @@
 # Abnahmetests für den Web-App-Zwischenstand
 
-Stand: 16.10.2026. Grundlage ist der Web-App-Zwischenstand `2328f78` mit den ergänzten lokalen Dokumentationsänderungen. Dieser Plan enthält **52 Abnahmetestfälle**. Alle hier beschriebenen manuellen und integrierten Prüfungen haben zunächst den Status **offen**. Die bisher bestandenen automatisierten Tests sind unten separat zugeordnet; sie ersetzen keine Abnahme der echten Semaphore-/Vault-/Deployment-Umgebung.
+Stand: 16.10.2026. Grundlage ist der Web-App-Zwischenstand mit der lokalen Vault-Erweiterung. Dieser Plan enthält **66 Abnahmetestfälle** einschließlich 14 Vault-Fällen. Alle hier beschriebenen manuellen und integrierten Prüfungen haben zunächst den Status **offen**. Die bestandenen automatisierten Tests sind unten separat zugeordnet; sie ersetzen keine Abnahme der echten Semaphore-/Vault-/Deployment-Umgebung.
 
 ## Durchführung und Nachweise
 
@@ -17,7 +17,7 @@ Projektlöschungen, Datenimporte, gestörte Verbindungen und Restore-Tests aussc
 - Zwei Portal-Tenants `qa-a` und `qa-b` mit getrennten Semaphore-Projekten und Runtime-Scopes `qa-scope-a` und `qa-scope-b`.
 - Konten für Systemadmin, Viewer, Operator, globalen Tenant Admin sowie ein Konto ohne Tenant-Zuordnung. Für Login-Limitierung ein separates entbehrliches Konto verwenden.
 - Gruppe `qa-operators`, eine lesende Task-Freigabe und eine Start-/Abbruchfreigabe. Bestehende Quellvorlage vor Kopiertests anhand ihrer nicht geheimen Konfiguration dokumentieren.
-- Für echte Deployments vorab manuell bereitgestellte Test-Vault-Objekte und mandantenbezogene AppRoles. Der Porter legt derzeit **keine Vault-Inhalte oder AppRoles** an; siehe [Vault-Bewertung](VAULT_BEWERTUNG.md).
+- Für echte Deployments gültige Test-Vault-Zugänge und benötigte KV-Objekte. Im automatischen Onboarding richtet ein Administrator Schreib-AppRole, bestehenden Semaphore-Lesezugang und Registry-Zugänge im Porter ein; neue Test-KV-Objekte legt dann der Wizard an. AppRoles/Policies werden weiterhin außerhalb des Porter verwaltet. Der vereinbarte gemeinsame Leser darf aktuell `semaphore/*` lesen; die Tests behaupten dafür keine Trennung durch Vault-ACLs. Siehe [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md).
 - Eine deaktivierte Policy, ein deaktivierter Tenant, ein absichtlich fehlschlagender Test-Task und ein ausreichend lange laufender, gefahrlos abbrechbarer Task.
 - Für Migrations- und Restore-Prüfungen eine Kopie einer älteren Portal-Datenbank und die zugehörige `.env`/Fernet-Konfiguration. Die laufende Testdatenbank wird hierfür nicht überschrieben.
 
@@ -38,7 +38,7 @@ Die folgenden Kombinationen stammen aus den lokalen Manifesten in `azubiorga-sem
 | WordPress | PostgreSQL | beliebig | Aktuell im Anwendungsmanifest nicht unterstützt; Ablehnung vor Deployment |
 | WordPress | MariaDB | `mysql-smoke-v1` | Unpassender Datensatz; Ablehnung vor Deployment |
 
-Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen und die Vorlage neu importieren. Die Portal-Validierung prüft Survey-Freigaben; anwendungsübergreifende Provider-/Datensatz-Kompatibilität prüft der Stack.
+Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen und die Vorlage neu importieren. Die Portal-Validierung prüft Survey-Freigaben; im Vault-Modus prüft sie zusätzlich den exportierten Manifestkatalog. Die konkrete Deployment-Kombination prüft der Stack erneut.
 
 ## B – Installation, Update und Wiederanlauf
 
@@ -86,7 +86,7 @@ Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen 
 | W05 | P1 | Mehrere Schritte vorwärts, zurück und erneut vorwärts wechseln. Entwurf speichern, Seite neu laden und auf der Einstiegsseite fortsetzen. | Aktueller und bereits besuchter Schritt korrekt markiert; besuchte Schritte zugänglich; gespeicherte Mehrfachauswahl, Kennungen und Fortschritt erhalten. |
 | W06 | P0 | Validierten Entwurf ändern und erneut zur Erstellung wechseln. Danach zur ersten Seite gehen und eine andere Vorlage auswählen. | Alte Validierung wird verworfen und aktueller Entwurf neu geprüft. Vorlagenwechsel beginnt einen neuen Creation Job und übernimmt keinen alten Restore-Zustand. |
 | W07 | P0 | Task-/Gruppenauswahl reduzieren, zusätzlich vollständig leere Gruppenauswahl prüfen. Repository/Branch und Ressourcen auf der Kopie bearbeiten. | Nur ausgewählte Ressourcen plus erforderliche `Semaphore-Defaults` übernommen; Referenzen konsistent. Nicht gewählte Quellgruppen bleiben entfernt. Quelle unverändert. |
-| W08 | P0 | Vorlage mit Quell-Credentials, Zeitplan, Webhook und Autorun duplizieren. Neue Kennungen und explizite Vault-Pfad-Overrides der Kopie prüfen. | Bootstrap-Credentials/private Schlüssel nicht kopiert; automatische Trigger deaktiviert. Kennungen nur in Defaults. Öffentliche Pfad-Overrides nicht still umgeschrieben: Quellpfade vor Nutzung ausdrücklich ersetzen. |
+| W08 | P0 | Vorlage mit Quell-Credentials, Zeitplan, Webhook und Autorun duplizieren. Neue Kennungen und explizite Vault-Pfad-Overrides jeweils ohne und mit Vault-Anlage prüfen. | Quell-Credentials/private Schlüssel nicht kopiert; automatische Trigger deaktiviert. Kennungen nur in Defaults. Ohne Vault-Anlage Quellpfade ausdrücklich ersetzen. Im Vault-Modus verwendet die Kopie die angezeigten neuen Tenant-/Profilpfade und erhält nur die zentral eingerichteten Lese-Credentials. |
 | W09 | P0 | Erstellen doppelt auslösen bzw. denselben abgeschlossenen Job erneut aufrufen. In einer getrennten Störungsprüfung die Antwort nach erfolgreichem Restore unterbrechen. | Ein Projekt und ein Tenant pro Job. Unklares Ergebnis führt zu Verifikationszustand; vorhandenes Projekt wird geprüft, kein blindes zweites Restore. Ein erneuter Restore bei nachgewiesenem Fehlen erfordert Bestätigung. |
 | W10 | P0 | Initial-Policies/Zugriffe einmal aktivieren und einmal abwählen. Im angelegten Projekt einen Remote-Survey ändern und synchronisieren bzw. Template über den Projekteditor ändern. | Zugewiesene Zugriffe entsprechen dem Entwurf. Ohne gültige Policy kein Task-Start. Geänderte, zuvor freigegebene Templates bleiben bis zur erneuten Policy-Prüfung deaktiviert; kein zusätzlicher Zugriff durch globale Operatorrolle allein. |
 
@@ -110,7 +110,7 @@ Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen 
 | T02 | P0 | Datensatz-Durchläufe aus T01 anhand eines vorab festgelegten, nicht geheimen Datenmerkmals prüfen; zusätzlich `none` und jede ungültige Matrixzeile testen. | Vorgesehener Import nachweisbar; `none` löst keinen Testdatenimport aus. Unpassende Kombination vor Deployment abgelehnt; Quelle und bestehende Daten unverändert. |
 | T03 | P0 | Je einen erfolgreichen, fehlschlagenden und lange laufenden Task starten. Laufübersicht ohne Detailöffnung aktualisieren, Logs öffnen und abbrechbaren Task stoppen. | Status/Fehler/Ende werden aktualisiert; Logs dem richtigen Lauf zugeordnet. Stop wirkt auf richtigen Semaphore-Task, benötigt Abbruchrecht und wird in der Historie nachvollziehbar. |
 | T04 | P0 | Für `qa-a` und `qa-b` parallel deployen; getrennte Scopes und mehrere Instanzen im selben vorgesehenen Pool prüfen. Nur Instanz A stoppen/ablaufen lassen. | Port-, Netzwerk-, Datenbank- und Ownership-Trennung stimmen. B bleibt nutzbar; ein geteilter Provider wird nicht vorzeitig entfernt. Ressourcen bleiben anhand IDs zuordenbar. |
-| T05 | P0 | In Test-Vault ein Pflichtfeld entfernen bzw. AppRole-Leserecht entziehen; getrennt ein abgelaufenes Secret-ID und ein ungültiges CA-Zertifikat prüfen. Danach korrekt wiederherstellen. | Kontrollierter Fehler ohne Secret-Ausgabe und ohne neues Deployment. Mit korrigierten Voraussetzungen funktioniert ein neuer Lauf. Der Porter erzeugt fehlende Vault-Secrets derzeit nicht automatisch. |
+| T05 | P0 | In Test-Vault ein Pflichtfeld entfernen bzw. AppRole-Leserecht entziehen; getrennt eine abgelaufene Secret-ID und ein ungültiges CA-Zertifikat prüfen. Danach korrekt wiederherstellen. | Kontrollierter Fehler ohne Secret-Ausgabe und ohne neues Deployment. Mit korrigierten Voraussetzungen funktioniert ein neuer Lauf. Bereits vorhandene unvollständige Objekte repariert der Porter nicht automatisch; die Vault-Anlage betrifft neue Tenant-Objekte beim Onboarding. |
 | T06 | P0 | Kürzeste freigegebene TTL verwenden; anschließend Zielhost-Cleanup und Portal-/Semaphore-Laufhistorie getrennt prüfen. | Deployment gemäß Stack-Cleanup entfernt, fremde oder noch aktive Instanzen erhalten. Abgelaufene Deployment-Ressourcen bedeuten nicht automatisch einen nachträglichen anderen Semaphore-Taskstatus. |
 | T07 | P1 | Optionalen Mailversand mit freigegebener Testadresse an/aus ausführen; Image-/Release-Auswahl und voreingestellte Variablen im tatsächlich gestarteten Task prüfen. | Nur ausgewählte freigegebene Werte verwendet. Mailverhalten entspricht Schalter; Mail-/Registry-Ausfall sichtbar und ohne Veröffentlichung von Credentials. |
 
@@ -132,9 +132,30 @@ Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen 
 | O02 | P0 | Portal-Tenant entfernen und separat Remote-Projekt löschen; Zustand von Vault-Objekten, Zielhost-Deployments und direkt in Semaphore gestarteten Tasks dokumentieren. | Lokales Entfernen löscht kein Remote-Projekt. Remote-Projektlöschung löscht keine Vault-/Docker-Daten. Portal-Historie verspricht keinen vollständigen Import direkt in Semaphore gestarteter Läufe. |
 | O03 | P0 | Finale Commit-/Image-Tags und erfolgreichen Portal-CI-Lauf erfassen; Testresultate, Restore-Nachweis, offene Fehler und vorgenommene Testdatenbereinigung prüfen. | Verwendete Backend-/Frontend-Version eindeutig; alle P0 bestanden, P1 geprüft und Abweichungen entschieden. Offene Live-Prüfungen nicht als erledigt markiert; Freigabe durch Verantwortlichen dokumentiert. |
 
+## V – Vault-Anlage und geschützte Übergabe
+
+Diese Fälle ausschließlich mit entbehrlichen Testpfaden durchführen. Bei absichtlichen Timeouts oder Rennen alle beteiligten Objekte anschließend anhand des Vault-Audits prüfen. Die zentrale AppRole bleibt entsprechend der Vereinbarung ein gemeinsam genutzter Leser.
+
+| ID | Prio | Prüfschritte | Erwartetes Ergebnis |
+|---|---|---|---|
+| V01 | P0 | Als Systemadmin Vault-Verbindung und vier AppRole-Werte sowie Registry-Zugänge speichern; Seite neu laden. Dasselbe als Operator versuchen. | Werte verschlüsselt gespeichert, nur Belegt-Flags zurückgegeben, Passwortfelder leer. Leer lassen erhält vorhandene Werte. Operator und fehlender CSRF-Header blockiert. |
+| V02 | P0 | Schreibzugang mit gültiger und ungültiger Secret-ID testen; Unternehmens-CA und Namespace einbeziehen. | Gültige Anmeldung erfolgreich; falsche Werte/TLS erkennbar abgelehnt. Kein Testsecret angelegt. Verbindungstest bestätigt nur Anmeldung, keine Schreibrechte oder Runner-Anmeldung. |
+| V03 | P0 | AzubiOrga/PostgreSQL mit vorgegebenem Crypto-Secret/Salt und manuellem DB-Wert anlegen; auf Testinstanz kontrolliert vergleichen. | Genau zwei korrekte KV-Objekte mit den erwarteten Schlüsseln. Vorgegebene Werte einschließlich zulässiger Leerzeichen bytegetreu; neue Semaphore-Defaults tragen Tenant und unabhängigen Scope. |
+| V04 | P0 | WordPress mit MariaDB und MySQL freigeben, passende Datasets und Generierung der Providerwerte wählen. | Ein WordPress-Objekt und zwei getrennte Providerobjekte. Keine Crypto-Felder für WordPress, keine Registry-Token-Generierung; Providerwerte entsprechen den Grenzen. |
+| V05 | P0 | Beide Anwendungen, alle drei gültigen Provider und mehrere passende Datasets freigeben. | Genau fünf eindeutige neue Objekte; kein Objekt je Dataset und kein doppeltes Objekt je Task. Der Stack wählt pro Lauf eine gültige Kombination. |
+| V06 | P0 | Je einen Durchlauf mit vorhandenem, unvollständigem, weich gelöschtem und zerstörtem letzten Zielobjekt ausführen. | Die gesamte Vorprüfung stoppt vor dem ersten Write. Keine bestehenden Inhalte oder Versionen geändert; kein neues Semaphore-Projekt. |
+| V07 | P0 | Unter demselben Tenant einen unabhängigen Geschwisterpfad vorhalten; alle geplanten Objekte fehlen. | Anlage zulässig; ausschließlich geplante Objekte angelegt, Geschwisterpfad unverändert. |
+| V08 | P0 | Zwischen Vorprüfung und Write ein Zielobjekt durch einen kontrollierten zweiten Vorgang anlegen lassen. | `cas=0` verhindert Überschreiben. Kein automatisches Übernehmen fremder Objekte; bereits eigene Anlagen bleiben nachvollziehbar erhalten. |
+| V09 | P0 | Metadaten-Leserecht für ein Ziel entziehen, 5xx beziehungsweise ungültige Antworten simulieren. | Kein Fehler gilt als Abwesenheit. Keine folgenden Writes und kein Restore; API-/Auditfehler enthalten keine Secret-Payload oder fremde Serverantwort. |
+| V10 | P0 | Write-Timeout einmal vor und einmal nach tatsächlicher Anlage simulieren. | Vorgang angehalten; Wiederholung würfelt keine Werte neu. Zuordnung nur nach ausdrücklicher Prüfung, Metadatenabgleich und auditierter Bestätigung von eigener Anlage oder Abwesenheit. |
+| V11 | P0 | Nach dem ersten Objekt Schreibrecht/Verbindung für das zweite unterbrechen, dann wiederherstellen und fortsetzen. Zusätzlich ein bestätigtes Objekt durch ein fremdes neu erzeugtes Objekt ersetzen. | Wiederaufnahme behält Werte, prüft Version und Erstellungszeit, schreibt nur ausstehende Objekte. Ersetztes oder verändertes Objekt wird abgelehnt. |
+| V12 | P0 | Geschützte Eintragung in Semaphore nach erfolgreichem Restore scheitern lassen; anschließend fortsetzen. | Tenant bleibt unvollständig. Keine zweite Projektanlage; Role-ID als `var`, Secret-ID als `env`. Bereits vorhandene Secret-Einträge werden aktualisiert, Werte niemals zurückgegeben. |
+| V13 | P0 | Ungültige App-/Provider-/Dataset-Vorgaben, zu kurzen DB-Wert und ungültigen Salt prüfen. Im Wizard zurück/vor navigieren und Entwurf speichern. | Ungültige Eingaben vor Writes abgelehnt. Generierung ausdrücklich gewählt; vorhandene Crypto-Werte bleiben erhalten. Secret-Inhalte weder im Entwurf noch Browser-Speicher oder Fehlerantwort. |
+| V14 | P0 | Bestehenden Portal-Stand aktualisieren; offenen Vorgang nach Container-Neustart und aktualisierten AppRole-Credentials fortsetzen. Parallelen Execute-Aufruf testen. | Migration erhält Bestandsdaten. Gleicher Job wird nicht parallel ausgeführt; Ziele und KV-Werte bleiben stabil. Abschluss entfernt die verschlüsselte temporäre Payload. Keine Vault-Policy-/AppRole-/Secret-ID-Verwaltungsaufrufe. |
+
 ## Vorhandene automatisierte Prüfung
 
-Letzter dokumentierter Lauf: **59 Backend-Tests und 28 Frontend-Tests bestanden**. In diesem Arbeitsschritt werden Abnahmefälle dokumentiert, keine neue Live-Abnahme oder zusätzliche automatische Tests ausgeführt. Ein neuer Release-Kandidat benötigt einen neuen protokollierten Testlauf.
+Die Vault-Erweiterung ergänzt automatisierte Fehlerfall-, Migrations- und Oberflächentests. Die endgültigen Laufzahlen stehen im aktuellen [Implementierungsstand](VAULT_IMPLEMENTIERUNG.md#implementierungsstand). Ein Release-Kandidat benötigt einen protokollierten Testlauf; die simulierten Prüfungen ersetzen keine Live-Abnahme.
 
 | Prüfdateien | Bereits automatisiert abgedeckte Ausschnitte |
 |---|---|
@@ -143,6 +164,8 @@ Letzter dokumentierter Lauf: **59 Backend-Tests und 28 Frontend-Tests bestanden*
 | `backend/tests/test_project_backup.py`, `test_creation_jobs.py` | Quellschutz, entfernte Trigger/Credentials, Defaults, Mehrfachfreigaben, skalare Vorgaben, Wiederholung und unklarer Restore |
 | `backend/tests/test_policy.py`, `test_task_authorization.py` | Policy-Typen, manipulierte Werte/IDs, Startberechtigung und Statusaktualisierung |
 | `backend/tests/test_semaphore_client.py` | Antwortformate, Redirect-Grenzen und validierte Task-Payload |
+| `backend/tests/test_vault.py`, `test_migrations.py` | Verschlüsselung/Redaktion, Zielkonflikte und Löschhistorie, CAS-Rennen, Teilfehler, Timeout-Zuordnung, Credential-Übergabe/-Aktualisierung, Kataloggrenzen und additive Vault-Migration |
+| `frontend/src/test/Vault.test.tsx` | Explizite Generierung, geschützte zentrale Eingaben, Wiederaufnahme, manuelle Timeout-Prüfung und Vor-/Zurück-Navigation ohne Secrets im Entwurf |
 | `frontend/src/test/App.test.tsx`, `themes.test.ts` | Login, Benutzername ändern, Wizard-Auswahl/Fortschritt, Defaults-Editor, Löschbestätigung, Designwechsel/Import und festes Symbol |
 | `.github/workflows/portal-ci.yml` | Backend-/Frontend-Suites, Produktionsbuild, Compose mit PostgreSQL/Caddy, Health und Login vor Image-Veröffentlichung |
 

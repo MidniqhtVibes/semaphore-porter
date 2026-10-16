@@ -47,6 +47,8 @@ services:
       PORTAL_ALLOWED_HOSTS: ${PORTAL_ALLOWED_HOSTS:-localhost,127.0.0.1}
       PORTAL_SESSION_HOURS: ${PORTAL_SESSION_HOURS:-12}
       SEMAPHORE_REQUEST_TIMEOUT_SECONDS: ${SEMAPHORE_REQUEST_TIMEOUT_SECONDS:-30}
+      VAULT_REQUEST_TIMEOUT_SECONDS: ${VAULT_REQUEST_TIMEOUT_SECONDS:-30}
+      VAULT_CA_BUNDLE: ${VAULT_CA_BUNDLE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,7 +61,7 @@ services:
     networks:
       portal_database:
       portal_application:
-      # Nur dieses Netz stellt dem Backend ausgehenden Zugriff auf Semaphore bereit.
+      # Ausgehender Zugriff auf Semaphore und optional Vault.
       portal_backend_egress:
         gw_priority: 1
     security_opt:

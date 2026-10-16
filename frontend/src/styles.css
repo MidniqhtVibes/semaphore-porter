@@ -505,3 +505,6 @@ tbody tr:hover { background: var(--surface-alt); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+/* Vault provisioning follows the active design tokens. */
+.vault-object { border-top: 1px solid var(--border); margin-top: 1.2rem; padding-top: 1rem; }
+.vault-object code { overflow-wrap: anywhere; }

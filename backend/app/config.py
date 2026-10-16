@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     portal_bootstrap_admin_password: SecretStr | None = None
     portal_bootstrap_admin_name: str = "Portal Administrator"
     semaphore_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
+    vault_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
+    vault_ca_bundle: str | None = None
 
     @field_validator("portal_allowed_hosts", mode="after")
     @classmethod

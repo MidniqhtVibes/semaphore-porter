@@ -4,7 +4,7 @@ import uuid
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator, model_validator
 
 from app.models import RuleType
 
@@ -209,6 +209,7 @@ class CreationDraft(BaseModel):
     access_assignments: list[TenantMembershipInput] = Field(default_factory=list)
     create_default_policies: bool = True
     activate_after_creation: bool = False
+    provision_vault: bool = False
 
 
 class CreationJobUpdate(BaseModel):
@@ -218,6 +219,35 @@ class CreationJobUpdate(BaseModel):
 class CreationExecuteRequest(BaseModel):
     confirm_project_creation: bool
     allow_retry_after_verified_absence: bool = False
+    vault_inputs: dict[str, "VaultFieldInput"] = Field(default_factory=dict, max_length=200)
+
+
+class VaultFieldInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["manual", "generate"] = "manual"
+    value: SecretStr | None = None
+
+
+class VaultSettingsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    base_url: str = Field(max_length=1000)
+    namespace: str = Field(default="", max_length=255)
+    kv_mount: str = "kv"
+    tenant_root: str = "semaphore/tenants"
+    writer_auth_mount: str = "approle"
+    reader_auth_mount: str = "semaphore-ansible"
+    writer_role_id: SecretStr | None = None
+    writer_secret_id: SecretStr | None = None
+    reader_role_id: SecretStr | None = None
+    reader_secret_id: SecretStr | None = None
+    registry_passwords: dict[str, SecretStr] = Field(default_factory=dict, max_length=200)
+
+
+class VaultResolveInput(BaseModel):
+    path: str
+    decision: Literal["created_by_this_job", "absent"]
+    confirm_checked_in_vault: bool
 
 
 class PresetInput(BaseModel):

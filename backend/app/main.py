@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.routers import admin, auth, portal, projects
+from app.routers import admin, auth, portal, projects, vault
 from app.security import SESSION_COOKIE, get_session, verify_csrf
 
 
@@ -19,6 +20,13 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.portal_allowed_hosts)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    # Pydantic normally echoes rejected inputs, including submitted credentials.
+    return JSONResponse(status_code=422, content={"detail": [
+        {key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]})
 
 
 @app.middleware("http")
@@ -66,4 +74,5 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(portal.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
+app.include_router(vault.router, prefix="/api")
 

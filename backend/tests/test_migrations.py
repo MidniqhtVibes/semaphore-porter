@@ -58,3 +58,29 @@ def test_username_migration_preserves_accounts_and_generates_unique_valid_names(
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
         assert "username" not in {column["name"] for column in sa.inspect(connection).get_columns("users")}
+
+
+def test_vault_migration_preserves_existing_jobs_and_supports_downgrade():
+    path = Path(__file__).parents[1] / "alembic/versions/20261016_0004_vault.py"
+    spec = importlib.util.spec_from_file_location("vault_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = sa.create_engine("sqlite://")
+    legacy = sa.Table("creation_jobs", sa.MetaData(), sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("status", sa.String()), sa.Column("draft_data", sa.JSON()))
+    legacy.metadata.create_all(engine)
+    job_id = uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(legacy.insert().values(id=job_id, status="validated", draft_data={"tenant_slug": "existing-a"}))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        jobs = sa.Table("creation_jobs", sa.MetaData(), autoload_with=connection)
+        row = connection.execute(sa.select(jobs)).mappings().one()
+        assert row["status"] == "validated" and row["draft_data"] == {"tenant_slug": "existing-a"}
+        assert all(row[name] is None for name in ("vault_plan", "vault_progress", "encrypted_vault_payload", "execution_started_at"))
+        assert "vault_settings" in sa.inspect(connection).get_table_names()
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert "vault_settings" not in sa.inspect(connection).get_table_names()
+        row = connection.execute(sa.select(legacy)).mappings().one()
+        assert row["status"] == "validated" and row["draft_data"] == {"tenant_slug": "existing-a"}

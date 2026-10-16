@@ -23,6 +23,7 @@ const adminItems = [
   ['/admin/tasks', 'Task-Überwachung', Activity],
   ['/admin/audit', 'Audit-Log', ScrollText],
   ['/admin/semaphore', 'Semaphore', ServerCog],
+  ['/admin/vault', 'Vault', ShieldCheck],
   ['/admin/designs', 'Designs', Palette],
 ] as const
 

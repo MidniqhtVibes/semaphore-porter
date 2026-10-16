@@ -5,12 +5,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { Button, Card, Field, Loading, Notice, PageHeader } from '../../components/ui'
 import type { User } from '../../types'
+import { Link } from 'react-router-dom'
+import { VaultWizard } from '../../components/VaultWizard'
+import type { VaultCatalog, VaultConfig, VaultInputs, VaultPlan, VaultProgress } from '../../vault'
 
 type Template = {id:string;name:string;description:string;survey_catalog:Record<string,unknown[]>;task_templates:string[];environments:string[]}
 type Preset = {id:string;name:string;category:string;description:string}
 type Group = {id:string;name:string}
 type Resources = Record<'environments'|'repositories'|'inventories'|'templates',Array<Record<string,unknown>>>
-type CreationJob = {id:string;project_template_id:string;status:string;draft_data:Draft;validation_result?:{errors:string[];warnings:string[]}|null;tenant_id?:string|null;last_error?:string|null}
+type CreationJob = {id:string;project_template_id:string;status:string;draft_data:Draft;validation_result?:{errors:string[];warnings:string[]}|null;tenant_id?:string|null;last_error?:string|null;vault_plan?:VaultPlan|null;vault_progress?:VaultProgress|null;vault_values_saved?:boolean}
 type Draft = {
   project_name:string;tenant_slug:string;runtime_scope_id:string;display_name:string;description:string
   application_id:string;database_type:string;dataset_id:string
@@ -19,6 +22,7 @@ type Draft = {
   repository_url?:string;repository_branch?:string
   access_assignments:Array<{user_id?:string;group_id?:string;role_code:string}>
   create_default_policies:boolean;activate_after_creation:boolean
+  provision_vault:boolean
 }
 const steps = [
   ['Vorlage','Projektquelle auswählen',Layers3],['Tenant','Stammdaten festlegen',Settings2],
@@ -32,8 +36,9 @@ const initial:Draft = {
   application_id:'',database_type:'',dataset_id:'',application_ids:[],database_types:[],dataset_ids:[],
   wizard_step:0,ttl_minutes:60,task_template_names:[],environment_names:[],preset_ids:[],access_assignments:[],
   create_default_policies:true,activate_after_creation:false,
+  provision_vault:false,
 }
-const editable = (job:CreationJob|null) => !job || ['draft','validated','failed'].includes(job.status)
+const editable = (job:CreationJob|null) => !job || !job.vault_values_saved&&['draft','validated','failed'].includes(job.status)
 
 export function TenantWizardPage() {
   const navigate=useNavigate(), [params]=useSearchParams()
@@ -41,6 +46,9 @@ export function TenantWizardPage() {
   const [draft,setDraftState]=useState<Draft>(initial), [job,setJob]=useState<CreationJob|null>(null)
   const [templateId,setTemplateId]=useState(''), [error,setError]=useState('')
   const [busy,setBusy]=useState(false), [retry,setRetry]=useState(false)
+  const [vaultInputs,setVaultInputs]=useState<VaultInputs>({})
+  const vault=useQuery({queryKey:['vault-config'],queryFn:()=>api<VaultConfig>('/admin/vault')})
+  const catalog=useQuery({queryKey:['vault-catalog'],queryFn:()=>api<VaultCatalog>('/admin/vault/catalog'),enabled:draft.provision_vault})
   const jobs=useQuery({queryKey:['creation-jobs'],queryFn:()=>api<CreationJob[]>('/admin/creation-jobs')})
   const templates=useQuery({queryKey:['project-templates'],queryFn:()=>api<Template[]>('/admin/project-templates')})
   const presets=useQuery({queryKey:['presets'],queryFn:()=>api<Preset[]>('/admin/presets')})
@@ -70,12 +78,12 @@ export function TenantWizardPage() {
   })
   const execute=useMutation({
     mutationFn:()=>api<CreationJob>(`/admin/creation-jobs/${job?.id}/execute`,{
-      method:'POST',body:JSON.stringify({confirm_project_creation:true,allow_retry_after_verified_absence:retry}),
+      method:'POST',body:JSON.stringify({confirm_project_creation:true,allow_retry_after_verified_absence:retry,vault_inputs:draft.provision_vault&&!job?.vault_values_saved?vaultInputs:{}}),
     }),
-    onSuccess:value=>{setJob(value);moveTo(value.status==='completed'?7:6);setError('');void jobs.refetch()},
+    onSuccess:value=>{setJob(value);setVaultInputs({});moveTo(value.status==='completed'?7:6);setError('');void jobs.refetch()},
     onError:async(e:Error)=>{
       setError(e.message)
-      if(job){try{setJob(await api<CreationJob>(`/admin/creation-jobs/${job.id}`))}catch{/* Keep the original action error. */}}
+      if(job){try{const value=await api<CreationJob>(`/admin/creation-jobs/${job.id}`);setJob(value);if(value.vault_values_saved)setVaultInputs({})}catch{/* Keep the original action error. */}}
       void jobs.refetch()
     },
   })
@@ -101,10 +109,12 @@ export function TenantWizardPage() {
   const chooseTemplate=(id:string)=>{
     if(id===templateId)return
     setTemplateId(id);setJob(null);setRetry(false);setFurthestStep(0)
+    setVaultInputs({})
     const item=templates.data?.find(row=>row.id===id)
     if(item)setDraftState(value=>({...value,resource_overrides:undefined,wizard_step:0,
       task_template_names:item.task_templates,environment_names:item.environments,
       application_id:'',database_type:'',dataset_id:'',application_ids:[],database_types:[],dataset_ids:[],
+      provision_vault:Boolean(vault.data?.enabled),
     }))
   }
   useEffect(()=>{const id=params.get('template');if(id&&templates.data&&!templateId)chooseTemplate(id)},[params,templates.data,templateId])
@@ -113,10 +123,15 @@ export function TenantWizardPage() {
     for(const [plural,singular] of optionFields)restored[plural]=value.draft_data[plural]??(value.draft_data[singular]?[value.draft_data[singular]]:[])
     const target=value.status==='completed'?7:['validated','restoring','verification_required','semaphore_created'].includes(value.status)?6:Math.min(6,Math.max(1,restored.wizard_step))
     setJob(value);setTemplateId(value.project_template_id);setDraftState(restored)
+    setVaultInputs({})
     setRetry(false);setError('');setStep(target);setFurthestStep(target)
   }
-  if(templates.isLoading||presets.isLoading||users.isLoading||groups.isLoading)return <Loading/>
+  if(templates.isLoading||presets.isLoading||users.isLoading||groups.isLoading||vault.isLoading)return <Loading/>
   const locked=busy||validate.isPending||execute.isPending
+  const vaultReady=!job?.vault_plan||job.vault_values_saved||job.vault_plan.objects.every(obj=>obj.fields.every(field=>{
+    const choice=vaultInputs[field.input_id]
+    return field.source==='registry'||choice?.mode==='generate'||Boolean(choice?.value)
+  }))
   return <>
     <PageHeader title="Tenant erstellen" description="Geführter, speicherbarer 8-Schritt-Prozess mit sicherer Importvorschau."/>
     {step===0&&Boolean(jobs.data?.length)&&<Card><h2>Gespeicherten Vorgang fortsetzen</h2><div className="compact-list">
@@ -137,18 +152,18 @@ export function TenantWizardPage() {
       {error&&<Notice type="error">{error}</Notice>}{job?.last_error&&<Notice type="error">{job.last_error}</Notice>}
       {step===0&&<WizardTemplate templates={templates.data||[]} selected={templateId} onSelect={chooseTemplate}/>}
       {step===1&&<WizardTenant draft={draft} setDraft={setDraft}/>}
-      {step===2&&<WizardApplication draft={draft} setDraft={setDraft} template={selected}/>}
+      {step===2&&<><WizardApplication draft={draft} setDraft={setDraft} template={selected}/>{draft.provision_vault&&<Notice type="info">Freigegebene Kombinationen im Vault-Katalog: {Object.entries(catalog.data?.applications||{}).map(([id,app])=>`${id}: ${Object.keys(app.database_types).join(', ')}`).join(' · ')||'Katalog wird geladen.'}</Notice>}</>}
       {step===3&&<><WizardResources draft={draft} setDraft={setDraft} template={draft.resource_overrides?{...selected!,task_templates:draft.resource_overrides.templates.map(x=>String(x.name)),environments:draft.resource_overrides.environments.map(x=>String(x.name))}:selected}/><WizardResourceEditor key={templateId} templateId={templateId} draft={draft} setDraft={setDraft}/></>}
-      {step===4&&<WizardPresets draft={draft} setDraft={setDraft} presets={presets.data||[]}/>}
+      {step===4&&<><WizardPresets draft={draft} setDraft={setDraft} presets={presets.data||[]}/><h3>Vault-Anlage</h3><label className="toggle-row"><input type="checkbox" disabled={!vault.data?.enabled&&!draft.provision_vault} checked={draft.provision_vault} onChange={e=>setDraft(v=>({...v,provision_vault:e.target.checked}))}/><span>Benötigte Vault-Objekte anlegen und den Semaphore-Lesezugang hinterlegen</span></label>{!vault.data?.enabled&&<Notice type="info">Vault ist noch nicht aktiviert. <Link to="/admin/vault">Vault konfigurieren</Link></Notice>}{vault.error&&<Notice type="error">{vault.error.message}</Notice>}</>}
       {step===5&&<WizardAccess draft={draft} setDraft={setDraft} users={users.data||[]} groups={groups.data||[]}/>}
-      {step===6&&<><WizardValidation job={job} draft={draft}/>{job&&['verification_required','restoring','semaphore_created'].includes(job.status)&&<Notice type="info">Der Vorgang wird anhand des Projektnamens geprüft und fortgesetzt.<label><input type="checkbox" checked={retry} onChange={e=>setRetry(e.target.checked)}/> Falls das Projekt nachweislich fehlt, erneuten Restore ausdrücklich erlauben.</label></Notice>}</>}
+      {step===6&&<><WizardValidation job={job} draft={draft}/>{job?.vault_plan&&<VaultWizard plan={job.vault_plan} inputs={vaultInputs} onChange={setVaultInputs} saved={Boolean(job.vault_values_saved)} progress={job.vault_progress} jobId={job.id} disabled={locked} onResolved={async()=>setJob(await api<CreationJob>(`/admin/creation-jobs/${job.id}`))}/>} {job&&['verification_required','restoring','semaphore_created'].includes(job.status)&&<Notice type="info">Der Vorgang wird anhand des Projektnamens geprüft und fortgesetzt.<label><input type="checkbox" checked={retry} onChange={e=>setRetry(e.target.checked)}/> Falls das Projekt nachweislich fehlt, erneuten Restore ausdrücklich erlauben.</label></Notice>}</>}
       {step===7&&<WizardResult job={job} onOpen={()=>job?.tenant_id&&navigate(`/admin/tenants/${job.tenant_id}`)}/>}
       <div className="wizard-footer">
         {step>0&&step<7&&editable(job)?<Button variant="secondary" disabled={locked} onClick={()=>setStep(value=>value-1)}><ChevronLeft size={16}/>Zurück</Button>:<span/>}
         {step<6&&<Button onClick={()=>void forward(step+1)} loading={busy}>Speichern & weiter<ChevronRight size={16}/></Button>}
         {step===6&&(!job?.validation_result||Boolean(job.validation_result.errors.length)
           ?<Button onClick={()=>void forward(6)} loading={busy||validate.isPending}>Konfiguration erneut validieren</Button>
-          :<Button onClick={()=>execute.mutate()} loading={execute.isPending}><Rocket size={16}/>{job.status==='validated'?'Projekt verbindlich erstellen':'Vorgang prüfen und fortsetzen'}</Button>)}
+          :<Button disabled={!vaultReady} onClick={()=>execute.mutate()} loading={execute.isPending}><Rocket size={16}/>{job.status==='validated'?'Projekt verbindlich erstellen':'Vorgang prüfen und fortsetzen'}</Button>)}
         {step===7&&<Button onClick={()=>job?.tenant_id&&navigate(`/admin/tenants/${job.tenant_id}`)}>Tenant öffnen</Button>}
       </div>
     </Card></div>

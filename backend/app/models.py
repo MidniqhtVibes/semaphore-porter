@@ -313,6 +313,10 @@ class CreationJob(Base, TimestampMixin):
     semaphore_response: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     last_error: Mapped[str | None] = mapped_column(Text)
     restore_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    vault_plan: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    vault_progress: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    encrypted_vault_payload: Mapped[bytes | None] = mapped_column(LargeBinary)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TaskRun(Base, TimestampMixin):
@@ -388,6 +392,13 @@ class SemaphoreSettings(Base, TimestampMixin):
     last_test_success: Mapped[bool | None] = mapped_column(Boolean)
     last_test_message: Mapped[str | None] = mapped_column(Text)
     updated_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class VaultSettings(Base, TimestampMixin):
+    __tablename__ = "vault_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 Index("ix_task_runs_tenant_started", TaskRun.tenant_id, TaskRun.started_at.desc())

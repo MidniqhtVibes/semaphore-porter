@@ -23,7 +23,7 @@ Caddy (TLS)  ---- internes Edge-Netz ---->  Nginx + React SPA
 
 - Caddy terminiert im mitgelieferten TLS-Profil HTTPS und erneuert Zertifikate automatisch.
 - PostgreSQL und FastAPI veröffentlichen keine Host-Ports; PostgreSQL besitzt auch keinen Internetzugang.
-- FastAPI besitzt ein eigenes ausgehendes Netz für den Semaphore-Server. Das Frontend erhält eine separate Bridge für die Host-Portfreigabe; diese ermöglicht auch ausgehenden Netzwerkzugriff, aber keinen direkten Datenbankzugriff.
+- FastAPI besitzt ein eigenes ausgehendes Netz für Semaphore und optional Vault. Das Frontend erhält eine separate Bridge für die Host-Portfreigabe; diese ermöglicht auch ausgehenden Netzwerkzugriff, aber keinen direkten Datenbankzugriff.
 - Nginx ist standardmäßig auf `127.0.0.1:8080` erreichbar, etwa für einen bereits vorhandenen Host-Reverse-Proxy. Adresse und Port lassen sich über `PORTAL_BIND_ADDRESS` und `PORTAL_PUBLIC_PORT` ändern; der lokale Test unten verwendet Port 18092.
 - Tenant-, Template- und Run-Zugriffe werden im Backend anhand interner UUIDs und der aktuellen Mitgliedschaften geprüft.
 - Task-Parameter werden nie direkt durchgereicht: Die serverseitige Policy validiert Eingaben und ergänzt Fixed/Hidden-Werte.
@@ -43,6 +43,7 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 - gemeinsame Pflege von `tenant_slug` und `runtime_scope_id` in `Semaphore-Defaults`
 - Mehrfachauswahl von Anwendungen, Datenbankprovidern und Testdatensätzen im Tenant-Wizard
 - idempotente Creation Jobs mit explizitem Zustand bei unklarem Restore-Ergebnis
+- optionale Vault-KV-v2-Anlage mit Existenzprüfung, zentralen AppRole-/Registry-Zugängen, Secret-Eingabe oder Generierung und Wiederaufnahme
 - Synchronisierung der Task Templates und Survey-Felder
 - Policies für `fixed`, `hidden`, `enum`, `integer_range`, `string` und `boolean`
 - secret-freie, versionierte Presets
@@ -53,7 +54,7 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 
 Der aktuelle Release-Zwischenstand ist in [CHANGELOG.md](CHANGELOG.md) dokumentiert. Die noch ausstehende Abnahme gegen die konkrete Semaphore-Instanz steht im [Implementierungsstatus](docs/IMPLEMENTATION_STATUS.md).
 
-Die konkret durchzuführenden Prüfungen stehen im [Abnahmetestplan](docs/ABNAHMETESTS.md). Die [Bewertung einer automatischen Vault-Secret-Anlage](docs/VAULT_BEWERTUNG.md) beschreibt einen möglichen späteren Ausbau; diese Funktion ist derzeit nicht implementiert.
+Die konkret durchzuführenden Prüfungen stehen im [Abnahmetestplan](docs/ABNAHMETESTS.md). Zielbild, Einrichtung und Betrieb der Vault-Integration stehen vollständig in [Vault-Implementierung](docs/VAULT_IMPLEMENTIERUNG.md). Die frühere [Vault-Bewertung](docs/VAULT_BEWERTUNG.md) bleibt als historische Recherche erhalten.
 
 ## Versionen
 
@@ -258,6 +259,16 @@ docker compose --profile tls up -d --wait
 ```
 
 Ein Restore mit `--clean` überschreibt die Zieldatenbank. Datenbank-Backup und `.env` mit demselben Fernet-Key müssen gemeinsam, verschlüsselt und regelmäßig außerhalb des Docker-Hosts gesichert sowie testweise wiederhergestellt werden. Docker-Logs sind pro Container begrenzt; für zentrale Aufbewahrung ist ein externer Log-Collector erforderlich.
+
+## Vault einrichten
+
+Nach dem Update unter **Administration → Vault** Server-URL, KV-v2-Mount, Tenantwurzel und beide AppRole-Zugänge hinterlegen: einen Schreibzugang für den Porter und den vorhandenen Semaphore-Lesezugang. Der Leser bleibt dieselbe bestehende AppRole. Ist seine bisherige Secret-ID nicht mehr bekannt, stellt ein Vault-Administrator einmalig eine zusätzliche Secret-ID dieser Rolle aus; die laufende Semaphore-Konfiguration bleibt gültig.
+
+Registry-Passwörter pro Anwendung zentral eintragen und **Vault-Anlage im Tenant-Assistenten anbieten** aktivieren. Geheimnisse werden mit dem bestehenden Fernet-Key verschlüsselt und nicht zurückgegeben. Zum Beibehalten gespeicherter Zugangswerte die Eingabefelder leer lassen.
+
+Im Tenant-Assistenten ist die Vault-Anlage bei neu gewählter Vorlage dann vorbelegt und in Schritt 5 abwählbar. Schritt 7 zeigt die exakten neuen Objekte und die Eingabe-/Generierungswahl. AzubiOrga-Crypto-Werte standardmäßig manuell eintragen, wenn sie vom Image vorgegeben sind. Die Anlage prüft alle Zielobjekte vor dem ersten Schreiben und überschreibt nichts. Noch kein Deployment wird gestartet.
+
+Ohne konfigurierte Vault-Integration funktioniert der bisherige Ablauf weiter. Unternehmens-CA, benötigte Vault-Rechte, Umgang mit Teilfehlern und Katalogexport sind in [docs/VAULT_IMPLEMENTIERUNG.md](docs/VAULT_IMPLEMENTIERUNG.md) beschrieben.
 
 ## Entwicklung und Tests
 
