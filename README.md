@@ -50,7 +50,7 @@ Die direkte Verwaltung, Bearbeitung und Duplizierung von Semaphore-Projekten sow
 - Task-Start, Status, Live-Ausgabe per Server-Sent Events, Abbruch und Historie
 - Audit-Log, Login-Limitierung, Argon2-Passwörter, serverseitige Sessions und CSRF-Schutz
 - Alembic-Migrationen und persistentes PostgreSQL-Volume
-- GitHub Black, SIT Hell/Dunkel und importierbare Unternehmensdesigns; festes Portal-Tor als Website-Symbol
+- neutrale helle/dunkle Basis, GitHub Black, SIT Hell/Dunkel und eigene Unternehmensdesigns mit Live-Vorschau; festes Portal-Tor als Website-Symbol
 
 Der aktuelle Release-Zwischenstand ist in [CHANGELOG.md](CHANGELOG.md) dokumentiert. Die noch ausstehende Abnahme gegen die konkrete Semaphore-Instanz steht im [Implementierungsstatus](docs/IMPLEMENTATION_STATUS.md).
 
@@ -297,7 +297,7 @@ API-Dokumentation im laufenden System: `https://<PORTAL_DOMAIN>/api/docs` bezieh
 
 ## Fehlerdiagnose
 
-Unter **Designs** lassen sich GitHub Black, SIT Hell, SIT Dunkel und eigene JSON-Varianten auswählen. Format und Bedienung stehen in [Designs und Unternehmensfarben](docs/DESIGNS.md).
+Unter **Designs** lassen sich Neutral Hell, Neutral Dunkel, GitHub Black, SIT Hell, SIT Dunkel und eigene Varianten auswählen. Das Designstudio zeigt die vollständige Navigation und bietet Farbauswahl, Logo- und Textgestaltung. Format und Bedienung stehen in [Designs und Unternehmensfarben](docs/DESIGNS.md).
 
 Die Einrichtung von Portal-Konten, Tenant-Zugriffen und Task-Rechten ist in [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md) beschrieben.
 

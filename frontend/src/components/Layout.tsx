@@ -1,49 +1,24 @@
+import { useTheme } from '../designs/ThemeProvider'
+import { DEFAULT_COPY } from '../designs/themes'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import {
-  Activity, AppWindow, Boxes, ChevronDown, CircleUserRound, ClipboardList, FileClock,
-  Gauge, LayoutDashboard, ListChecks, Menu, PackageOpen, PanelLeftClose,
-  ScrollText, ServerCog, ShieldCheck, Users, Workflow, X, Palette,
-} from 'lucide-react'
+import {ChevronDown, ClipboardList, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
+import {ADMIN_NAV_ITEMS, PORTAL_NAV_ITEMS} from './navigation'
 import { useAuth } from '../auth'
 import { Button } from './ui'
 import { BrandMark } from './BrandMark'
 import { SiteFooter } from './SiteFooter'
 
-const adminItems = [
-  ['/admin', 'Dashboard', LayoutDashboard],
-  ['/admin/projekte', 'Semaphore-Projekte', ServerCog],
-  ['/admin/tenants', 'Tenants', Boxes],
-  ['/admin/tenant-erstellen', 'Tenant erstellen', Workflow],
-  ['/admin/anwendungen', 'Anwendungen', AppWindow],
-  ['/admin/vorlagen', 'Projektvorlagen', PackageOpen],
-  ['/admin/presets', 'Presets', ListChecks],
-  ['/admin/benutzer', 'Benutzer & Gruppen', Users],
-  ['/admin/berechtigungen', 'Berechtigungen', ShieldCheck],
-  ['/admin/tasks', 'Task-Überwachung', Activity],
-  ['/admin/audit', 'Audit-Log', ScrollText],
-  ['/admin/semaphore', 'Semaphore', ServerCog],
-  ['/admin/vault', 'Vault', ShieldCheck],
-  ['/admin/designs', 'Designs', Palette],
-] as const
-
-const portalItems = [
-  ['/portal', 'Dashboard', Gauge],
-  ['/portal/projekte', 'Meine Projekte', Boxes],
-  ['/portal/laufende-tasks', 'Laufende Tasks', Activity],
-  ['/portal/historie', 'Task-Historie', FileClock],
-  ['/portal/konto', 'Mein Konto', CircleUserRound],
-  ['/portal/designs', 'Designs', Palette],
-] as const
-
 export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children: ReactNode }) {
+  const {active}=useTheme()
+  const copy={...DEFAULT_COPY,...active.copy}
   const [open, setOpen] = useState(false)
   const { user, logout, isAdmin } = useAuth()
   const location = useLocation()
-  const items = mode === 'admin' ? adminItems : portalItems
+  const items = mode === 'admin' ? ADMIN_NAV_ITEMS : PORTAL_NAV_ITEMS
   return <div className="shell">
     <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
-      <div className="brand"><BrandMark/><div><strong>Semaphore</strong><span>Tenant Portal</span></div><button className="mobile-close" onClick={() => setOpen(false)}><X/></button></div>
+      <div className="brand"><BrandMark/><div><strong>{copy.title}</strong><span>{copy.subtitle}</span></div><button className="mobile-close" onClick={() => setOpen(false)}><X/></button></div>
       <div className="mode-label">{mode === 'admin' ? 'ADMINPORTAL' : 'BENUTZERPORTAL'}</div>
       <nav>{items.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === `/${mode}`} onClick={() => setOpen(false)} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><Icon size={18}/><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-bottom">

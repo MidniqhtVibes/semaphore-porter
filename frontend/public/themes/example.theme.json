@@ -2,8 +2,8 @@
   "schema_version": 1,
   "id": "meine-firma",
   "name": "Meine Firma",
-  "description": "Ein eigenes Design auf Basis von GitHub Black.",
-  "base": "github-dark",
+  "description": "Ein eigenes Design auf neutraler dunkler Basis.",
+  "base": "neutral-dark",
   "font": "system",
   "radius": 6,
   "colors": {

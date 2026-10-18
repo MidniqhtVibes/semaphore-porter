@@ -1,14 +1,14 @@
 # Designs und eigene Unternehmensfarben
 
-Der Menüpunkt **Designs** steht in Administration und Benutzerportal zur Verfügung. Enthalten sind **GitHub Black** als bisherige Voreinstellung sowie **SIT Hell** und **SIT Dunkel**. Die SIT-Varianten orientieren sich an der bereitgestellten Look-&-Feel-Richtlinie vom 10.09.2025: Anthrazit `#414146`, Hellgrau `#ececec`, Grün `#50be46` beziehungsweise Hellgrün `#9bd78c` und Sora in Regular, Medium und SemiBold. Für lesbare Bedienelemente und Statushinweise werden ergänzend abgestufte Kontrastfarben verwendet.
+Der Menüpunkt **Designs** steht in Administration und Benutzerportal zur Verfügung. Die allgemeine Grundlage bilden **Neutral Dunkel** und **Neutral Hell** mit Systemschrift, neutralem Symbol und blauen Akzenten. **GitHub Black**, **SIT Hell** und **SIT Dunkel** stehen daneben als gleichwertige Varianten zur Verfügung. Alle Varianten verwenden dasselbe Format und dieselben Funktionen zum Auswählen, Kopieren, Exportieren und Entfernen.
 
-In beiden SIT-Varianten erscheint die vom Betreiber bereitgestellte PNG-Marke in Navigation und Anmeldung ohne farbige Hintergrundfläche: dunkel in SIT Hell und weiß in SIT Dunkel. Die Originaldatei liegt ausschließlich unter `frontend/public/branding/sit-logo.png` und bleibt unverändert; die dunkle Darstellung entsteht durch einen CSS-Filter. GitHub Black verwendet weiterhin die neutrale Schlüsselmarke.
+Logos werden in Navigation, Anmeldung, Designkarten und Vorschau über eine gemeinsame Komponente dargestellt. Design-Daten können eine mitgelieferte Logo-Vorlage oder ein hochgeladenes Bild sowie Originalfarben oder eine dunkle Darstellung wählen. Die SIT-Varianten enthalten dafür reguläre Logo-Metadaten; es gibt keine markenabhängigen Regeln in den Ansichten. Mitgelieferte Logo-Dateien bleiben unverändert.
 
 Die Schrift liegt lokal unter `frontend/public/fonts/Sora-Variable.ttf`; Browser laden keine Schrift von Google nach. Quelle: [Google Fonts – Sora](https://github.com/google/fonts/tree/main/ofl/sora), Lizenz: `frontend/public/fonts/OFL-Sora.txt`.
 
 ## Auswahl und Speicherung
 
-**Design verwenden** aktiviert die gewählte Variante unmittelbar. Sie gilt anschließend für Anmeldung, Administration und Benutzerportal auf derselben Browser-Origin. Auswahl und eigene Designs liegen im lokalen Browser-Speicher; sie ändern keine Server-Konfiguration und werden nicht zwischen Geräten oder Benutzerkonten synchronisiert. Bei gesperrtem Browser-Speicher bleibt die Darstellung für die aktuelle Sitzung aktiv. Ohne gespeicherte Auswahl und bei ungültigen gespeicherten Daten wird GitHub Black verwendet.
+**Design verwenden** aktiviert die gewählte Variante unmittelbar. Sie gilt anschließend für Anmeldung, Administration und Benutzerportal auf derselben Browser-Origin. Auswahl und eigene Designs liegen im lokalen Browser-Speicher; sie ändern keine Server-Konfiguration und werden nicht zwischen Geräten oder Benutzerkonten synchronisiert. Bei gesperrtem Browser-Speicher bleibt die Darstellung für die aktuelle Sitzung aktiv. Ohne gespeicherte Auswahl und bei ungültigen gespeicherten Daten wird Neutral Dunkel verwendet. Vorhandene gültige Designauswahlen bleiben erhalten. Neue Studioentwürfe starten auf neutraler Basis; **Als Vorlage** übernimmt gezielt die jeweilige Variante.
 
 ## Website-Symbol und Windows-Taskleiste
 
@@ -32,7 +32,7 @@ Beispiel:
   "schema_version": 1,
   "id": "meine-firma",
   "name": "Meine Firma",
-  "base": "github-dark",
+  "base": "neutral-dark",
   "font": "system",
   "radius": 6,
   "colors": {
@@ -45,9 +45,9 @@ Beispiel:
 }
 ```
 
-Nicht angegebene Werte werden aus `base` übernommen. Zulässig sind `github-dark`, `sit-light` und `sit-dark`. `font` erlaubt die lokale Sora-Schrift oder die vorhandene Systemschrift. `radius` ist eine ganze Zahl von 0 bis 16 Pixeln. Der Import akzeptiert höchstens 50 KB und speichert maximal 20 eigene Varianten. Eigene Designs können entfernt werden; beim Entfernen der aktiven Variante wird GitHub Black aktiviert.
+Nicht angegebene Werte werden aus `base` übernommen. Zulässig sind `neutral-dark`, `neutral-light`, `github-dark`, `sit-light` und `sit-dark`. `font` erlaubt die lokale Sora-Schrift oder die vorhandene Systemschrift. `radius` ist eine ganze Zahl von 0 bis 16 Pixeln. Der Import akzeptiert höchstens 1 MB und speichert maximal 20 eigene Varianten. Beim Entfernen der aktiven Variante wird das erste verbleibende Design aktiviert.
 
-Eigene Design-Dateien verwenden standardmäßig die neutrale Bildmarke, auch bei einer SIT-Farbbasis. Das optionale Feld `branding` erlaubt ausdrücklich `neutral` oder `sit`. Beim Export einer eingebauten SIT-Variante wird `branding: "sit"` mitgeführt; für eine andere Unternehmensidentität auf `neutral` setzen. Das feste Website-Symbol ist kein Bestandteil der Design-Datei.
+Eigene Design-Dateien verwenden standardmäßig das neutrale Symbol. `logo` enthält ein hochgeladenes Bild; alternativ verweist `logoAsset` auf eine freigegebene lokale Logo-Vorlage. `logoTone` wählt `original` oder `dark`, unabhängig vom Bild und der Farbbasis. Ältere Dateien mit `branding` werden beim Import in diese allgemeinen Logo-Felder überführt. Das feste Website-Symbol ist kein Bestandteil der Design-Datei.
 
 Das maschinenlesbare [JSON-Schema](../frontend/public/themes/theme.schema.json) beschreibt alle Felder. Es wird zusammen mit der [Beispieldatei](../frontend/public/themes/example.theme.json) unter `/themes/` ausgeliefert. Die Formatversion ist `schema_version: 1`.
 
@@ -66,3 +66,21 @@ Wichtige Farbschlüssel:
 Farben müssen Hex-Werte sein. Transparenz ist nur für die im Schema ausgewiesenen Hinweisflächen und Rahmen erlaubt. Für Haupttext, Begleittext und die primäre Schaltfläche prüft der Import einen Mindestkontrast von 4,5:1. Die Prüfung ersetzt keine vollständige Barrierefreiheitsprüfung aller Zustände. Beliebiges CSS, externe Ressourcen und Skripte werden nicht importiert.
 
 Für zusätzliche fest mitgelieferte Designs können Entwickler die zentrale Liste in `frontend/src/designs/themes.ts` ergänzen und das Frontend neu bauen. Eine globale Unternehmensvorgabe über die Serververwaltung ist derzeit nicht vorgesehen.
+
+## Visueller Design-Creator
+
+Unter **Designs → Design erstellen** öffnet sich eine eigene Studioseite ohne die normale Portalnavigation. **Als Vorlage** öffnet eine Kopie einer mitgelieferten Variante; **Bearbeiten** öffnet ein vorhandenes eigenes Design. Die Routen sind `/admin/designs/studio` und `/portal/designs/studio`. Erst **Speichern und aktivieren** übernimmt den Entwurf und führt zurück zur Designauswahl. **Zurück zu Designs** verlässt den Entwurf ohne Änderungen am aktiven Design.
+
+Anpassbar sind sämtliche Farben (zusätzliche Zustände unter **Weitere Farben und Zustände**), Hell-/Dunkelbasis, Schrift und Eckenradius. Portalname, Untertitel und die Texte der Anmeldung erscheinen nach dem Speichern auch in Navigation und Anmeldung. Die Farbprüfung verhindert das Speichern unzureichender Textkontraste. **Änderungen zurücksetzen** stellt den Stand beim Öffnen des Editors wieder her.
+
+Eigene Logos und ein optionales Hintergrundbild der Anmeldung können als PNG, JPEG oder WebP mit jeweils bis zu 250 KB hochgeladen und wieder entfernt werden. Sie werden in die Design-Datei eingebettet, ohne externe Bildaufrufe. Die Logobreite lässt sich zwischen 32 und 120 Pixeln einstellen. Ein Logo mit transparentem Hintergrund eignet sich für wechselnde Flächen. JSON-Importe erlauben bis zu 1 MB inklusive Bildern und Texten. Die optionalen Felder `copy`, `logo`, `logoWidth`, `loginBackground` und `legal` ergänzen Formatversion 1; vorhandene Dateien bleiben gültig. Export und Import übertragen die vollständige Gestaltung. Speicherung und Auswahl gelten weiterhin nur im jeweiligen Browser.
+
+Alle eigenen und mitgelieferten Designs erscheinen gemeinsam unter **Verfügbare Designs**. Jede Karte bietet Auswahl, Bearbeitung beziehungsweise Kopie und Entfernen. Das Entfernen eines aktiven Designs aktiviert die erste verbleibende Variante. Mindestens ein Design bleibt erhalten. Entfernte Standarddesigns bleiben in diesem Browser ausgeblendet, bis **Standarddesigns wiederherstellen** gewählt wird; eigene Designs werden beim Entfernen aus dem Browser-Speicher gelöscht.
+
+### Interaktive Live-Vorschau
+
+Die Vorschau füllt die verfügbare Fläche neben einer schmalen Werkzeugleiste. Unter **Farben** stehen ausschließlich Farbwähler zur Verfügung; Hex-Eingaben entfallen. Transparente Farben haben zusätzlich einen Deckkraftregler. **Texte & Bilder** öffnet die übrigen Einstellungen. Die Ansichten **Anmeldung**, **Portal**, **Elemente**, **Impressum** und **Datenschutz** zeigen alle Änderungen unmittelbar. **Elemente** demonstriert Aktionen, Fokus, Hover, Eingaben und Statusmeldungen; Portalaktionen arbeiten ausschließlich mit Beispieldaten. Desktop- und Mobilansicht, eine vergrößerte Vorschau sowie **Vergleichen** mit dem Stand beim Öffnen erleichtern die Beurteilung. Auf kleinen Bildschirmen liegt die kompakte Farbpalette unter der Vorschau; beide Bereiche scrollen unabhängig. Farbstimmungen für Ozean, Iris, Wald und Terrakotta passen zusammengehörige Akzent- und Aktionsfarben gemeinsam an.
+
+Das Studio öffnet direkt die **Portal**-Vorschau mit dem vollständigen Hauptmenü. **Menüvorschau** wechselt zwischen Administration und Benutzerportal. Die Menüpunkte und Symbole stammen aus derselben Definition wie die tatsächliche Portalnavigation. Auf schmalen Vorschauflächen lässt sich das Hauptmenü über die Menütaste öffnen und schließen. Menüaktionen verändern nur die Beispielansicht.
+
+Unter **Footer und Rechtliches** stehen ein Footertext bis 160 Zeichen sowie Impressum und Datenschutzhinweise mit jeweils bis zu 12.000 Zeichen zur Verfügung. Zeilenumbrüche und Absätze bleiben erhalten; HTML wird als Text angezeigt. Das Bearbeiten der Rechtstexte öffnet automatisch die entsprechende Vorschau. Nach dem Speichern verlinkt der Footer ausgefüllte Texte unter `/impressum` beziehungsweise `/datenschutz`; diese Ansichten sind auch ohne Anmeldung zugänglich. Auch diese Inhalte gelten für das Design im jeweiligen Browser und sind keine serverweite Betreiberkonfiguration.

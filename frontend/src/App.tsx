@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth'
 import { Layout } from './components/Layout'
@@ -14,6 +14,8 @@ import { TenantWizardPage } from './pages/admin/TenantWizardPage'
 import { ProjectsPage, ProjectEditorPage } from './pages/admin/ProjectsPage'
 import { UsersPage } from './pages/admin/UsersPage'
 import { DesignsPage } from './pages/DesignsPage'
+import { LegalPage } from './pages/LegalPage'
+const DesignStudioPage=lazy(()=>import('./pages/DesignStudioPage'))
 import {
   AccountPage, MyProjectsPage, PortalDashboardPage, ProjectDetailPage, RunDetailPage,
   RunsPage, TaskStartPage,
@@ -37,16 +39,23 @@ function Protected({admin=false}:{admin?:boolean}){
 function AdminShell(){return <Layout mode="admin"><ErrorBoundary><Outlet/></ErrorBoundary></Layout>}
 function PortalShell(){return <Layout mode="portal"><ErrorBoundary><Outlet/></ErrorBoundary></Layout>}
 function LoginRoute(){const {user,loading,isAdmin}=useAuth();if(loading)return <div className="app-loading"><Loading/></div>;return user?<Navigate to={isAdmin?'/admin':'/portal'} replace/>:<LoginPage/>}
+function StudioRoute(){return <ErrorBoundary><Suspense fallback={<div className="app-loading"><Loading label="Designstudio wird geladen …"/></div>}><DesignStudioPage/></Suspense></ErrorBoundary>}
 
 export function App(){return <Routes>
+  <Route path="/impressum" element={<LegalPage page="imprint"/>}/>
+  <Route path="/datenschutz" element={<LegalPage page="privacy"/>}/>
   <Route path="/login" element={<LoginRoute/>}/>
-  <Route element={<Protected admin/>}><Route path="/admin" element={<AdminShell/>}>
+  <Route element={<Protected admin/>}>
+    <Route path="/admin/designs/studio" element={<StudioRoute/>}/>
+    <Route path="/admin" element={<AdminShell/>}>
     <Route path="vault" element={<VaultPage/>}/>
     <Route path="designs" element={<DesignsPage/>}/>
     <Route path="projekte" element={<ProjectsPage/>}/><Route path="projekte/:projectId" element={<ProjectEditorPage/>}/>
     <Route index element={<AdminDashboardPage/>}/><Route path="tenants" element={<TenantsPage/>}/><Route path="tenants/:tenantId" element={<TenantDetailPage/>}/><Route path="tenant-erstellen" element={<TenantWizardPage/>}/><Route path="anwendungen" element={<ApplicationsPage/>}/><Route path="vorlagen" element={<ProjectTemplatesPage/>}/><Route path="presets" element={<PresetsPage/>}/><Route path="benutzer" element={<UsersPage/>}/><Route path="berechtigungen" element={<PermissionsPage/>}/><Route path="tasks" element={<AdminTasksPage/>}/><Route path="audit" element={<AuditPage/>}/><Route path="semaphore" element={<SemaphorePage/>}/>
   </Route></Route>
-  <Route element={<Protected/>}><Route path="/portal" element={<PortalShell/>}>
+  <Route element={<Protected/>}>
+    <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
+    <Route path="/portal" element={<PortalShell/>}>
     <Route path="designs" element={<DesignsPage/>}/>
     <Route index element={<PortalDashboardPage/>}/><Route path="projekte" element={<MyProjectsPage/>}/><Route path="projekte/:tenantId" element={<ProjectDetailPage/>}/><Route path="projekte/:tenantId/tasks/:taskId" element={<TaskStartPage/>}/><Route path="laufende-tasks" element={<RunsPage runningOnly/>}/><Route path="historie" element={<RunsPage/>}/><Route path="runs/:runId" element={<RunDetailPage/>}/><Route path="konto" element={<AccountPage/>}/>
   </Route></Route>

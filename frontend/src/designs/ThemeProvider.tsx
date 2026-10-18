@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
-import { BUILTIN_THEMES, FONT_STACKS, parseThemeFile, resolveCustomTheme, type Theme, type ThemeFile } from './themes'
+import { BUILTIN_THEMES, DEFAULT_THEME_ID, FONT_STACKS, parseThemeFile, resolveCustomTheme, type Theme, type ThemeFile } from './themes'
 import { applyWebsiteSymbol } from './websiteSymbols'
 
 export const THEME_STORAGE_KEY='semaphore-porter.designs.v1'
-type ThemeState={selected:string;custom:ThemeFile[]}
-type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void}
+type ThemeState={selected:string;custom:ThemeFile[];hidden:string[]}
+type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void;restoreDefaults:()=>void;hasHiddenDefaults:boolean}
 const ThemeContext=createContext<ThemeContextValue|null>(null)
-const initial:ThemeState={selected:'github-dark',custom:[]}
+const initial:ThemeState={selected:DEFAULT_THEME_ID,custom:[],hidden:[]}
 
 function readState(): ThemeState {
   try{
@@ -16,8 +16,11 @@ function readState(): ThemeState {
     for(const value of stored.custom.slice(0,20)){
       try{const parsed=parseThemeFile(value);if(!custom.some(theme=>theme.id===parsed.id))custom.push(parsed)}catch{/* Ignore invalid stored packages. */}
     }
+    const hidden=Array.isArray(stored.hidden)?BUILTIN_THEMES.filter(theme=>stored.hidden.includes(theme.id)).map(theme=>theme.id):[]
+    let available=[...BUILTIN_THEMES.filter(theme=>!hidden.includes(theme.id)),...custom.map(resolveCustomTheme)]
+    if(!available.length){hidden.length=0;available=BUILTIN_THEMES}
     const selected=String(stored.selected)
-    return {custom,selected:BUILTIN_THEMES.some(theme=>theme.id===selected)||custom.some(theme=>`custom:${theme.id}`===selected)?selected:'github-dark'}
+    return {custom,hidden,selected:available.some(theme=>theme.id===selected)?selected:available[0].id}
   }catch{return initial}
 }
 export function applyTheme(theme: Theme){
@@ -34,7 +37,7 @@ export function applyTheme(theme: Theme){
 }
 export function ThemeProvider({children}:{children:ReactNode}){
   const [state,setState]=useState(readState), [storageWarning,setStorageWarning]=useState('')
-  const themes=useMemo(()=>[...BUILTIN_THEMES,...state.custom.map(resolveCustomTheme)],[state.custom])
+  const themes=useMemo(()=>[...BUILTIN_THEMES.filter(theme=>!state.hidden.includes(theme.id)),...state.custom.map(resolveCustomTheme)],[state.custom,state.hidden])
   const active=themes.find(theme=>theme.id===state.selected)||BUILTIN_THEMES[0]
   useLayoutEffect(()=>applyTheme(active),[active])
   useLayoutEffect(()=>applyWebsiteSymbol(),[])
@@ -55,8 +58,15 @@ export function ThemeProvider({children}:{children:ReactNode}){
     save({...state,selected:theme.id,custom:[...state.custom.filter(item=>item.id!==definition.id),definition]})
     return theme
   }
-  const remove=(id:string)=>save({...state,selected:state.selected===id?'github-dark':state.selected,custom:state.custom.filter(theme=>`custom:${theme.id}`!==id)})
-  return <ThemeContext.Provider value={{themes,active,storageWarning,select,importTheme,remove}}>{children}</ThemeContext.Provider>
+  const remove=(id:string)=>{
+    if(themes.length<=1||!themes.some(theme=>theme.id===id))return
+    const remaining=themes.filter(theme=>theme.id!==id)
+    save({...state,selected:state.selected===id?remaining[0].id:state.selected,
+      custom:state.custom.filter(theme=>`custom:${theme.id}`!==id),
+      hidden:BUILTIN_THEMES.some(theme=>theme.id===id)?[...state.hidden,id]:state.hidden})
+  }
+  const restoreDefaults=()=>save({...state,hidden:[]})
+  return <ThemeContext.Provider value={{themes,active,storageWarning,select,importTheme,remove,restoreDefaults,hasHiddenDefaults:state.hidden.length>0}}>{children}</ThemeContext.Provider>
 }
 export function useTheme(){
   const value=useContext(ThemeContext)
