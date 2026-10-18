@@ -1,0 +1,45 @@
+Doom Easter Egg — third-party notices
+
+DOOM is a trademark of id Software. This portal is not affiliated with or
+endorsed by id Software.
+
+Engine
+------
+doom.wasm by Jacob Enget, based on DoomGeneric, Chocolate Doom and the
+original Doom source by id Software and their respective contributors.
+Copyright notices are preserved in the accompanying source archive.
+License: GNU General Public License version 2 (see GPL-2.0.txt and the
+individual source files for any additional permissions).
+
+Upstream: https://github.com/jacobenget/doom.wasm
+Pinned revision: 25ea598859a7dba4e2f86ea0354d583e1b3f5ecd
+Original binary: examples/browser/assets/doom.wasm at that revision.
+The distributed WebAssembly binary is unmodified.
+SHA-256: 8edfe49a7583fd975199969302d8e9adcf8e714d0af72bf3e672f991fd810faa
+
+Complete corresponding engine source and build scripts are available here:
+doom-source-25ea5988.zip
+This archive contains the upstream source at the pinned revision, its
+build files, and the unchanged shareware WAD needed for the build.
+Unrelated example test WADs, screenshots and the duplicate prebuilt binary
+are omitted. Source files are unchanged.
+
+The local JavaScript host adapters game.js and engine-worker.js are also
+provided as source alongside the game and licensed under GPL-2.0-or-later.
+No warranty is provided; see GPL-2.0.txt.
+
+Game data
+---------
+DOOM shareware 1.9, Copyright (C) 1993-1996 id Software, Inc.
+The complete, unchanged DOOM1.WAD is embedded in the upstream binary.
+MD5: f0cefca49926d00903cf57551d901abe
+The game data is subject to its own license, not the GPL.
+See SHAREWARE-LICENSE.txt for the original terms and the redistribution
+clarification from John Carmack, preserved at:
+https://github.com/redox-os/freedoom/blob/master/LICENSE-DOOM1
+
+Features of this integration
+----------------------------
+Starts E1M1 (Hangar) through the original New Game menu. No game data or
+maps are modified. This port has no audio. Savegames are kept in worker
+memory only and discarded when the game is restarted or the page is left.

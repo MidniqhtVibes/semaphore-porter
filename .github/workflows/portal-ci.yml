@@ -56,7 +56,24 @@ jobs:
         working-directory: frontend
       - run: npm test
         working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+        env:
+          PORTAL_BUILD_IDDQD: "1"
       - run: npm run build
+        working-directory: frontend
+      - name: Check that the default build excludes the game
+        run: test ! -e dist/arcade
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          PORTAL_BUILD_IDDQD: "1"
+      - name: Check optional game artifacts
+        run: |
+          test -s dist/arcade/doom-25ea5988.wasm
+          test -s dist/arcade/doom-source-25ea5988.zip
+          test -s dist/arcade/THIRD_PARTY.txt
         working-directory: frontend
 
   container-smoke:

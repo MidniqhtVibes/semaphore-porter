@@ -1,0 +1,6 @@
+.doom-page { height: 100dvh; min-height: 440px; display: flex; flex-direction: column; background: #0c0d10; }
+.doom-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #282a30; color: #f1f1f3; font-size: 13px; }
+.doom-header > span { letter-spacing: .06em; }
+.doom-secret { color: #a6a8b0; font-family: monospace; }
+.doom-frame { display: block; flex: 1; width: 100%; min-height: 0; border: 0; background: #0c0d10; }
+@media (max-width: 540px) { .doom-header { padding: 10px 12px; } .doom-secret { display: none; } }

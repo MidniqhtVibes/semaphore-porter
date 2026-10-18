@@ -216,7 +216,7 @@ derselben AppRole ausstellt. Die Ausgabe nur in das geschützte Porter-Feld
 TTL, Nutzungszahl und mögliche Netzwerkbindungen müssen spätere Anmeldungen vom
 Semaphore-Runner ermöglichen. Der Porter erneuert solche Credentials nicht selbst.
 
-### 3. Unter Administration → Vault konfigurieren
+### 3. Unter Administration → Einstellungen → Vault konfigurieren
 
 | Feld | Einzutragender Wert |
 |---|---|
@@ -336,7 +336,7 @@ Provider im Stack; dafür gilt zuerst dessen Paket-/Providerablauf oben.
 ## Implementierungsstand
 
 - Spezifikation, Backend-/Frontend-Integration und additive Migration umgesetzt.
-- Prüfung: **101 Backend-Tests und 33 Frontend-Tests bestanden**; TypeScript-/Vite-
+- Prüfung: **101 Backend-Tests und 59 Frontend-Tests im Standardbuild bestanden**; TypeScript-/Vite-
   Produktionsbuild und beide Docker-Image-Builds erfolgreich. Katalogexport mit
   den Stack-Manifesten verglichen, lokale Dokumentationslinks geprüft.
 - Lokaler Compose-Stack unter `http://127.0.0.1:18092` gesund; Migration

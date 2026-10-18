@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { ArrowRight, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardList, Folder, Maximize2, Menu, Monitor, PanelLeftClose, Play, Plus, Search, ShieldCheck, Smartphone, X } from 'lucide-react'
+import { ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, CircleAlert, ClipboardList, Folder, Maximize2, Menu, Monitor, PanelLeftClose, Play, Plus, Search, ShieldCheck, Smartphone, X } from 'lucide-react'
 import { LegalContent } from '../components/LegalContent'
 import { ThemeLogo } from '../components/ThemeLogo'
-import { ADMIN_NAV_ITEMS, PORTAL_NAV_ITEMS, type NavigationMode } from '../components/navigation'
+import { navigationContext, type NavigationMode } from '../components/navigation'
+import { GroupedNavigation } from '../components/GroupedNavigation'
 import { DEFAULT_COPY, DEFAULT_LEGAL, FONT_STACKS, type Theme } from './themes'
 
 export const PREVIEW_PAGES = {login:'Anmeldung',workspace:'Portal',components:'Elemente',imprint:'Impressum',privacy:'Datenschutz'}
@@ -44,7 +45,7 @@ export function DesignLivePreview({theme,original,page,onPageChange,fullPage=fal
     {legal.privacy.trim()&&<button type="button" onClick={()=>onPageChange('privacy')}>Datenschutz</button>}
   </div></footer>
   const sampleAction=(label:string)=>setToast(label)
-  const items=mode==='admin'?ADMIN_NAV_ITEMS:PORTAL_NAV_ITEMS
+  const context=navigationContext(mode,selectedPath)
   const changeMode=(next:NavigationMode)=>{setMode(next);setSelectedPath(`/${next}`);setMenuOpen(false)}
   const tools=<div className="preview-tools"><button type="button" className="preview-tool" aria-pressed={comparing} onClick={()=>setComparing(!comparing)}>Vergleichen</button>
     <button type="button" className="preview-tool" aria-label={expanded?'Große Vorschau schließen':'Vorschau vergrößern'} onClick={()=>setExpanded(!expanded)}>{expanded?<X size={17}/>:<Maximize2 size={17}/>}</button></div>
@@ -76,11 +77,11 @@ export function DesignLivePreview({theme,original,page,onPageChange,fullPage=fal
         </div>:<div className={`preview-portal ${menuOpen?'preview-menu-open':''}`}>
           <aside id={`${uid}-menu`} className="preview-sidebar" aria-label="Hauptmenü-Vorschau"><div className="preview-sidebar-brand">{brand}<button type="button" className="preview-menu-close" aria-label="Hauptmenü schließen" onClick={()=>setMenuOpen(false)}><X size={17}/></button></div>
             <span className="preview-mode-label">{mode==='admin'?'ADMINPORTAL':'BENUTZERPORTAL'}</span>
-            <nav aria-label="Hauptmenü">{items.map(([to,label,Icon])=><button key={to} type="button" aria-label={label} className={selectedPath===to?'selected':''} onClick={()=>{setSelectedPath(to);setMenuOpen(false);sampleAction(`${label} · Vorschau`)}}><Icon size={18}/><span>{label}</span></button>)}</nav>
+            <GroupedNavigation mode={mode} pathname={selectedPath} renderItem={([to,label,Icon])=><button key={to} type="button" aria-label={label} className={`nav-item${selectedPath===to?' selected':''}`} onClick={()=>{setSelectedPath(to);setMenuOpen(false);sampleAction(`${label} · Vorschau`)}}><Icon size={18}/><span>{label}</span></button>}/>
             <div className="preview-sidebar-bottom"><button type="button" onClick={()=>changeMode(mode==='admin'?'portal':'admin')}>{mode==='admin'?<PanelLeftClose size={18}/>:<ShieldCheck size={18}/>}<span>{mode==='admin'?'Benutzeransicht':'Administration'}</span></button></div>
           </aside>
           {menuOpen&&<button type="button" className="preview-menu-scrim" aria-label="Menühintergrund schließen" onClick={()=>setMenuOpen(false)}/>}
-          <div className="preview-application"><header className="preview-topbar"><div><button type="button" className="preview-menu-trigger" aria-label="Hauptmenü öffnen" aria-expanded={menuOpen} aria-controls={`${uid}-menu`} onClick={()=>setMenuOpen(true)}><Menu size={18}/></button><ClipboardList size={16}/><span>{mode==='admin'?'Administration':'Portal'}</span></div><div className="preview-profile"><span className="preview-avatar">DU</span><div><strong>Dein Name</strong><span>vorschau@portal.local</span></div><ChevronDown size={14}/></div></header>
+          <div className="preview-application"><header className="preview-topbar"><div><button type="button" className="preview-menu-trigger" aria-label="Hauptmenü öffnen" aria-expanded={menuOpen} aria-controls={`${uid}-menu`} onClick={()=>setMenuOpen(true)}><Menu size={18}/></button><ClipboardList size={16}/><span>{mode==='admin'?'Administration':'Portal'}</span><span className="preview-breadcrumb"><ChevronRight size={12}/>{context.group.label}<ChevronRight size={12}/><span>{context.label}</span></span></div><div className="preview-profile"><span className="preview-avatar">DU</span><div><strong>Dein Name</strong><span>vorschau@portal.local</span></div><ChevronDown size={14}/></div></header>
           <div className="preview-workspace">{page==='workspace'?<>
             <div className="preview-page-title"><div><span className="preview-kicker">DEIN PORTAL</span><h3>Alles im Blick.</h3><p>Ein guter Tag für neue Projekte.</p></div><button type="button" className="preview-primary" onClick={()=>setDemoForm(true)}><Plus size={14}/>Projekt erstellen</button></div>
             <div className="preview-stats"><div className="preview-panel"><span>Aktive Projekte</span><strong>12</strong><small className="preview-success">+2 diese Woche</small></div><div className="preview-panel"><span>Tasks ausgeführt</span><strong>148</strong><small>In diesem Monat</small></div></div>

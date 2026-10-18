@@ -5,9 +5,12 @@ import { DesignCreator, createDraft } from '../designs/DesignCreator'
 import { BUILTIN_THEMES, parseThemeFile, resolveCustomTheme } from '../designs/themes'
 
 describe('Design-Creator',()=>{
-  it('zeigt das vollständige Hauptmenü und wechselt zur Benutzeransicht',()=>{
+  it('zeigt dieselben Menügruppen und wechselt zur Benutzeransicht',()=>{
     render(<DesignCreator initial={createDraft(BUILTIN_THEMES[0])} onSave={vi.fn()} onClose={()=>{}}/>)
     const menu=within(screen.getByRole('navigation',{name:'Hauptmenü'}))
+    expect(menu.getByRole('button',{name:'Arbeitsbereich'})).toHaveAttribute('aria-expanded','true')
+    expect(menu.getByRole('button',{name:'Zugriff'})).toHaveAttribute('aria-expanded','false')
+    fireEvent.click(menu.getByRole('button',{name:'Zugriff'}))
     expect(menu.getByRole('button',{name:'Benutzer & Gruppen'})).toBeVisible()
     expect(menu.getByRole('button',{name:'Audit-Log'})).toBeVisible()
     fireEvent.click(menu.getByRole('button',{name:'Berechtigungen'}))
@@ -15,6 +18,7 @@ describe('Design-Creator',()=>{
     fireEvent.change(screen.getByLabelText('Menüvorschau'),{target:{value:'portal'}})
     expect(menu.getByRole('button',{name:'Meine Projekte'})).toBeVisible()
     expect(menu.getByRole('button',{name:'Mein Konto'})).toBeVisible()
+    expect(menu.getByRole('button',{name:'Persönlich'})).toHaveAttribute('aria-expanded','true')
     expect(menu.queryByRole('button',{name:'Benutzer & Gruppen'})).not.toBeInTheDocument()
   })
   it('bietet nur Farbwähler und steuert Transparenz ohne Hex-Eingaben',()=>{

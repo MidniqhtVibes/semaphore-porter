@@ -19,6 +19,8 @@ Webportal für die zentrale Verwaltung von Semaphore-UI-Projekten, Mandanten und
 
 Portal-Konten und Semaphore-Konten sind getrennt. Benutzer benötigen für die freigegebenen Portal-Tasks keinen eigenen Semaphore-Login. Die Administration erfordert die Rolle `system_admin`; der Zugriff auf Tenants und Tasks richtet sich nach den gespeicherten Mitgliedschaften und Freigaben. Details beschreibt [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md).
 
+Das Adminmenü gliedert sich in **Arbeitsbereich**, **Katalog**, **Zugriff** und **Einstellungen**. Die Gruppen sind einklappbar; der Bereich der aktuellen Seite öffnet sich automatisch. **Tenant erstellen** ist direkt auf der Tenant-Seite erreichbar. Im Benutzerportal sind die Einträge in **Arbeitsbereich** und **Persönlich** unterteilt.
+
 ## Architektur
 
 ```text
@@ -160,7 +162,7 @@ Zum Stoppen dient `docker compose -p semaphore-porter-local stop`. Zum erneuten 
 
 ## Erste Schritte
 
-1. **Semaphore verbinden:** Unter **Semaphore** die Basis-URL, den Service-Token und bei Bedarf eine Proxy-URL hinterlegen. Die Verbindung testen.
+1. **Semaphore verbinden:** Unter **Einstellungen → Semaphore-Verbindung** die Basis-URL, den Service-Token und bei Bedarf eine Proxy-URL hinterlegen. Die Verbindung testen.
 2. **Projektvorlage anlegen:** Unter **Projektvorlagen** ein vorhandenes Semaphore-Projekt als Vorlage sichern.
 3. **Zugriffe vorbereiten:** Benutzer und Gruppen erstellen und die vorgesehenen Rollen zuweisen.
 4. **Tenant erstellen:** Im Assistenten Vorlage, Tenant-Daten, Anwendungen, Datenbankprovider und Testdatensätze auswählen. Tasks und Zugriffe festlegen und die Zusammenfassung bestätigen.
@@ -295,6 +297,18 @@ Die CI prüft Backend, Frontend und den Compose-Stack einschließlich Health- un
 - `ghcr.io/midniqhtvibes/semaphore-porter-frontend`
 
 Release-Tags im Format `vX.Y.Z` erzeugen zusätzlich versionierte Images. Die veröffentlichten Images verwenden die Plattform `linux/amd64`.
+
+<!--
+Secret found: Das optionale Doom-Easter-Egg ist im Standardbuild ausgeschaltet.
+Nur bei Bedarf aktivieren:
+docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaphore-portal-local-frontend:dev ./frontend
+Im angemeldeten Portal außerhalb von Eingabefeldern IDDQD tippen.
+Ohne Flag oder mit PORTAL_BUILD_IDDQD=0 fehlen Spielroute, Trigger und alle
+Spieldateien im fertigen Frontend. Ein Container-Environment-Eintrag aktiviert
+das Spiel nicht nachträglich. Die regulären CI-Images bleiben deaktiviert.
+Die Flag ist ein Build-Schalter und kein vertrauliches Geheimnis.
+Direkte Vite-Builds, Herkunft, Bedienung und Lizenzen: docs/ARCADE.md
+-->
 
 ## Dokumentation
 

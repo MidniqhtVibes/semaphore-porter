@@ -16,6 +16,7 @@ import { UsersPage } from './pages/admin/UsersPage'
 import { DesignsPage } from './pages/DesignsPage'
 import { LegalPage } from './pages/LegalPage'
 const DesignStudioPage=lazy(()=>import('./pages/DesignStudioPage'))
+const DoomPage=__PORTAL_ARCADE__?lazy(()=>import('./pages/DoomPage')):null
 import {
   AccountPage, MyProjectsPage, PortalDashboardPage, ProjectDetailPage, RunDetailPage,
   RunsPage, TaskStartPage,
@@ -54,6 +55,7 @@ export function App(){return <Routes>
     <Route index element={<AdminDashboardPage/>}/><Route path="tenants" element={<TenantsPage/>}/><Route path="tenants/:tenantId" element={<TenantDetailPage/>}/><Route path="tenant-erstellen" element={<TenantWizardPage/>}/><Route path="anwendungen" element={<ApplicationsPage/>}/><Route path="vorlagen" element={<ProjectTemplatesPage/>}/><Route path="presets" element={<PresetsPage/>}/><Route path="benutzer" element={<UsersPage/>}/><Route path="berechtigungen" element={<PermissionsPage/>}/><Route path="tasks" element={<AdminTasksPage/>}/><Route path="audit" element={<AuditPage/>}/><Route path="semaphore" element={<SemaphorePage/>}/>
   </Route></Route>
   <Route element={<Protected/>}>
+    {DoomPage&&<Route path="/portal/iddqd" element={<ErrorBoundary><Suspense fallback={<div className="app-loading"><Loading/></div>}><DoomPage/></Suspense></ErrorBoundary>}/>}
     <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
     <Route path="/portal" element={<PortalShell/>}>
     <Route path="designs" element={<DesignsPage/>}/>

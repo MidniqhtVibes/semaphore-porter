@@ -19,6 +19,24 @@ function renderApp() {
 beforeEach(() => { vi.restoreAllMocks(); localStorage.clear(); window.history.replaceState({}, '', '/') })
 
 describe('Portal-Flows', () => {
+  it('gruppiert die Navigation, zeigt den Seitenpfad und erhält die Tenant-Anlage als Seitenaktion', async () => {
+    window.history.replaceState({}, '', '/admin/tenants')
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).endsWith('/api/auth/me') ? json(admin)
+      : String(input).endsWith('/api/auth/csrf') ? json({ csrf_token: 'csrf' }) : json([])))
+    renderApp()
+    const user = userEvent.setup()
+    await screen.findByRole('heading', { name: 'Tenants' })
+    const navigation = within(screen.getByRole('navigation', { name: 'Hauptmenü' }))
+    expect(navigation.queryByRole('link', { name: 'Tenant erstellen', hidden: true })).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Seitenpfad' })).toHaveTextContent('AdministrationArbeitsbereichTenants')
+    await user.click(screen.getByRole('link', { name: 'Tenant erstellen' }))
+    expect(await screen.findByRole('heading', { name: 'Tenant erstellen' })).toBeVisible()
+    expect(navigation.getByRole('button', { name: 'Arbeitsbereich' })).toHaveAttribute('aria-expanded', 'true')
+    await user.click(navigation.getByRole('button', { name: 'Katalog' }))
+    await user.click(navigation.getByRole('link', { name: 'Projektvorlagen' }))
+    expect(await screen.findByRole('heading', { name: 'Projektvorlagen' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: 'Seitenpfad' })).toHaveTextContent('AdministrationKatalogProjektvorlagen')
+  })
   it('startet neue Entwürfe neutral und bewahrt die vorhandene Designauswahl',async()=>{
     window.history.replaceState({}, '', '/portal/designs/studio')
     localStorage.setItem(THEME_STORAGE_KEY,JSON.stringify({selected:'sit-light',custom:[]}))

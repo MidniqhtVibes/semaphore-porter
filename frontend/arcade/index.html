@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Doom · Hangar</title>
+  <link rel="stylesheet" href="./game.css">
+  <script type="module" src="./game.js"></script>
+</head>
+<body>
+  <main class="arcade" id="arcade">
+    <div class="game-bar">
+      <div class="level"><span class="status-dot" aria-hidden="true"></span><strong>DOOM</strong><span>Shareware · 1993</span></div>
+      <div class="actions">
+        <button id="pause" disabled>Pause</button>
+        <button id="restart" disabled>Neustart</button>
+        <button id="fullscreen">Vollbild</button>
+      </div>
+    </div>
+    <div class="screen-shell" id="screen-shell">
+      <canvas id="screen" width="640" height="400" tabindex="0" aria-label="Doom Spielfeld. WASD zum Bewegen, Pfeile zum Drehen, Leertaste zum Schießen, E zum Benutzen."></canvas>
+      <div class="overlay" id="overlay">
+        <div class="start-card">
+          <span class="eyebrow">You found a secret</span>
+          <h1 id="overlay-title">Welcome to the Hangar.</h1>
+          <p id="status" role="status">Das erste Level. Ein kleiner Umweg vom Arbeitsalltag.</p>
+          <button class="primary" id="start">E1M1 starten <span aria-hidden="true">↗</span></button>
+          <span class="small-note" id="note">Original-Shareware · ohne Ton · Spielstände nur für diese Sitzung</span>
+        </div>
+      </div>
+    </div>
+    <div class="touch-controls" aria-label="Touch-Steuerung">
+      <div class="touch-pad">
+        <button data-key="ArrowLeft" aria-label="Nach links drehen">↶</button>
+        <button data-key="KeyW" aria-label="Vorwärts">↑</button>
+        <button data-key="ArrowRight" aria-label="Nach rechts drehen">↷</button>
+        <button data-key="KeyA" aria-label="Nach links gehen">←</button>
+        <button data-key="KeyS" aria-label="Rückwärts">↓</button>
+        <button data-key="KeyD" aria-label="Nach rechts gehen">→</button>
+      </div>
+      <div class="touch-actions">
+        <button data-key="KeyE">Öffnen</button><button class="fire" data-key="Space">Feuer</button>
+        <button data-key="Enter">Enter</button><button data-key="Escape">Menü</button>
+      </div>
+    </div>
+    <footer>
+      <div class="controls"><span><kbd>W A S D</kbd> Bewegen</span><span><kbd>← →</kbd> Drehen</span><span><kbd>Space</kbd> Feuer</span><span><kbd>E</kbd> Öffnen</span><span><kbd>Shift</kbd> Rennen</span><span><kbd>Tab</kbd> Karte</span><span><kbd>P</kbd> Pause</span><span><kbd>Esc</kbd> Menü</span></div>
+      <details id="credits"><summary>Credits & Lizenzen</summary><p>Doom © id Software. Unveränderte Doom-Shareware-Daten; Engine: doom.wasm / DoomGeneric unter GPL-2.0. Dieser Browser-Port hat keine Tonausgabe. Spielstände bleiben im Arbeitsspeicher und werden beim Neustart oder Verlassen gelöscht.</p><div class="license-links"><a href="./THIRD_PARTY.txt" download>Hinweise</a><a href="./SHAREWARE-LICENSE.txt" download>Shareware-Lizenz</a><a href="./GPL-2.0.txt" download>GPL-2.0</a><a href="./doom-source-25ea5988.zip" download>Engine-Quellcode</a></div></details>
+    </footer>
+  </main>
+</body>
+</html>
