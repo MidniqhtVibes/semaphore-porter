@@ -12,6 +12,7 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage/
 .mypy_cache/
 .ruff_cache/
 
@@ -34,5 +35,11 @@ postgres-data/
 *.suo
 .DS_Store
 Thumbs.db
+präsentieren/
 
 .tools/
+
+# Local logs and editor workspaces
+*.log
+.vscode/
+.idea/

@@ -1,6 +1,6 @@
 # Abnahmetests für den Web-App-Zwischenstand
 
-Stand: 16.10.2026. Grundlage ist der Web-App-Zwischenstand mit der lokalen Vault-Erweiterung. Dieser Plan enthält **66 Abnahmetestfälle** einschließlich 14 Vault-Fällen. Alle hier beschriebenen manuellen und integrierten Prüfungen haben zunächst den Status **offen**. Die bestandenen automatisierten Tests sind unten separat zugeordnet; sie ersetzen keine Abnahme der echten Semaphore-/Vault-/Deployment-Umgebung.
+Stand: 26.10.2026. Dieser Plan enthält **80 Abnahmetestfälle** einschließlich 14 Vault-, 12 GitLab- und zwei GIF-Fällen. Alle hier beschriebenen manuellen und integrierten Prüfungen haben zunächst den Status **offen**. Die bestandenen automatisierten Tests sind unten separat zugeordnet; sie ersetzen keine Abnahme der echten GitLab-/Semaphore-/Vault-/Deployment-Umgebung.
 
 ## Durchführung und Nachweise
 
@@ -12,12 +12,12 @@ Projektlöschungen, Datenimporte, gestörte Verbindungen und Restore-Tests aussc
 
 ## Voraussetzungen und Testdaten
 
-- Separater Portal-Stack mit PostgreSQL; lokal entsprechend der [README](../README.md#lokal-unter-windows-testen). Für TLS-Tests zusätzlich eine Testdomain mit gültigem Zertifikat.
+- Separater Portal-Stack mit PostgreSQL; lokal entsprechend der [README](../README.md#lokaler-test). Für TLS-Tests zusätzlich eine Testdomain mit gültigem Zertifikat.
 - Semaphore-Testinstanz mit Service-Token, einer freigegebenen Projektvorlage, Test-Registry und einem entbehrlichen Linux-/Docker-Zielhost. Für Netzwerkfehler eine kontrollierbare Testverbindung verwenden.
 - Zwei Portal-Tenants `qa-a` und `qa-b` mit getrennten Semaphore-Projekten und Runtime-Scopes `qa-scope-a` und `qa-scope-b`.
 - Konten für Systemadmin, Viewer, Operator, globalen Tenant Admin sowie ein Konto ohne Tenant-Zuordnung. Für Login-Limitierung ein separates entbehrliches Konto verwenden.
 - Gruppe `qa-operators`, eine lesende Task-Freigabe und eine Start-/Abbruchfreigabe. Bestehende Quellvorlage vor Kopiertests anhand ihrer nicht geheimen Konfiguration dokumentieren.
-- Für echte Deployments gültige Test-Vault-Zugänge und benötigte KV-Objekte. Im automatischen Onboarding richtet ein Administrator Schreib-AppRole, bestehenden Semaphore-Lesezugang und Registry-Zugänge im Porter ein; neue Test-KV-Objekte legt dann der Wizard an. AppRoles/Policies werden weiterhin außerhalb des Porter verwaltet. Der vereinbarte gemeinsame Leser darf aktuell `semaphore/*` lesen; die Tests behaupten dafür keine Trennung durch Vault-ACLs. Siehe [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md).
+- Für echte Deployments gültige Test-Vault-Zugänge und benötigte KV-Objekte. Im automatischen Onboarding richtet ein Administrator Schreib-AppRole, bestehenden Semaphore-Lesezugang und Registry-Zugänge im Semaporter ein; neue Test-KV-Objekte legt dann der Wizard an. AppRoles/Policies werden weiterhin außerhalb des Semaporter verwaltet. Der vereinbarte gemeinsame Leser darf aktuell `semaphore/*` lesen; die Tests behaupten dafür keine Trennung durch Vault-ACLs. Siehe [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md).
 - Eine deaktivierte Policy, ein deaktivierter Tenant, ein absichtlich fehlschlagender Test-Task und ein ausreichend lange laufender, gefahrlos abbrechbarer Task.
 - Für Migrations- und Restore-Prüfungen eine Kopie einer älteren Portal-Datenbank und die zugehörige `.env`/Fernet-Konfiguration. Die laufende Testdatenbank wird hierfür nicht überschrieben.
 
@@ -110,7 +110,7 @@ Eine fehlende freigegebene Survey-Option zunächst in der Testvorlage ergänzen 
 | T02 | P0 | Datensatz-Durchläufe aus T01 anhand eines vorab festgelegten, nicht geheimen Datenmerkmals prüfen; zusätzlich `none` und jede ungültige Matrixzeile testen. | Vorgesehener Import nachweisbar; `none` löst keinen Testdatenimport aus. Unpassende Kombination vor Deployment abgelehnt; Quelle und bestehende Daten unverändert. |
 | T03 | P0 | Je einen erfolgreichen, fehlschlagenden und lange laufenden Task starten. Laufübersicht ohne Detailöffnung aktualisieren, Logs öffnen und abbrechbaren Task stoppen. | Status/Fehler/Ende werden aktualisiert; Logs dem richtigen Lauf zugeordnet. Stop wirkt auf richtigen Semaphore-Task, benötigt Abbruchrecht und wird in der Historie nachvollziehbar. |
 | T04 | P0 | Für `qa-a` und `qa-b` parallel deployen; getrennte Scopes und mehrere Instanzen im selben vorgesehenen Pool prüfen. Nur Instanz A stoppen/ablaufen lassen. | Port-, Netzwerk-, Datenbank- und Ownership-Trennung stimmen. B bleibt nutzbar; ein geteilter Provider wird nicht vorzeitig entfernt. Ressourcen bleiben anhand IDs zuordenbar. |
-| T05 | P0 | In Test-Vault ein Pflichtfeld entfernen bzw. AppRole-Leserecht entziehen; getrennt eine abgelaufene Secret-ID und ein ungültiges CA-Zertifikat prüfen. Danach korrekt wiederherstellen. | Kontrollierter Fehler ohne Secret-Ausgabe und ohne neues Deployment. Mit korrigierten Voraussetzungen funktioniert ein neuer Lauf. Bereits vorhandene unvollständige Objekte repariert der Porter nicht automatisch; die Vault-Anlage betrifft neue Tenant-Objekte beim Onboarding. |
+| T05 | P0 | In Test-Vault ein Pflichtfeld entfernen bzw. AppRole-Leserecht entziehen; getrennt eine abgelaufene Secret-ID und ein ungültiges CA-Zertifikat prüfen. Danach korrekt wiederherstellen. | Kontrollierter Fehler ohne Secret-Ausgabe und ohne neues Deployment. Mit korrigierten Voraussetzungen funktioniert ein neuer Lauf. Bereits vorhandene unvollständige Objekte repariert der Semaporter nicht automatisch; die Vault-Anlage betrifft neue Tenant-Objekte beim Onboarding. |
 | T06 | P0 | Kürzeste freigegebene TTL verwenden; anschließend Zielhost-Cleanup und Portal-/Semaphore-Laufhistorie getrennt prüfen. | Deployment gemäß Stack-Cleanup entfernt, fremde oder noch aktive Instanzen erhalten. Abgelaufene Deployment-Ressourcen bedeuten nicht automatisch einen nachträglichen anderen Semaphore-Taskstatus. |
 | T07 | P1 | Optionalen Mailversand mit freigegebener Testadresse an/aus ausführen; Image-/Release-Auswahl und voreingestellte Variablen im tatsächlich gestarteten Task prüfen. | Nur ausgewählte freigegebene Werte verwendet. Mailverhalten entspricht Schalter; Mail-/Registry-Ausfall sichtbar und ohne Veröffentlichung von Credentials. |
 
@@ -153,7 +153,35 @@ Diese Fälle ausschließlich mit entbehrlichen Testpfaden durchführen. Bei absi
 | V13 | P0 | Ungültige App-/Provider-/Dataset-Vorgaben, zu kurzen DB-Wert und ungültigen Salt prüfen. Im Wizard zurück/vor navigieren und Entwurf speichern. | Ungültige Eingaben vor Writes abgelehnt. Generierung ausdrücklich gewählt; vorhandene Crypto-Werte bleiben erhalten. Secret-Inhalte weder im Entwurf noch Browser-Speicher oder Fehlerantwort. |
 | V14 | P0 | Bestehenden Portal-Stand aktualisieren; offenen Vorgang nach Container-Neustart und aktualisierten AppRole-Credentials fortsetzen. Parallelen Execute-Aufruf testen. | Migration erhält Bestandsdaten. Gleicher Job wird nicht parallel ausgeführt; Ziele und KV-Werte bleiben stabil. Abschluss entfernt die verschlüsselte temporäre Payload. Keine Vault-Policy-/AppRole-/Secret-ID-Verwaltungsaufrufe. |
 
-## Vorhandene automatisierte Prüfung
+## GitLab und Programmpakete
+
+Zusätzlich erforderlich: separates GitLab-Testprojekt mit der aktuellen Stack-Struktur, geschütztem Basisbranch, Test-Bot-Token und isoliertem CI-Runner; eine dazu passende Portal-Projektvorlage. Änderungen an Testbranches und Merge Requests sind ausdrücklich Teil dieser manuellen Abnahme. Einrichtung und CI-Vorlage: [GITLAB.md](GITLAB.md).
+
+| ID | Prio | Prüfschritte | Erwartetes Ergebnis |
+|---|---|---|---|
+| G01 | P0 | Instanz, Projekt-ID, Basisbranch und Token speichern; Token leer lassen, rotieren und ablaufen lassen. | Keine Secret-Rückgabe; Rotation bei gleichem Projekt erhält Entwürfe. Ungültige Verbindung liefert verständlichen Fehler ohne Token/Antwortbody. |
+| G02 | P0 | GitLab- und Paket-APIs als Viewer/Operator sowie ohne Session/CSRF aufrufen. Lesemodus mit Übergabe versuchen. | Admin- und CSRF-Grenzen greifen; Lesemodus erzeugt keinen Commit/MR. |
+| G03 | P0 | Neue HTTP-Anwendung erzeugen und WordPress mit neuer ID kopieren; vor/zurück navigieren, speichern und neu laden. | Neue IDs/Profiles passen, Dateien und Entwurf bleiben erhalten. Noch kein GitLab-Schreibzugriff. |
+| G04 | P0 | Fremden Programmkatalogeintrag, Providerdatei, Traversal, Symlink, privilegierten Compose-Service und Docker-Socket-Mount einbringen. | Serverseitige Ablehnung; keine Änderung fremder Dateien oder Ausführung im Backend. |
+| G05 | P0 | SQL-Dataset hinzufügen, Hash/File/Provider/Engine absichtlich verändern und erneut prüfen. | SHA wird berechnet; unpassende Kombinationen/Hashes werden abgewiesen. Ein zulässiger Import wird zusätzlich in isolierter CI geprüft. |
+| G06 | P0 | Entwurf parallel öffnen; in einer Sitzung ändern, in der anderen speichern/übergeben. | Versionskonflikt; Änderungen werden nicht überschrieben, alte Prüfung berechtigt nicht zur Übergabe. |
+| G07 | P0 | Nach bestätigtem Commit und nach MR-Anlage jeweils Antwortverlust simulieren; Übergabe wiederholen. | Branch, Commit und MR werden abgeglichen; kein zweiter Commit/MR. Fremdänderungen blockieren. |
+| G08 | P0 | Basisbranch nach Entwurfsanlage ändern, Branchschutz entfernen und zwei Übergaben gleichzeitig auslösen. | Abweichende Basis/fehlender Schutz/zweite Ausführung werden blockiert; kein Force-Push. |
+| G09 | P0 | MR-Status aktualisieren; Pipelines mit falscher SHA, falschem Ref, pending/skipped/failed und success testen. | Angezeigte Pipeline ist revisionsgebunden. Nur die neueste erfolgreiche Basisbranch-Pipeline erlaubt die Übernahme. |
+| G10 | P0 | Nach Review/Merge Snapshot vorbereiten, Diff prüfen, passende Vorlage/Repository wählen und aktivieren; parallele Aktivierung versuchen. | Neue Vorlage auf vollständiger SHA und aktiver Vault-Katalog werden atomar gespeichert. Quellvorlage/Bestandstenants bleiben unverändert; paralleler Wechsel ergibt Konflikt. |
+| G11 | P0 | Auf einen früher aktivierten Snapshot zurücknehmen; unbestätigten historischen Snapshot als Rücknahme versuchen. | Nur bereits aktivierte Stände sind für die ausdrückliche Rücknahme zulässig; eigene Vorlage mit alter SHA, kein Git-/Tenant-Rollback. |
+| G12 | P0 | Neue Vorlage im Tenant-Assistenten auswählen, neue Anwendung/Provider/Dataset freigeben, Registry-/Secret-Werte hinterlegen, bereitstellen und bereinigen. Alte oder manipulierte Git-SHA im Vault-Onboarding versuchen. | Katalog und Vorlage stimmen überein. Neues Paket funktioniert Ende zu Ende; alte/manipulierte Revision wird abgewiesen. Readiness, zwei parallele Deployments, TTL/Claims und vollständiges Cleanup protokollieren. |
+
+## GIF-Hintergründe
+
+| ID | Prio | Prüfschritte | Erwartetes Ergebnis |
+|---|---|---|---|
+| GIF01 | P1 | Animiertes GIF als Logo und Anmeldehintergrund hochladen; kopieren, speichern, exportieren/importieren und Seite neu laden. | Animation bleibt erhalten, eingebettete Bytes und Designauswahl werden übernommen; Größenlimits gelten. |
+| GIF02 | P1 | Hintergrund-Unschärfe auf 0, 12 und 24 Pixel stellen; Desktop-/Mobilvorschau und tatsächliche Anmeldung prüfen. | Nur Hintergrund wird unscharf; Texte, Logo und Formular bleiben scharf und bedienbar. Kein horizontaler Überlauf. |
+
+## Automatisierte Zuordnung
+
+`backend/tests/test_gitlab.py` prüft Konfiguration, Kopien, Revisionen, Dateigrenzen, Compiler, Konflikte, Timeout-Wiederaufnahme, Hostzugriff, Pipeline-Gates, Aktivierung/Rücknahme und Migration. `frontend/src/test/GitLab.test.tsx` prüft Menükontext, Tokenformular, fehlende Verbindung, Paketworkflow, Konflikterhalt und Übernahmebestätigung. GIF-Fälle werden in `themes.test.ts`, `DesignCreator.test.tsx` und `App.test.tsx` geprüft. Aktuelle Laufzahlen: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 Die Vault-Erweiterung ergänzt automatisierte Fehlerfall-, Migrations- und Oberflächentests. Die endgültigen Laufzahlen stehen im aktuellen [Implementierungsstand](VAULT_IMPLEMENTIERUNG.md#implementierungsstand). Ein Release-Kandidat benötigt einen protokollierten Testlauf; die simulierten Prüfungen ersetzen keine Live-Abnahme.
 
@@ -171,7 +199,7 @@ Die Vault-Erweiterung ergänzt automatisierte Fehlerfall-, Migrations- und Oberf
 
 Semaphore-Aufrufe in den Backend-Tests sind simuliert. Echte Secret-Verwendung, Quellinstanz-Version, Datenbankimporte, Mandantentrennung auf dem Zielhost, Vault-ACLs, TTL-Cleanup und produktive TLS-/Netzwerkwege bleiben integrierte Abnahmefälle.
 
-Die Ausführungsbefehle stehen unter [Entwicklung und Tests](../README.md#entwicklung-und-tests). Nach Code-/Konfigurationsänderungen die betroffenen automatisierten Tests und die zugehörigen P0-/P1-Abnahmefälle erneut ausführen.
+Die Ausführungsbefehle stehen unter [Entwicklung](../README.md#entwicklung). Nach Code-/Konfigurationsänderungen die betroffenen automatisierten Tests und die zugehörigen P0-/P1-Abnahmefälle erneut ausführen.
 
 ## Protokollvorlage
 

@@ -1,81 +1,48 @@
 # Implementierungs- und Abnahmestatus
 
-## Vault-Integration vom 16.10.2026
+Stand: 26.10.2026. Aktuelle Bedienungs- und Einrichtungsanleitungen stehen in der [README](../README.md), im [GitLab-Leitfaden](GITLAB.md), der [Vault-Vereinbarung](VAULT_IMPLEMENTIERUNG.md) und der [Projektverwaltung](PROJECT_MANAGEMENT.md). Frühere Zwischenstände sind im [Changelog](../CHANGELOG.md) und in der Git-Historie nachvollziehbar.
 
-Die [vereinbarte Spezifikation und Einrichtungsanleitung](VAULT_IMPLEMENTIERUNG.md) ist umgesetzt: zentrale verschlüsselte AppRole-/Registry-Konfiguration unter **Vault**, versionierter Manifestkatalog, konkrete Zielobjekte im Tenant-Wizard sowie manuelle oder ausdrücklich generierte Secret-Werte. Vorgegebene Crypto-Werte bleiben unverändert. Neue Projekte erhalten den zentral hinterlegten bestehenden Semaphore-Lesezugang als geschützte Variablen.
+## Umgesetzt
 
-Die Provisionierung prüft die Metadaten aller benötigten Objekte vor dem ersten Schreiben und verwendet ausschließlich KV-v2 `cas=0`. Vorhandene Objekte einschließlich Löschhistorie werden nicht übernommen oder überschrieben. Fortschritt, Vault-Version und Erstellungszeit sowie eine verschlüsselte temporäre Ausführungspayload ermöglichen die Wiederaufnahme. Unklare Schreibergebnisse benötigen eine ausdrückliche Prüfung; automatische Rollbacks oder Neugenerierungen erfolgen nicht. Eine persistierte Ausführungssperre verhindert gleichzeitige Ausführungen desselben Jobs. Die Job-Payload wird nach erfolgreichem Abschluss entfernt.
+- Web-App mit FastAPI, React/TypeScript, PostgreSQL, Nginx und optionalem Caddy-TLS-Gateway; alte WPF-/EXE-Quellen und deren Buildartefakte sind entfernt.
+- Semaphore-Projekte und Ressourcen verwalten; Projektvorlagen importieren; Tenants über einen fortsetzbaren und bestätigten Backup-/Restore-Workflow erstellen.
+- Mehrere Anwendungen, Provider und Datensätze je Tenant freigeben; `tenant_slug` und `runtime_scope_id` gemeinsam unter `Semaphore-Defaults` pflegen.
+- Lokale Benutzer, Gruppen, Mitgliedschaften, Task-Rechte und serverseitige Parameter-Policies; Anmeldung mit Benutzername oder E-Mail; Task-Start, Status, Live-Ausgabe, Abbruch und Audit.
+- Vault KV v2: zentrale verschlüsselte AppRole-/Registry-Zugänge, manuelle oder ausdrücklich generierte Werte, vollständiger Vorabcheck, ausschließlich `cas=0`, Wiederaufnahme und manuelle Prüfung unklarer Ergebnisse. AppRoles/Policies werden außerhalb des Portals verwaltet.
+- GitLab-Projektverbindung mit verschlüsseltem Token unter **Einstellungen → Verbindungen → GitLab**. Bereich **Entwicklung** mit Paketen, Änderungen & Freigaben, Prüfungen und Versionen & Übernahme.
+- Programmpakete erzeugen/kopieren, vollständige Manifest-/Dateibearbeitung, Dataset-Assistent mit SHA-256, lokale Vertragsprüfung aller angebotenen Kombinationen und Diff. Nur eigener Paketordner und eigener Katalogeintrag sind beschreibbar.
+- Revisionsgebundene Branch-/Merge-Request-Übergabe mit expliziter Bestätigung, Ausführungssperre, optimistischen Entwurfsversionen und Wiederaufnahme nach unklaren Antworten. Review/Merge bleiben in GitLab; keine automatische Repository-Veröffentlichung durch den Agenten.
+- Versionierte GitLab-Katalogstände mit exakter SHA-/Pipeline-Prüfung und atomarer Aktivierung gemeinsam mit einer separaten lokalen Projektvorlage. Rücknahme nur auf bereits aktivierte Stände; vorhandene Tenants werden nicht umgestellt. Der gebündelte Vault-Katalog bleibt der Rückfall ohne aktiven Snapshot.
+- Baumnavigation mit Speicherung, Tastatursteuerung und mobiler Sidebar; Produktname Semaporter mit Übernahme bisheriger Browserdaten. Technische Bestandsnamen: [UMBENENNUNG.md](UMBENENNUNG.md).
+- Designstudio einschließlich animierter GIFs als Logo und Anmeldehintergrund, separater Hintergrund-Unschärfe von 0–24 Pixeln, Import/Export und browserlokaler Speicherung. Formular und Logo bleiben scharf.
+- Präsentationsordner mit Architektur, Codeabläufen, Docker-Erklärung, PowerPoint/PDF und Sprechernotizen. Die Folien dokumentieren den Stand vor der GitLab-Erweiterung; aktuelle GitLab-Details stehen im Leitfaden.
 
-AppRoles, Policies, Secret-ID-Ausstellung und Vault-Löschungen bleiben außerhalb des Porter. Die vom Nutzer vorgegebene bestehende AppRole mit breiten Leserechten bleibt erhalten. Die tatsächlichen Firmenendpunkte, ACLs und Deployment-Läufe müssen noch live abgenommen werden; die Tests verwenden simulierte APIs.
+## Automatisiert geprüft
 
-Prüfung: **101 Backend- und 33 Frontend-Tests bestanden**, Produktionsbuild und beide Docker-Builds erfolgreich. Der bestehende lokale Stack ist auf Port 18092 gesund und auf Migration `20261016_0004` aktualisiert. Eine vorherige Datenbanksicherung und Vergleichswerte bestätigen unveränderte Bestandskonten und Tenant-Daten. Health, Vault-Seitenroute, API-Schema und die Anmeldepflicht der Vault-API sind geprüft.
+- **101 bestehende Backend-Tests und 42 GitLab-/Paketfälle bestanden** mit Python 3.13 im isolierten Testcontainer. Eine DeprecationWarning der vorhandenen Starlette-Testclient-Abhängigkeit.
+- **80 Frontend-Tests bestanden**, drei weitere sind für die andere Build-Variante vorgesehen und wurden übersprungen.
+- TypeScript-/Vite-Produktionsbuild und beide Produktionsimages erfolgreich; GitLab-Seiten werden getrennt geladen. Alle sechs neuen Seiten wurden auf Desktop und Mobilgerät in einem isolierten Edge-Profil mit simulierten Admin-/API-Daten geprüft: sichtbarer GitLab-Menüeintrag, keine horizontalen Überläufe und keine JavaScript-Ausnahmen.
+- Tatsächlicher benachbarter Stack offline mit dem mitgelieferten Compiler geprüft: **59 Dateien, 17 Kombinationen**, AzubiOrga und WordPress. Repository-Python, Shell, SQL, Compose und Playbooks wurden dabei nicht ausgeführt.
+- Migration `20261026_0005` auf Datenerhalt und Rücknahme mit SQLite geprüft. Der Backend-Dockerfile besitzt ein separates Testtarget; das Standardimage enthält keine Tests/Testabhängigkeiten.
+- GIF-Anmeldung mit isoliertem Edge-Profil auf 1440 und 390 Pixeln geprüft: Animation läuft, Hintergrundfilter aktiv, Formular ungefiltert, kein horizontaler Überlauf und keine JavaScript-Ausnahmen. Temporäres Profil entfernt.
 
-## Bereinigter Web-App-Zwischenstand vom 16.10.2026
+Die Tests verwenden simulierte GitLab-/Semaphore-/Vault-Antworten. Sie belegen keine Erreichbarkeit oder Rechte der Firmeninstanzen.
 
-Das aktuelle Repository enthält ausschließlich die Web-App. Alte Desktop-Quellen, Desktop-Tests, Windows-Bauskripte und der Windows-Build-Workflow sowie rund 150 MB versionierte EXE-/DLL-/Build-Artefakte wurden entfernt. Frühere Stände bleiben in der Git-Historie erreichbar. Temporäre lokale Vorschauen und Downloads, überholte Symbolvarianten, doppelte Abhängigkeitslisten und ungenutzte Hilfsfunktionen/Imports sind bereinigt. Die Ignore-Regeln schließen lokale Konfiguration und neue Build-Ausgaben aus; der TypeScript-Build prüft zusätzlich auf ungenutzte Imports und Variablen. Der Funktionsumfang dieses Zwischenstands steht in [CHANGELOG.md](../CHANGELOG.md).
+## Lokaler Betrieb und Bereinigung
 
-## SIT-Marke, festes Website-Symbol und Benutzernamen vom 16.10.2026
+Der bestehende Stack verwendet Port **18092** und seinen bisherigen Compose-Projekt-/Datenbanknamen. `.env`, Fernet-Schlüssel, Zugangswerte und Volumes bleiben erhalten. Frontend und Backend sind lokal aktualisiert, alle drei Dienste gesund. PostgreSQL wurde nicht neu erstellt. Migration `20261026_0005` ist angewendet; Hash-Vergleiche bestätigen unveränderte bestehende Benutzer, Tenants, Vorlagen, Erstellungsvorgänge und Integrationsdaten. Eine vorherige Datenbanksicherung liegt im ignorierten lokalen Sicherungsordner. Die neuen APIs sind im OpenAPI-Schema vorhanden und ohne Anmeldung gesperrt.
 
-SIT Hell zeigt die Marke dunkel, SIT Dunkel weiß, jeweils ohne farbige Hintergrundfläche in Navigation, Designvorschau und Anmeldung. Die PNG-Datei wird bytegenau unverändert lokal ausgeliefert. GitHub Black bleibt neutral. Das Portal-Tor ist fest als Website-Symbol hinterlegt; die frühere Symbolauswahl ist entfernt und alte gespeicherte Symbolwerte werden ignoriert.
+Überholte GitLab-Planung und die historische Vault-Vorstudie wurden durch aktuelle Anleitungen ersetzt; der doppelte Katalogexport ist in einem gemeinsamen Modul zusammengeführt. Temporäre Prüfskripte, Browserprofile und erzeugte Anwendungscaches sind entfernt. Aktive Regressionstests, Migrationen, lokale Sicherungen, Entwicklungsumgebungen, Präsentationsunterlagen und tatsächlich verwendete optionale Arcade-/Lizenzdateien bleiben erhalten. Es gibt keine ungenutzten EXE-/DLL-Artefakte im versionierten Stand.
 
-Enthalten sind SVG- und ICO-Favicons, Touch-Icons sowie 192-/512-Pixel-App-Symbole mit dem Portal-Manifest für Edge-/Windows-App-Verknüpfungen. Die Windows-App-Installation ist eine Benutzeraktion; es wurde keine App auf dem Rechner installiert oder angeheftet.
+## Vor Produktivfreigabe offen
 
-Die Anmeldung ist um die drei gewünschten Werbetexte reduziert. Anmeldung und Portal enthalten einen kleinen Hinweis „Verantwortlich: Louis Findeisen“. Benutzer können sich mit Benutzername oder E-Mail-Adresse am selben Konto anmelden. Benutzernamen lassen sich bei der Erstellung vergeben und später in der Benutzerverwaltung ändern. Eine additive Migration vergibt eindeutige Namen für bestehende Konten; E-Mail-Anmeldungen und Kennwörter bleiben erhalten. Details stehen in [PERMISSIONS.md](PERMISSIONS.md) und [DESIGNS.md](DESIGNS.md).
+Der [Abnahmetestplan](ABNAHMETESTS.md) enthält **80 Fälle** einschließlich GitLab, Vault und GIFs. Die manuellen Live-Fälle sind offen:
 
-Prüfung: **59 Backend-Tests und 28 Frontend-Tests bestanden**, TypeScript/Vite- und beide Docker-Builds erfolgreich. Beide SIT-Anmeldeansichten, Designwechsel, festes Manifest und mobile Darstellung wurden in Edge geprüft; keine CSP-Verstöße und keine horizontalen Überläufe. Der lokale Stack auf Port 18092 ist gesund, alle Marken-/Symboldateien antworten erfolgreich. Migration `20261016_0003` ist in PostgreSQL angewendet; Vergleichswerte bestätigen unveränderte IDs, E-Mail-Adressen, Passwort-Hashes, Aktivierungszustände und Rollen beider bestehenden Konten. Beide Anmeldewege sind automatisiert geprüft. Eine Anmeldung am laufenden Stack mit den ursprünglichen Bootstrap-Zugangsdaten wurde ausgelassen, da diese nicht mehr zum aktuellen Konto passen; kein Passwort wurde zurückgesetzt.
+- GitLab-Instanz, numerische Projekt-ID, Tokenrolle/-Scopes, geschützter Basisbranch, Firmen-CA und echte Commit-/MR-/Timeout-Abläufe abnehmen.
+- GitLab-CI im Stack-Projekt einrichten: [Beispiel](examples/gitlab-ci.yml). Eine erfolgreiche Pipeline ist Voraussetzung für die Übernahme. Statische Prüfungen allein ersetzen keine isolierten Lifecycle-/Import-/Readiness-/TTL-/Claim-/Cleanup-Tests.
+- Menschlichen Review und Freigabeprozess in GitLab organisatorisch und durch passende Branch-/Reviewregeln absichern. Die Portalbestätigung behauptet keine zusätzliche GitLab-Approval-Durchsetzung.
+- Neue Katalogrevision zusammen mit passender Projektvorlage aktivieren; reale Semaphore-Backup-/Survey-Struktur und Registry-Vorgaben prüfen.
+- Vault-ACLs, Secret-Verwendung, Tenant-Zuordnung und Deployment-Zielhosts Ende zu Ende testen.
+- Produktive TLS-/DNS-/ACME-Wege, Secure-Cookies, erlaubte Hostnamen sowie Backup/Restore mit unverändertem Fernet-Key prüfen.
 
-## Designauswahl vom 16.10.2026
-
-Administration und Benutzerportal enthalten den Menüpunkt **Designs**. GitHub Black bleibt die Voreinstellung; zusätzlich sind SIT Hell und SIT Dunkel nach der bereitgestellten Richtlinie mit lokal ausgelieferter Sora-Schrift wählbar. Die browserlokale Auswahl gilt auch auf der Anmeldeseite. Eigene Varianten lassen sich über ein versioniertes JSON-Format mit Vorlage, Schema, Kontrastprüfung sowie Import/Export verwenden. Details und Betriebsgrenzen stehen in [DESIGNS.md](DESIGNS.md).
-
-Prüfung: **23 Frontend-Tests bestanden**, TypeScript/Vite- und Docker-Build erfolgreich. Beide SIT-Varianten, mobile Darstellung und die helle Anmeldung wurden in Edge mit Testdaten visuell geprüft; keine horizontale Überbreite und keine CSP-Verstöße. Backend und Datenmodell wurden für die Designauswahl nicht geändert.
-
-Das aktualisierte Frontend läuft im lokalen Stack auf Port 18092. Design-Seite, JSON-Vorlage, Schema und lokale Schrift antworten erfolgreich; alle Dienste sind gesund. Die bereitgestellte PDF und die daraus erzeugten temporären Prüfbilder wurden nach der Umsetzung wie gewünscht entfernt.
-
-## Erweiterung vom 16.10.2026
-
-Schritt 3 des Tenant-Wizards unterstützt mehrere Anwendungen, Datenbankprovider und Testdatensätze einschließlich „Alle auswählen“ und separater Vorgaben. Die Freigabelisten werden im Tenant gespeichert, schränken die Surveys der Projektkopie ein und begrenzen die Initial-Policies im Portal. Ansible erhält weiterhin einzelne Werte je Task-Ausführung. Die Auswahl startet keine Deployments oder Datenimporte; die Kompatibilität der Kombinationen prüft der Stack.
-
-Besuchte Wizard-Schritte und der gespeicherte Fortschritt bleiben beim Zurückgehen erhalten. Änderungen verwerfen die angezeigte Validierung; der Weg zurück zur Erstellung prüft den aktuellen Entwurf neu. Außerdem ist ein React-Hook-Fehler beim Laden des Policy-Editors korrigiert. Die Berechtigungsmatrix enthält eine Erläuterung; Details und aktuelle Grenzen der Benutzerverwaltung stehen in [PERMISSIONS.md](PERMISSIONS.md).
-
-Lokale Prüfung: **45 Backend-Tests und 8 Frontend-Tests bestanden**, TypeScript/Vite-Build und beide Docker-Builds erfolgreich. Die additive Alembic-Migration `20261016_0002` wurde im vorhandenen lokalen PostgreSQL-Stack erfolgreich angewendet. Alle drei Dienste sind gesund; Webseite auf Port 18092 antwortet mit HTTP 200 und `/api/health` mit `status: ok`. Die Semaphore-Integration wurde automatisiert mit simulierten API-Antworten geprüft; es wurde kein echtes Deployment gestartet.
-
-## Ausbau der Projektverwaltung
-
-Die direkte Verwaltung tatsächlicher Semaphore-Projekte ist ergänzt: Erstellen, Umbenennen, bestätigtes Remote-Löschen, Bearbeiten/Hinzufügen von Variablengruppen, Repositories, Inventories, Templates und Zugangsdaten sowie Duplizieren über den reparierten Tenant-Wizard. `tenant_slug` und `runtime_scope_id` werden gemeinsam in `Semaphore-Defaults` gepflegt und nicht als Survey-Variablen erzeugt. Details, Ablauf und Betriebsgrenzen stehen in [PROJECT_MANAGEMENT.md](PROJECT_MANAGEMENT.md).
-
-Zusätzlich korrigiert: Entwurfswiederaufnahme, Vorlagenwechsel, vollständig leere Gruppenauswahl, initiale Policies für den aktuellen Stack, Statusaktualisierung der Tasklisten, API-seitiger Passwortwechselzwang, Sitzungswiderruf nach Passwortreset und Bedienung von Gruppenmitgliedschaften/Zugriffsentzug.
-
-Lokale Prüfung am 15.10.2026: **39 Backend-Tests und 7 Frontend-Tests bestanden**, TypeScript/Vite-Produktionsbuild erfolgreich, `npm audit` mit **0 bekannten Schwachstellen**. Backend-Prüfung mit SQLite und simulierten Semaphore-Antworten unter WSL; diese Ergebnisse ersetzen weder den PostgreSQL-/Compose-Smoke-Test noch die Live-Abnahme. Frontend-Build und CI verwenden npm 11.6.2; Router, Vite und Vitest wurden mit aktualisierter Lockdatei auf korrigierte Versionen angehoben.
-
-## Implementiert
-
-- Docker-Architektur mit React/Nginx, FastAPI und PostgreSQL
-- Datenmodell und initiale Alembic-Migration
-- Authentifizierung, Rollen, Gruppen, Tenant- und Task-Berechtigungen
-- Semaphore-Verbindung, Backup-Katalog und Restore-basierter Wizard
-- idempotente Creation Jobs und Wiederanlauf nach unklarem Restore
-- Survey-Synchronisierung und serverseitige Policy Engine
-- Benutzerportal, Task-Start, Status, Live-Logs, Stop und Historie
-- Administration für Tenants, Benutzer, Gruppen, Vorlagen, Presets, Runs und Audit
-- automatisierte Backend-/Frontend-Tests und produktionsnaher Compose-Smoke-Test vor der Image-Veröffentlichung
-- reproduzierbarer Frontend-Build und testabhängiger Docker-Image-Build
-- Veröffentlichung von Backend und Frontend als GHCR-Packages mit Release- und Commit-Tags
-- produktive Pull-only-Compose-Datei ohne lokale App-Builds, mit getrennten internen Netzen und optional integriertem Caddy-TLS-Gateway
-
-## Noch vor Produktivfreigabe abzunehmen
-
-Der [Abnahmetestplan](ABNAHMETESTS.md) enthält 66 Fälle einschließlich 14 Vault-Fällen mit Voraussetzungen, Prüfschritten und erwarteten Ergebnissen. Die aktuelle [Vault-Implementierung](VAULT_IMPLEMENTIERUNG.md) ergänzt die historische [Vault-Bewertung](VAULT_BEWERTUNG.md). Ein Live-Test gegen die Firmeninstanzen steht aus.
-
-Ein Live-End-to-End-Test gegen die konkrete Firmeninstanz von Semaphore ist ohne deren URL und Service-Token nicht Bestandteil des lokalen Tests. Vor Produktivfreigabe sind deshalb mindestens folgende Punkte in einer Testumgebung zu bestätigen:
-
-- Unternehmens-CA, DNS und optionaler Proxy aus dem Backend-Container
-- Rechteumfang des Service-Tokens
-- reale Backup-Struktur der verwendeten Projektvorlage
-- Restore, exakte Projekt-ID-Zuordnung und Template-Synchronisierung
-- Task-Start mit den realen Survey-Typen sowie Live-Ausgabe und Stop
-- öffentlicher DNS-/ACME-Durchlauf beziehungsweise Einbindung in den vorhandenen Host-Reverse-Proxy, Secure-Cookie und erlaubte Hostnamen
-- Datenbank-Backup und Wiederherstellung zusammen mit demselben Fernet-Key
-- erfolgreicher Lauf des Portal-CI-Workflows für den freizugebenden Commit und Pull der zugehörigen veröffentlichten Images auf dem Zielserver
-
-Das Portal kann bei aktivierter Integration neue Vault-KV-Objekte anlegen und den zentral eingerichteten Vault-Lesezugang in neue Semaphore-Projekte übertragen. Es schreibt nicht in GitLab, kopiert keine privaten SSH-Schlüssel und verwaltet keine Vault-Policies oder AppRoles.
+Kein Commit oder Push dieses Repositories, keine Live-GitLab-Verbindung eingerichtet und keine produktiven Semaphore-/Vault-/GitLab-Objekte durch den Agenten geschrieben.

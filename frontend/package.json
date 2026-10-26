@@ -1,5 +1,5 @@
 {
-  "name": "semaphore-tenant-portal-frontend",
+  "name": "semaporter-frontend",
   "private": true,
   "version": "1.0.0",
   "packageManager": "npm@11.6.2",

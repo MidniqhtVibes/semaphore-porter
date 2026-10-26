@@ -292,6 +292,7 @@ class ProjectTemplate(Base, TimestampMixin):
     source_type: Mapped[str] = mapped_column(String(30))
     source_project_id: Mapped[int | None] = mapped_column(BigInteger)
     backup_document: Mapped[dict[str, Any]] = mapped_column(JSON)
+    catalog_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("catalog_snapshots.id", ondelete="RESTRICT"))
     created_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
@@ -399,6 +400,58 @@ class VaultSettings(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class GitLabSettings(Base, TimestampMixin):
+    __tablename__ = "gitlab_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class ProgramPackageDraft(Base, TimestampMixin):
+    __tablename__ = "program_package_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[str] = mapped_column(String(64), index=True)
+    package_id: Mapped[str] = mapped_column(String(63))
+    name: Mapped[str] = mapped_column(String(128))
+    base_sha: Mapped[str] = mapped_column(String(64))
+    base_branch: Mapped[str] = mapped_column(String(200))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
+    files: Mapped[dict[str, str]] = mapped_column(JSON)
+    original_files: Mapped[dict[str, str]] = mapped_column(JSON)
+    source_files: Mapped[dict[str, str]] = mapped_column(JSON)
+    validation: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    branch: Mapped[str | None] = mapped_column(String(200), unique=True)
+    commit_sha: Mapped[str | None] = mapped_column(String(64))
+    merge_request_iid: Mapped[int | None] = mapped_column(Integer)
+    remote_status: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_token: Mapped[str | None] = mapped_column(String(32))
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class CatalogSnapshot(Base, TimestampMixin):
+    __tablename__ = "catalog_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[str] = mapped_column(String(64), index=True)
+    source_sha: Mapped[str] = mapped_column(String(64))
+    catalog: Mapped[dict[str, Any]] = mapped_column(JSON)
+    validation: Mapped[dict[str, Any]] = mapped_column(JSON)
+    source_hash: Mapped[str] = mapped_column(String(64))
+    project_metadata: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class CatalogActivation(Base, TimestampMixin):
+    __tablename__ = "catalog_activation"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    snapshot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("catalog_snapshots.id", ondelete="RESTRICT"))
 
 
 Index("ix_task_runs_tenant_started", TaskRun.tenant_id, TaskRun.started_at.desc())

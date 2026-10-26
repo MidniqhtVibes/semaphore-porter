@@ -1,0 +1,39 @@
+# In das Stack-Repository übernehmen bzw. mit dessen bestehender CI zusammenführen.
+# SEMAPORTER_VALIDATION_IMAGE: freigegebenes Semaporter-Backend-Image mit Digest.
+# Separater Runner ohne Produktions-Vault, SSH-Zugänge oder Docker-Host-Socket.
+stages: [validate]
+
+variables:
+  SEMAPORTER_BASE_BRANCH: main
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $SEMAPORTER_BASE_BRANCH'
+
+package-contracts:
+  stage: validate
+  image:
+    name: $SEMAPORTER_VALIDATION_IMAGE
+    entrypoint: [""]
+  script:
+    - PYTHONPATH=/app python -m app.package_check --root "$CI_PROJECT_DIR" --revision "$CI_COMMIT_SHA"
+
+stack-contract-tests:
+  stage: validate
+  image: python:3.13.7-slim
+  before_script:
+    - pip install --no-cache-dir PyYAML==6.0.3
+  script:
+    - python tests/test-program-catalog.py -v
+    - python tests/test-deployment-plan-compiler.py -v
+    - python tests/test-compose-command.py -v
+    - python tests/test-compose-environment-contract.py -v
+    - python tests/test-controller-local-planning.py -v
+    - python tests/test-vault-path-resolution.py -v
+    - python tests/test-mail-notification-contract.py -v
+    - python database-types/tests/test_provider_contracts.py -v
+    - python tests/test-database-dispatch-contract.py -v
+    - python tests/test-generic-boundaries.py -v
+    - python tests/test-survey-enums.py -v
+    - python tests/test-survey-renderer.py -v

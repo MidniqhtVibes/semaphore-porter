@@ -24,8 +24,8 @@ def get_vault(db: Db, admin: SystemAdmin):
 
 
 @router.get("/vault/catalog")
-def get_catalog(admin: SystemAdmin):
-    return load_catalog().model_dump()
+def get_catalog(db: Db, admin: SystemAdmin):
+    return load_catalog(db).model_dump()
 
 
 @router.put("/vault")

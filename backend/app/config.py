@@ -19,9 +19,9 @@ CsvList = Annotated[list[str], BeforeValidator(_split_csv)]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", enable_decoding=False)
 
-    app_name: str = "Semaphore Tenant Portal"
+    app_name: str = "Semaporter"
     environment: str = "production"
-    database_url: str = "postgresql+psycopg://semaphore_portal@postgres/semaphore_portal"
+    database_url: str = "postgresql+psycopg://semaporter@postgres/semaporter"
     portal_secret_key: SecretStr = Field(min_length=32)
     portal_fernet_key: SecretStr
     portal_cookie_secure: bool = True
@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     semaphore_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
     vault_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
     vault_ca_bundle: str | None = None
+    gitlab_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
+    gitlab_ca_bundle: str | None = None
 
     @field_validator("portal_allowed_hosts", mode="after")
     @classmethod

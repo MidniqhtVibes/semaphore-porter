@@ -1,5 +1,42 @@
 # Änderungen
 
+## GitLab-Integration und Bereinigung – 26.10.2026
+
+- GitLab unter Einstellungen → Verbindungen und Entwicklung mit Programmpaketen, Änderungen & Freigaben, Prüfungen sowie Versionen & Übernahme.
+- Verschlüsselte Projektverbindung, revisionsgebundene Paketentwürfe, vollständiger Manifest-/Dateieditor, Datensatz-Assistent mit SHA-256 und Stack-Vertragsprüfung.
+- Bestätigte Batch-Commits/Merge Requests mit Ausführungssperre, Versionskonflikten und Wiederaufnahme nach unklaren API-Ergebnissen.
+- Versionierte Vault-Kataloge mit Pipeline-/SHA-Prüfung, atomarer Aktivierung und separater Semaphore-Projektvorlage; Rücknahme auf bereits aktivierte Stände.
+- Migration `20261026_0005`, reproduzierbares Backend-Testimage, gemeinsamer Katalogexporter und CI-Beispiel für das Stack-Projekt.
+- Überholte GitLab-Planung und historische Vault-Vorstudie durch aktuelle Anleitungen ersetzt. Aktive Regressionstests, Migrationen, Präsentation und benötigte Lizenz-/Quellartefakte bleiben erhalten.
+- Keine Live-Verbindung zur Firmeninstanz eingerichtet, kein GitLab-Commit durch den Agenten und kein Push dieses Repositories.
+
+## GIF-Designs und GitLab-Planung – 26.10.2026
+
+- Animierte GIFs als Logo und Anmeldehintergrund hochladen; unveränderte Bilddaten beim Speichern, Kopieren sowie JSON-Import und -Export erhalten.
+- Hintergrund-Unschärfe zwischen 0 und 24 Pixeln mit gemeinsamer Darstellung in Vorschau und Anmeldung; Logo, Texte und Formular bleiben scharf.
+- Bestehende Grenzen von 250 KB pro Bild und 1 MB pro Design-Datei beibehalten; ältere Designs bleiben gültig.
+- Ursprüngliche GitLab-Planung für Menü, Paket-Assistent und Übernahme; inzwischen durch die [umgesetzte Integration](docs/GITLAB.md) ersetzt.
+- 73 Frontend-Tests bestanden, drei variantenbedingt übersprungen; Produktionsbuild und lokale Browserprüfung erfolgreich. Kein Commit oder Push.
+
+## Umbenennung zu Semaporter – 26.10.2026
+
+- Einheitlicher Produktname in Oberfläche, Browser-Titel, App-Manifest, API-Titel, HTTP-Clientkennung, npm-Paket und Dokumentation.
+- Neue lokale und veröffentlichbare Image-Namen; CI-Veröffentlichungsziel unabhängig vom GitHub-Repositorynamen.
+- Bestehende Browser-Designs und Menüeinstellungen über bisherige Speicherschlüssel übernehmen; alte Standardtexte aktualisieren und individuelle Firmenbezeichnungen erhalten.
+- Präsentation, PDF und Sprechernotizen auf Semaporter umgestellt und Dateien entsprechend benannt.
+- Bestehendes Compose-Projekt in der lokalen Konfiguration festgeschrieben und auf neue Images aktualisiert; derselbe Datenbank-Container bleibt erhalten. GitHub-Adresse und geöffneter Workspace-Ordner bleiben unverändert.
+- Einrichtungs- und Umstellungshinweise in [docs/UMBENENNUNG.md](docs/UMBENENNUNG.md). Kein Push und keine externe Veröffentlichung.
+
+## Lokale Navigation und Präsentationsunterlagen – 26.10.2026
+
+- Sidebar als aufklappbarer Baum mit eingerückten Einträgen und verschachtelten Verbindungen für Semaphore und Vault.
+- Navigationszustand getrennt für Admin- und Benutzerportal merken; aktive Zweige automatisch öffnen, alle Kategorien gemeinsam schalten und Tastaturbedienung unterstützen.
+- Vollständiger Seitenpfad und dieselbe Navigation in der Designvorschau; mobile geschlossene Sidebar aus der Fokusreihenfolge nehmen.
+- Ungenutzte Backend-Definitionen, lokale Build-/Testcaches und temporäre Prüfarbeitsdateien bereinigen; Ignore-Regeln und Dokumentationsverweise aktualisieren.
+- Ordner `präsentieren` mit Architektur, Code-Rundgang, Ablaufdiagrammen, Docker-Erklärung, Vorführungsleitfaden und Bereinigungsübersicht.
+- Bearbeitbare PowerPoint-Präsentation mit 16 Folien, integrierten und separaten Sprechernotizen sowie einer PDF-Fassung.
+- Keine Veröffentlichung, kein Commit und kein Push durchgeführt.
+
 ## Lokale Vault-Erweiterung – 16.10.2026
 
 - Zentrale verschlüsselte AppRole- und Registry-Konfiguration im Menü **Vault**.

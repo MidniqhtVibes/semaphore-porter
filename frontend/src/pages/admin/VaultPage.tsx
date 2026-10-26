@@ -29,7 +29,7 @@ export function VaultPage(){
     <Card><h2>Verbindung und Pfade</h2><div className="form-grid columns-2">
       {(Object.entries(labels) as Array<[keyof typeof labels,string]>).map(([key,label])=><Field key={key} label={label}><input value={form[key]} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/></Field>)}
     </div><label className="toggle-row"><input type="checkbox" checked={form.enabled} onChange={e=>setForm(v=>({...v,enabled:e.target.checked}))}/><span>Vault-Anlage im Tenant-Assistenten anbieten</span></label></Card>
-    <Card><h2>AppRole-Zugänge</h2><p>Den vorhandenen Semaphore-Lesezugang einmalig hinterlegen. Neue Tenants erhalten diesen Zugang als geschützte Variablen. Die Schreib-AppRole dient ausschließlich dem Porter.</p><div className="form-grid columns-2">
+    <Card><h2>AppRole-Zugänge</h2><p>Den vorhandenen Semaphore-Lesezugang einmalig hinterlegen. Neue Tenants erhalten diesen Zugang als geschützte Variablen. Die Schreib-AppRole dient ausschließlich dem Semaporter.</p><div className="form-grid columns-2">
       {Object.entries(credentialLabels).map(([key,label])=><Field key={key} label={label} help={query.data?.credentials_present?.[key]?'Hinterlegt; ein leeres Feld behält den bisherigen Wert.':'Noch nicht hinterlegt.'}><input type="password" autoComplete="new-password" value={credentials[key]||''} onChange={e=>setCredentials(v=>({...v,[key]:e.target.value}))}/></Field>)}
     </div></Card>
     <Card><h2>Registry-Zugang pro Anwendung</h2><p>Gültiges Passwort oder Token eintragen. Host, Benutzer und Image-Angaben bleiben in den Projektvariablen.</p><div className="form-grid columns-2">

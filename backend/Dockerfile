@@ -17,3 +17,15 @@ RUN sed -i 's/\r$//' ./entrypoint.sh && chmod 0555 ./entrypoint.sh && chown -R p
 USER portal
 EXPOSE 8000
 ENTRYPOINT ["./entrypoint.sh"]
+
+FROM runtime AS test
+USER root
+COPY requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements-dev.txt
+COPY tests ./tests
+ENV PYTHONPATH=/app
+USER portal
+ENTRYPOINT []
+CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+
+FROM runtime AS production

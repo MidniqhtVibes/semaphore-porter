@@ -4,7 +4,7 @@ Das Easter Egg ist standardmäßig **nicht Bestandteil des Builds**. Ein
 Frontend-Image mit dem Spiel wird aus dem Repository-Stamm so gebaut:
 
 ```powershell
-docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaphore-portal-local-frontend:dev ./frontend
+docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaporter-local-frontend:dev ./frontend
 ```
 
 Ohne Flag oder mit `PORTAL_BUILD_IDDQD=0` fehlen Trigger, Route, Spiel-Chunks,

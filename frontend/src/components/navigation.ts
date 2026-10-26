@@ -1,4 +1,4 @@
-import {Activity, AppWindow, Boxes, CircleUserRound, FileClock, Gauge, LayoutDashboard, ListChecks, PackageOpen, ScrollText, ServerCog, Settings2, ShieldCheck, Users, Palette, type LucideIcon} from 'lucide-react'
+import {Activity, AppWindow, Boxes, CircleUserRound, FileClock, Gauge, LayoutDashboard, ListChecks, PackageOpen, ScrollText, ServerCog, Settings2, ShieldCheck, Users, Palette, GitBranch, GitMerge, FlaskConical, Download, type LucideIcon} from 'lucide-react'
 
 export type NavigationMode = 'admin' | 'portal'
 
@@ -8,6 +8,7 @@ export type NavigationGroup = {
   label: string
   icon: LucideIcon
   items: readonly NavigationItem[]
+  children?: readonly NavigationGroup[]
 }
 
 export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
@@ -22,15 +23,25 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/admin/vorlagen', 'Projektvorlagen', PackageOpen],
     ['/admin/presets', 'Presets', ListChecks],
   ] },
+  { id: 'development', label: 'Entwicklung', icon: GitBranch, items: [
+    ['/admin/programmpakete', 'Programmpakete', PackageOpen],
+    ['/admin/freigaben', 'Änderungen & Freigaben', GitMerge],
+    ['/admin/pruefungen', 'Prüfungen', FlaskConical],
+    ['/admin/uebernahme', 'Versionen & Übernahme', Download],
+  ] },
   { id: 'access', label: 'Zugriff', icon: ShieldCheck, items: [
     ['/admin/benutzer', 'Benutzer & Gruppen', Users],
     ['/admin/berechtigungen', 'Berechtigungen', ShieldCheck],
     ['/admin/audit', 'Audit-Log', ScrollText],
   ] },
   { id: 'settings', label: 'Einstellungen', icon: Settings2, items: [
-    ['/admin/semaphore', 'Semaphore-Verbindung', ServerCog],
-    ['/admin/vault', 'Vault', ShieldCheck],
     ['/admin/designs', 'Designs', Palette],
+  ], children: [
+    { id: 'connections', label: 'Verbindungen', icon: ServerCog, items: [
+      ['/admin/semaphore', 'Semaphore-Verbindung', ServerCog],
+      ['/admin/vault', 'Vault', ShieldCheck],
+      ['/admin/gitlab', 'GitLab', GitBranch],
+    ] },
   ] },
 ]
 
@@ -53,10 +64,15 @@ export function navigationGroups(mode: NavigationMode) {
 
 export function navigationContext(mode: NavigationMode, pathname: string) {
   const groups = navigationGroups(mode)
-  for (const group of groups) {
-    const item = group.items.find(([to]) => pathname === to || to !== `/${mode}` && pathname.startsWith(`${to}/`))
-    if (item) return { group, label: item[1] }
+  const find = (branches: readonly NavigationGroup[], parents: NavigationGroup[] = []): { group: NavigationGroup; groups: NavigationGroup[]; label: string } | undefined => {
+    for (const group of branches) {
+      const path = [...parents, group]
+      const nested = find(group.children || [], path)
+      if (nested) return nested
+      const item = group.items.find(([to]) => pathname === to || to !== `/${mode}` && pathname.startsWith(`${to}/`))
+      if (item) return { group: path[0], groups: path, label: item[1] }
+    }
   }
-  return { group: groups[0], label: pathname === '/admin/tenant-erstellen' ? 'Tenant erstellen' : 'Dashboard' }
+  return find(groups) || { group: groups[0], groups: [groups[0]], label: pathname === '/admin/tenant-erstellen' ? 'Tenant erstellen' : 'Dashboard' }
 }
 

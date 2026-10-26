@@ -1,6 +1,6 @@
 {
     "id":  "/",
-    "short_name":  "Porter",
+    "short_name":  "Semaporter",
     "background_color":  "#0d1117",
     "icons":  [
                   {
@@ -20,7 +20,7 @@
     "description":  "Mandanten und Semaphore-Tasks zentral verwalten.",
     "theme_color":  "#010409",
     "display":  "standalone",
-    "name":  "Semaphore Porter",
+    "name":  "Semaporter",
     "scope":  "/",
     "start_url":  "/"
 }

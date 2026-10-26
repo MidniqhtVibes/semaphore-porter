@@ -255,7 +255,3 @@ class PresetInput(BaseModel):
     category: Literal["deployment", "registry", "postgresql", "mariadb", "mysql", "vault", "smtp", "application"]
     description: str = Field(default="", max_length=5000)
     values: dict[str, Any]
-
-
-class ORMModel(BaseModel):
-    model_config = ConfigDict(from_attributes=True)

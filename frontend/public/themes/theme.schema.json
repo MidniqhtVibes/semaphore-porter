@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Semaphore Porter Theme",
+  "title": "Semaporter Theme",
   "description": "Version 1: Design-Datei. Text- und Schaltflächenkontrast werden zusätzlich beim Import geprüft.",
   "type": "object",
   "additionalProperties": false,
@@ -240,12 +240,17 @@
     "logo": {
       "type": "string",
       "maxLength": 350000,
-      "pattern": "^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$"
+      "pattern": "^data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$"
     },
     "loginBackground": {
       "type": "string",
       "maxLength": 350000,
-      "pattern": "^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$"
+      "pattern": "^data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$"
+    },
+    "loginBackgroundBlur": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 24
     },
     "logoWidth": {
       "type": "integer",

@@ -13,16 +13,19 @@ export type BuiltinId = 'neutral-dark' | 'neutral-light' | 'github-dark' | 'sit-
 export type FontId = 'system' | 'sora'
 export type Branding = 'neutral' | 'sit'
 export const DEFAULT_COPY = {
-  title: 'Semaphore', subtitle: 'Tenant Portal',
+  title: 'Semaporter', subtitle: 'Tenant Portal',
   headline: 'Deployments starten.', emphasis: 'Sicher getrennt.',
   intro: 'Eine zentrale Oberfläche für Mandanten, Anwendungen und freigegebene Semaphore-Tasks.',
   welcome: 'Willkommen zurück', loginHint: 'Melden Sie sich mit Ihrem lokalen Portalkonto an.',
 }
 export type ThemeCopy = typeof DEFAULT_COPY
-export const DEFAULT_LEGAL = {footer:'Tenant Portal', imprint:'', privacy:''}
+export const DEFAULT_LEGAL = {footer:'Semaporter', imprint:'', privacy:''}
 export type ThemeLegal = typeof DEFAULT_LEGAL
 export const MAX_THEME_BYTES = 1024 * 1024
-export const LOGO_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/
+export const MAX_THEME_IMAGE_BYTES = 250 * 1024
+export const MAX_LOGIN_BACKGROUND_BLUR = 24
+export const THEME_IMAGE_TYPES = ['image/png','image/jpeg','image/webp','image/gif'] as const
+export const LOGO_PATTERN = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/
 export type ThemeFile = {
   schema_version: 1
   id: string
@@ -38,6 +41,7 @@ export type ThemeFile = {
   copy?: Partial<ThemeCopy>
   logo?: string
   loginBackground?: string
+  loginBackgroundBlur?: number
   logoWidth?: number
   legal?: Partial<ThemeLegal>
 }
@@ -55,6 +59,7 @@ export type Theme = {
   copy?: Partial<ThemeCopy>
   logo?: string
   loginBackground?: string
+  loginBackgroundBlur?: number
   logoWidth?: number
   legal?: Partial<ThemeLegal>
 }
@@ -129,10 +134,10 @@ export function resolveCustomTheme(definition: ThemeFile): Theme {
   const base=BUILTIN_THEMES.find(theme=>theme.id===definition.base)!
   return {...base, id:`custom:${definition.id}`, name:definition.name, description:definition.description||'Eigenes Design',
     colors:{...base.colors,...definition.colors}, font:definition.font||base.font, radius:definition.radius??base.radius, logoAsset:definition.logoAsset, logoTone:definition.logoTone, copy:definition.copy, logo:definition.logo,
-    loginBackground:definition.loginBackground, logoWidth:definition.logoWidth, legal:definition.legal, definition}
+    loginBackground:definition.loginBackground, loginBackgroundBlur:definition.loginBackgroundBlur, logoWidth:definition.logoWidth, legal:definition.legal, definition}
 }
 export function parseThemeFile(value: unknown): ThemeFile {
-  const keys=['schema_version','id','name','description','base','colors','font','radius','branding','logoAsset','logoTone','copy','logo','loginBackground','logoWidth','legal']
+  const keys=['schema_version','id','name','description','base','colors','font','radius','branding','logoAsset','logoTone','copy','logo','loginBackground','loginBackgroundBlur','logoWidth','legal']
   if(!object(value)||Object.keys(value).some(key=>!keys.includes(key)))throw new Error('Ungültiges Design-Format. Bitte die JSON-Vorlage verwenden.')
   if(value.schema_version!==1)throw new Error('Diese Design-Version wird nicht unterstützt. Erwartet wird schema_version: 1.')
   if(typeof value.id!=='string'||!/^[a-z0-9][a-z0-9-]{1,47}$/.test(value.id))throw new Error('Design-ID: 2–48 Kleinbuchstaben, Ziffern oder Bindestriche erforderlich.')
@@ -161,9 +166,10 @@ export function parseThemeFile(value: unknown): ThemeFile {
       const invalid=typeof image!=='string'||!LOGO_PATTERN.test(image)
       const data=typeof image==='string'?image.slice(image.indexOf(',')+1):''
       const bytes=data.length*3/4-(data.endsWith('==')?2:data.endsWith('=')?1:0)
-      if(invalid||data.length%4!==0||bytes>250*1024)throw new Error(`${key==='logo'?'Das Logo':'Das Hintergrundbild'} muss ein eingebettetes PNG-, JPEG- oder WebP-Bild bis 250 KB sein.`)
+      if(invalid||data.length%4!==0||bytes>MAX_THEME_IMAGE_BYTES)throw new Error(`${key==='logo'?'Das Logo':'Das Hintergrundbild'} muss ein eingebettetes PNG-, JPEG-, WebP- oder GIF-Bild bis 250 KB sein.`)
     }
   }
+  if(value.loginBackgroundBlur!==undefined&&(typeof value.loginBackgroundBlur!=='number'||!Number.isInteger(value.loginBackgroundBlur)||value.loginBackgroundBlur<0||value.loginBackgroundBlur>MAX_LOGIN_BACKGROUND_BLUR))throw new Error(`Die Hintergrund-Unschärfe muss zwischen 0 und ${MAX_LOGIN_BACKGROUND_BLUR} Pixeln liegen.`)
   if(value.logoWidth!==undefined&&(typeof value.logoWidth!=='number'||!Number.isInteger(value.logoWidth)||value.logoWidth<32||value.logoWidth>120))throw new Error('Die Logobreite muss zwischen 32 und 120 Pixeln liegen.')
   if(value.legal!==undefined){
     if(!object(value.legal))throw new Error('Footer und rechtliche Texte müssen als Objekt angegeben werden.')
@@ -174,6 +180,9 @@ export function parseThemeFile(value: unknown): ThemeFile {
   if(value.logoAsset!==undefined&&!LOGO_ASSETS.some(asset=>asset.id===value.logoAsset))throw new Error('Unbekannte Logo-Vorlage.')
   if(value.logoTone!==undefined&&(typeof value.logoTone!=='string'||!['original','dark'].includes(value.logoTone)))throw new Error('Unbekannte Logo-Darstellung.')
   const definition=JSON.parse(JSON.stringify(value)) as ThemeFile
+  // Update former default product labels while preserving company-specific text.
+  if(definition.copy?.title&&['Semaphore','Semaphore Porter','Semaphore Tenant Portal'].includes(definition.copy.title))definition.copy.title=DEFAULT_COPY.title
+  if(definition.legal?.footer==='Tenant Portal')definition.legal.footer=DEFAULT_LEGAL.footer
   // Migrate older design files once; renderers use only generic logo metadata.
   if(definition.branding==='sit'&&definition.logoAsset===undefined){
     definition.logoAsset='sit-logo'
@@ -188,9 +197,9 @@ export function parseThemeFile(value: unknown): ThemeFile {
   return definition
 }
 export function exportThemeFile(theme: Theme): ThemeFile {
-  return theme.definition||{schema_version:1,id:theme.id,name:theme.name,description:theme.description,base:theme.id as BuiltinId,font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,colors:{...theme.colors}}
+  return theme.definition||{schema_version:1,id:theme.id,name:theme.name,description:theme.description,base:theme.id as BuiltinId,font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,colors:{...theme.colors},copy:theme.copy,logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,logoWidth:theme.logoWidth,legal:theme.legal}
 }
 
 export function createDraft(theme: Theme): ThemeFile {
-  return {schema_version:1,id:`design-${crypto.randomUUID().slice(0,8)}`,name:`${theme.name} – Kopie`.slice(0,80),description:theme.description,base:theme.definition?.base??theme.id as ThemeFile['base'],colors:{...theme.colors},font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,copy:{...theme.copy},legal:{...theme.legal},logo:theme.logo,loginBackground:theme.loginBackground,logoWidth:theme.logoWidth}
+  return {schema_version:1,id:`design-${crypto.randomUUID().slice(0,8)}`,name:`${theme.name} – Kopie`.slice(0,80),description:theme.description,base:theme.definition?.base??theme.id as ThemeFile['base'],colors:{...theme.colors},font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,copy:{...theme.copy},legal:{...theme.legal},logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,logoWidth:theme.logoWidth}
 }

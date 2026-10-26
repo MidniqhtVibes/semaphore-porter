@@ -4,6 +4,7 @@ import { LegalContent } from '../components/LegalContent'
 import { ThemeLogo } from '../components/ThemeLogo'
 import { navigationContext, type NavigationMode } from '../components/navigation'
 import { GroupedNavigation } from '../components/GroupedNavigation'
+import { LoginBackground } from '../components/LoginBackground'
 import { DEFAULT_COPY, DEFAULT_LEGAL, FONT_STACKS, type Theme } from './themes'
 
 export const PREVIEW_PAGES = {login:'Anmeldung',workspace:'Portal',components:'Elemente',imprint:'Impressum',privacy:'Datenschutz'}
@@ -65,7 +66,8 @@ export function DesignLivePreview({theme,original,page,onPageChange,fullPage=fal
     <div className={`preview-stage preview-stage-${device}`}>
       <div className="preview-browser"><span/><span/><span/><div>{copy.title} / {PREVIEW_PAGES[page]}</div><ShieldCheck size={12}/></div>
       <div ref={surface} id={`${uid}-panel`} className="preview-surface" style={style} data-theme-mode={current.mode} data-testid="design-live-preview" role="tabpanel" aria-labelledby={`${uid}-${page}`} tabIndex={0} onKeyDown={event=>{if(event.key==='Escape')setMenuOpen(false)}}>
-        {page==='login'?<div className={`preview-login ${current.loginBackground?'preview-login-image':''}`} style={current.loginBackground?{backgroundImage:`linear-gradient(var(--overlay), var(--overlay)), url("${current.loginBackground}")`}:undefined}>
+        {page==='login'?<div className={`preview-login ${current.loginBackground?'preview-login-image':''}`}>
+          <LoginBackground image={current.loginBackground} blur={current.loginBackgroundBlur}/>
           {brand}<div className="preview-login-copy"><h3>{copy.headline}<br/><em>{copy.emphasis}</em></h3><p>{copy.intro}</p></div>
           <div className="preview-panel preview-login-form"><h4>{copy.welcome}</h4><p>{copy.loginHint}</p>
             <label><span>Benutzername oder E-Mail-Adresse</span><input placeholder="name@unternehmen.de" aria-label="Benutzername in der Vorschau" autoComplete="off"/></label>
@@ -77,11 +79,11 @@ export function DesignLivePreview({theme,original,page,onPageChange,fullPage=fal
         </div>:<div className={`preview-portal ${menuOpen?'preview-menu-open':''}`}>
           <aside id={`${uid}-menu`} className="preview-sidebar" aria-label="Hauptmenü-Vorschau"><div className="preview-sidebar-brand">{brand}<button type="button" className="preview-menu-close" aria-label="Hauptmenü schließen" onClick={()=>setMenuOpen(false)}><X size={17}/></button></div>
             <span className="preview-mode-label">{mode==='admin'?'ADMINPORTAL':'BENUTZERPORTAL'}</span>
-            <GroupedNavigation mode={mode} pathname={selectedPath} renderItem={([to,label,Icon])=><button key={to} type="button" aria-label={label} className={`nav-item${selectedPath===to?' selected':''}`} onClick={()=>{setSelectedPath(to);setMenuOpen(false);sampleAction(`${label} · Vorschau`)}}><Icon size={18}/><span>{label}</span></button>}/>
+            <GroupedNavigation mode={mode} pathname={selectedPath} persistState={false} renderItem={([to,label,Icon])=><button key={to} type="button" aria-label={label} className={`nav-item${selectedPath===to?' selected':''}`} onClick={()=>{setSelectedPath(to);setMenuOpen(false);sampleAction(`${label} · Vorschau`)}}><Icon size={18}/><span>{label}</span></button>}/>
             <div className="preview-sidebar-bottom"><button type="button" onClick={()=>changeMode(mode==='admin'?'portal':'admin')}>{mode==='admin'?<PanelLeftClose size={18}/>:<ShieldCheck size={18}/>}<span>{mode==='admin'?'Benutzeransicht':'Administration'}</span></button></div>
           </aside>
           {menuOpen&&<button type="button" className="preview-menu-scrim" aria-label="Menühintergrund schließen" onClick={()=>setMenuOpen(false)}/>}
-          <div className="preview-application"><header className="preview-topbar"><div><button type="button" className="preview-menu-trigger" aria-label="Hauptmenü öffnen" aria-expanded={menuOpen} aria-controls={`${uid}-menu`} onClick={()=>setMenuOpen(true)}><Menu size={18}/></button><ClipboardList size={16}/><span>{mode==='admin'?'Administration':'Portal'}</span><span className="preview-breadcrumb"><ChevronRight size={12}/>{context.group.label}<ChevronRight size={12}/><span>{context.label}</span></span></div><div className="preview-profile"><span className="preview-avatar">DU</span><div><strong>Dein Name</strong><span>vorschau@portal.local</span></div><ChevronDown size={14}/></div></header>
+          <div className="preview-application"><header className="preview-topbar"><div><button type="button" className="preview-menu-trigger" aria-label="Hauptmenü öffnen" aria-expanded={menuOpen} aria-controls={`${uid}-menu`} onClick={()=>setMenuOpen(true)}><Menu size={18}/></button><ClipboardList size={16}/><span>{mode==='admin'?'Administration':'Portal'}</span><span className="preview-breadcrumb">{context.groups.map(group=><span className="breadcrumb-group" key={group.id}><ChevronRight size={12}/>{group.label}</span>)}<ChevronRight size={12}/><span>{context.label}</span></span></div><div className="preview-profile"><span className="preview-avatar">DU</span><div><strong>Dein Name</strong><span>vorschau@portal.local</span></div><ChevronDown size={14}/></div></header>
           <div className="preview-workspace">{page==='workspace'?<>
             <div className="preview-page-title"><div><span className="preview-kicker">DEIN PORTAL</span><h3>Alles im Blick.</h3><p>Ein guter Tag für neue Projekte.</p></div><button type="button" className="preview-primary" onClick={()=>setDemoForm(true)}><Plus size={14}/>Projekt erstellen</button></div>
             <div className="preview-stats"><div className="preview-panel"><span>Aktive Projekte</span><strong>12</strong><small className="preview-success">+2 diese Woche</small></div><div className="preview-panel"><span>Tasks ausgeführt</span><strong>148</strong><small>In diesem Monat</small></div></div>

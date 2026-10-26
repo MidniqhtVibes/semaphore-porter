@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { within } from '@testing-library/react'
 import { DesignCreator, createDraft } from '../designs/DesignCreator'
+import { ANIMATED_GIF } from './fixtures/images'
 import { BUILTIN_THEMES, parseThemeFile, resolveCustomTheme } from '../designs/themes'
 
 describe('Design-Creator',()=>{
@@ -53,7 +54,7 @@ describe('Design-Creator',()=>{
     fireEvent.change(screen.getByLabelText('Portalname'),{target:{value:'Neues Portal'}})
     expect(within(screen.getByTestId('design-live-preview')).getByText('Neues Portal')).toBeVisible()
     fireEvent.click(screen.getByRole('button',{name:'Vergleichen'}))
-    expect(within(screen.getByTestId('design-live-preview')).getByText('Semaphore',{selector:'strong'})).toBeVisible()
+    expect(within(screen.getByTestId('design-live-preview')).getByText('Semaporter',{selector:'strong'})).toBeVisible()
     fireEvent.click(screen.getByRole('button',{name:'Vergleichen'}))
     expect(within(screen.getByTestId('design-live-preview')).getByText('Neues Portal')).toBeVisible()
     fireEvent.click(screen.getByRole('tab',{name:'Elemente'}))
@@ -75,8 +76,34 @@ describe('Design-Creator',()=>{
       expect(await screen.findByRole('img',{name:'Logo-Vorschau'})).toHaveAttribute('src','data:image/png;base64,aW1hZ2UtYnl0ZXM=')
       fireEvent.change(screen.getByLabelText('Hintergrundbild der Anmeldung'),{target:{files:[file]}})
       await screen.findByRole('button',{name:'Hintergrundbild entfernen'})
-      expect(screen.getByTestId('design-live-preview').querySelector('.preview-login')?.getAttribute('style')).toContain('data:image/png;base64,')
+      expect(screen.getByTestId('design-live-preview').querySelector('.login-background')?.getAttribute('style')).toContain('data:image/png;base64,')
       expect(save).not.toHaveBeenCalled()
+    }finally{imageMock.mockRestore()}
+  })
+  it('lädt animierte GIFs für Logo und Hintergrund und speichert Unschärfe getrennt vom Formular',async()=>{
+    const imageMock=vi.spyOn(globalThis,'Image').mockImplementation(function(){
+      const image=document.createElement('img')
+      Object.defineProperty(image,'src',{set(){queueMicrotask(()=>image.onload?.(new Event('load')))}})
+      return image
+    })
+    try{
+      const save=vi.fn()
+      render(<DesignCreator initial={createDraft(BUILTIN_THEMES[0])} onSave={save} onClose={()=>{}}/>)
+      fireEvent.click(screen.getByRole('button',{name:'Texte & Bilder'}))
+      const bytes=Uint8Array.from(atob(ANIMATED_GIF.split(',')[1]),char=>char.charCodeAt(0))
+      const file=new File([bytes],'animiert.gif',{type:'image/gif'})
+      expect(screen.getByLabelText('Eigenes Logo')).toHaveAttribute('accept',expect.stringContaining('image/gif'))
+      fireEvent.change(screen.getByLabelText('Eigenes Logo'),{target:{files:[file]}})
+      expect(await screen.findByRole('img',{name:'Logo-Vorschau'})).toHaveAttribute('src',ANIMATED_GIF)
+      fireEvent.change(screen.getByLabelText('Hintergrundbild der Anmeldung'),{target:{files:[file]}})
+      await screen.findByRole('button',{name:'Hintergrundbild entfernen'})
+      fireEvent.change(screen.getByRole('slider',{name:'Hintergrund-Unschärfe'}),{target:{value:'12'}})
+      const preview=screen.getByTestId('design-live-preview')
+      expect(preview.querySelector('.login-background')).toHaveStyle({filter:'blur(12px)'})
+      expect(preview.querySelector('.login-background')?.getAttribute('style')).toContain(ANIMATED_GIF)
+      expect(preview.querySelector<HTMLElement>('.preview-login')?.style.filter).toBe('')
+      fireEvent.click(screen.getByRole('button',{name:'Speichern und aktivieren'}))
+      expect(save).toHaveBeenCalledWith(expect.objectContaining({logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12}))
     }finally{imageMock.mockRestore()}
   })
   it('speichert eigene Texte und Farben erst nach ausdrücklichem Speichern',()=>{

@@ -84,7 +84,12 @@ class Catalog(BaseModel):
         return self
 
 
-def load_catalog() -> Catalog:
+def load_catalog(db=None) -> Catalog:
+    if db is not None:
+        from app.models import CatalogActivation, CatalogSnapshot
+        active = db.get(CatalogActivation, 1)
+        if active and active.snapshot_id:
+            return Catalog.model_validate(db.get(CatalogSnapshot, active.snapshot_id).catalog)
     return Catalog.model_validate(json.loads(Path(__file__).with_name("vault_catalog.json").read_text(encoding="utf-8")))
 
 

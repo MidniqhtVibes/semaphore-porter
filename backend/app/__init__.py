@@ -1,2 +1,2 @@
-"""Semaphore Tenant Portal backend."""
+"""Semaporter backend."""
 

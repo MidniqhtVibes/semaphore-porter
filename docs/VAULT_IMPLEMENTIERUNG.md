@@ -2,12 +2,12 @@
 
 Stand: 16.10.2026. Diese Spezifikation hält die im Gespräch vereinbarten
 Anforderungen fest. Der tatsächliche Implementierungs- und Prüfstand wird am
-Ende dieser Datei nachgeführt. Die frühere `VAULT_BEWERTUNG.md` bleibt als
-Recherche erhalten; bei abweichenden Vorschlägen gilt diese Vereinbarung.
+Ende dieser Datei nachgeführt. Die frühere Recherche wurde durch diese
+Vereinbarung und die Implementierung ersetzt.
 
 ## Auftrag und Grenzen
 
-- Den bestehenden Semaphore-Porter um das automatische Anlegen der benötigten
+- Den bestehenden Semaporter um das automatische Anlegen der benötigten
   Vault-KV-v2-Objekte beim Erstellen eines Tenants erweitern.
 - Bestehende Web-Funktionen, Designs, Benutzerverwaltung und Task-Freigaben
   erhalten. Die Integration darf bei nicht konfiguriertem Vault weiterhin die
@@ -24,16 +24,16 @@ Recherche erhalten; bei abweichenden Vorschlägen gilt diese Vereinbarung.
 
 Der bestehende Semaphore-Lesezugang bleibt bestehen. Seine AppRole darf aktuell
 `semaphore/*` lesen. Neue Tenant-Projekte verwenden dieselbe AppRole und deren
-bisherige Rechte; die Rechteverwaltung erfolgt außerhalb des Porter.
+bisherige Rechte; die Rechteverwaltung erfolgt außerhalb des Semaporter.
 
 Die vorhandene Secret-ID ist in Semaphore im Bereich **Secrets** gespeichert.
 Ein normaler API-Aufruf oder Projektbackup liefert ihren Inhalt nicht zurück.
-Deshalb werden Role-ID und eine gültige Secret-ID einmalig geschützt im Porter
+Deshalb werden Role-ID und eine gültige Secret-ID einmalig geschützt im Semaporter
 hinterlegt. Falls die bisherige Secret-ID nicht mehr bekannt ist, kann ein
 Vault-Administrator eine weitere Secret-ID derselben AppRole ausstellen. Die
 vorhandene Secret-ID wird dabei nicht widerrufen.
 
-Der Porter kopiert die öffentliche `Vault-Access`-Konfiguration und ergänzt im
+Der Semaporter kopiert die öffentliche `Vault-Access`-Konfiguration und ergänzt im
 neuen Projekt die zentral hinterlegten Lese-Credentials als Semaphore-Secrets:
 
 - `vault_approle_role_id`: geschützte Extra Variable;
@@ -79,7 +79,7 @@ dieselben Pfade verwenden wie die Provisionierung.
 ## Kataloge und unterstützte Kombinationen
 
 Grundlage sind die Manifeste, Provider-Driver und Dataset-Kataloge des lokalen
-Stack-Stands `182007c`. Ein versionierter, validierter Katalog im Porter enthält
+Stack-Stands `182007c`. Ein versionierter, validierter Katalog im Semaporter enthält
 die daraus abgeleiteten Profile, Schlüssel, Anforderungen und Kompatibilitäten.
 Eine dokumentierte Exportmöglichkeit soll spätere Stack-Erweiterungen übernehmen,
 ohne Geheimnisse oder ausführbare Paketdateien zu importieren.
@@ -100,7 +100,7 @@ Eintrag in `programs/catalog.yml`, neu gerenderte Survey-Enums und Vertrags- sow
 Lifecycle-Tests. Ein vorhandener Provider muss im Anwendungsmanifest ausdrücklich
 freigegeben werden. Ein vollständig neuer Provider benötigt zusätzlich Driver,
 Provider-Tasks, statische Dispatcher und gegebenenfalls den Pool-Helper-Zweig.
-Danach den Porter-Katalog neu exportieren und die neue Version prüfen.
+Danach den Semaporter-Katalog neu exportieren und die neue Version prüfen.
 
 ## Secret-Felder und Eingabe
 
@@ -180,9 +180,9 @@ Den bestehenden Datenbankstand und `.env` mit demselben Fernet-Key sichern. Beim
 lokalen Stack die Images bauen und denselben Compose-Projektnamen verwenden:
 
 ```powershell
-docker build -t semaphore-portal-local-backend:dev ./backend
-docker build -t semaphore-portal-local-frontend:dev ./frontend
-docker compose -p semaphore-porter-local up -d --wait --force-recreate backend frontend
+docker build -t semaporter-local-backend:dev ./backend
+docker build -t semaporter-local-frontend:dev ./frontend
+docker compose up -d --wait --force-recreate backend frontend
 ```
 
 Beim Backend-Start wird die additive Migration `20261016_0004` ausgeführt.
@@ -191,9 +191,9 @@ Für Serverinstallationen gelten die Image-/Update-Befehle der README.
 
 ### 2. Vault-Zugänge vorbereiten
 
-Ein Vault-Administrator stellt den Porter-Schreibzugang bereit. Bei `kv` und
+Ein Vault-Administrator stellt den Semaporter-Schreibzugang bereit. Bei `kv` und
 `semaphore/tenants` genügt für den beschriebenen Objektvertrag eine passende
-Policy wie diese; sie wird außerhalb des Porter eingerichtet:
+Policy wie diese; sie wird außerhalb des Semaporter eingerichtet:
 
 ```hcl
 path "kv/data/semaphore/tenants/*" {
@@ -206,17 +206,17 @@ path "kv/metadata/semaphore/tenants/*" {
 
 Die konkreten Mounts und Pfade an die Installation anpassen. Kein `list`, kein
 Lesen von Secret-Inhalten und kein Update-/Delete-/Destroy-Zugriff für diesen
-Ablauf erforderlich. Der Porter erzeugt keine AppRole und keine Secret-ID.
+Ablauf erforderlich. Der Semaporter erzeugt keine AppRole und keine Secret-ID.
 
 Für den Semaphore-Lesezugang dieselbe bestehende AppRole verwenden. Die Role-ID
 ist mit administrativen Rechten abrufbar. Die Secret-ID ist nur verwendbar,
 wenn ihr Wert noch bekannt ist oder ein Administrator eine zusätzliche Secret-ID
-derselben AppRole ausstellt. Die Ausgabe nur in das geschützte Porter-Feld
+derselben AppRole ausstellt. Die Ausgabe nur in das geschützte Semaporter-Feld
 übertragen; nicht im Chat, einer Projektvorlage oder Dokumentation speichern.
 TTL, Nutzungszahl und mögliche Netzwerkbindungen müssen spätere Anmeldungen vom
-Semaphore-Runner ermöglichen. Der Porter erneuert solche Credentials nicht selbst.
+Semaphore-Runner ermöglichen. Der Semaporter erneuert solche Credentials nicht selbst.
 
-### 3. Unter Administration → Einstellungen → Vault konfigurieren
+### 3. Unter Administration → Einstellungen → Verbindungen → Vault konfigurieren
 
 | Feld | Einzutragender Wert |
 |---|---|
@@ -224,9 +224,9 @@ Semaphore-Runner ermöglichen. Der Porter erneuert solche Credentials nicht selb
 | Vault Namespace | nur bei entsprechender Vault-Installation, sonst leer |
 | KV-v2-Mount | z. B. `kv`, ohne `data/` oder `metadata/` |
 | Tenantwurzel | z. B. `semaphore/tenants` |
-| Auth-Mount des Schreibzugangs | tatsächlicher AppRole-Mount des Porter, z. B. `approle` |
+| Auth-Mount des Schreibzugangs | tatsächlicher AppRole-Mount des Semaporter, z. B. `approle` |
 | Auth-Mount des Semaphore-Lesezugangs | bestehender Mount, im Stack-Beispiel `semaphore-ansible` |
-| Schreibzugang: Role-ID / Secret-ID | Zugang der extern bereitgestellten Porter-AppRole |
+| Schreibzugang: Role-ID / Secret-ID | Zugang der extern bereitgestellten Semaporter-AppRole |
 | Semaphore-Lesezugang: Role-ID / Secret-ID | Zugang der bereits bestehenden Semaphore-AppRole |
 | Registry-Passwort je Anwendung | gültiges Passwort/Token zu deren Host, Benutzer und Images |
 
@@ -257,7 +257,7 @@ In `.env` dann `VAULT_CA_BUNDLE=/etc/portal/company-ca.pem` setzen. Den Override
 bei allen zugehörigen Compose-Aufrufen mitführen, beispielsweise:
 
 ```powershell
-docker compose -p semaphore-porter-local -f docker-compose.yml -f compose.vault-ca.yml up -d --wait backend
+docker compose -f docker-compose.yml -f compose.vault-ca.yml up -d --wait backend
 ```
 
 Der Semaphore-Runner benötigt unabhängig davon sein eigenes Vertrauen in die
@@ -290,13 +290,13 @@ KV-Werte für diesen Job fest; die Oberfläche zeigt ihre Inhalte nicht mehr an.
 - **Objekt bereits vorhanden:** kein Überschreiben, auch nicht bei leerem,
   unvollständigem, weich gelöschtem oder zerstörtem Inhalt. Bei einem Konflikt
   nach bereits erfolgten eigenen Writes bleiben diese erhalten; den Konflikt
-  außerhalb des Porter prüfen. Keine automatische Bereinigung.
+  außerhalb des Semaporter prüfen. Keine automatische Bereinigung.
 - **Teilweise angelegt:** gespeicherten Vorgang fortsetzen. Eigene unveränderte
   Objekte werden anhand bestätigter Version und Erstellungszeit wiedererkannt;
   nur noch ausstehende Objekte werden angelegt.
 - **Schreibergebnis unklar:** in Vault den tatsächlichen Ausgang prüfen. Im
   betroffenen Objekt des Assistenten die Prüfung bestätigen und ausdrücklich
-  eigene Anlage oder vollständige Abwesenheit zuordnen. Der Porter prüft dazu
+  eigene Anlage oder vollständige Abwesenheit zuordnen. Der Semaporter prüft dazu
   erneut Metadaten. Ein fremdes Objekt niemals als eigene Anlage bestätigen.
 - **Abgelaufene Zugangsdaten:** ein Administrator hinterlegt gültige Werte unter
   Vault. Bei unveränderter Server-/Namespace-/Mount-Zuordnung übernimmt die
@@ -316,8 +316,10 @@ Secret-Payload; noch offene Jobs behalten sie zur Wiederaufnahme.
 
 ### 6. Katalog nach Stack-Erweiterungen aktualisieren
 
+Bei eingerichteter GitLab-Integration übernimmt **Entwicklung → Versionen & Übernahme** geprüfte Kataloge zusammen mit einer neuen Projektvorlage. Ein aktiver Snapshot hat Vorrang vor der gebündelten JSON-Datei; neue Vault-Anlagen benötigen die dazugehörige Vorlage. Ein Backend-Neubau ist für bereits unterstützte Manifestverträge dann nicht erforderlich. Der folgende lokale Export bleibt für Installationen ohne aktive GitLab-Snapshots und die Pflege des Rückfallkatalogs verfügbar. Details: [GitLab und Programmpakete](GITLAB.md).
+
 Im Entwickler-Python mit installierten Backend-Abhängigkeiten zusätzlich PyYAML
-installieren. Danach aus dem Porter-Stamm ausführen:
+installieren. Danach aus dem Semaporter-Stamm ausführen:
 
 ```powershell
 python -m pip install PyYAML
@@ -327,7 +329,7 @@ python tools/export_vault_catalog.py --stack-root ../azubiorga-semaphore-git
 Das Werkzeug liest ausschließlich YAML-Verträge, keine Secret-Inhalte, Compose-
 Ausführung oder fremde Taskdateien. Es schreibt den validierten Katalog nach
 `backend/app/vault_catalog.json` und vermerkt den Stack-Commit. Unbekannte
-Validierungsregeln müssen vor dem Export im Porter ergänzt werden. Neuartige
+Validierungsregeln müssen vor dem Export im Semaporter ergänzt werden. Neuartige
 Secret-Felder sind standardmäßig nur manuell eingebbar; Generierung benötigt
 einen unterstützten Vertrag. Exportierte Änderungen prüfen, Tests ausführen
 und das Backend-Image neu bauen. Ein Katalogexport implementiert keinen neuen

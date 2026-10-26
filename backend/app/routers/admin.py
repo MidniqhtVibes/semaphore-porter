@@ -403,6 +403,7 @@ def list_project_templates(db: Db, admin: SystemAdmin) -> list[dict[str, Any]]:
             "description": row.description,
             "source_type": row.source_type,
             "source_project_id": row.source_project_id,
+            "catalog_snapshot_id": str(row.catalog_snapshot_id) if row.catalog_snapshot_id else None,
             "survey_catalog": survey_catalog(row.backup_document),
             "task_templates": [item.get("name") for item in row.backup_document.get("templates", []) if isinstance(item, dict)],
             "environments": [item.get("name") for item in row.backup_document.get("environments", []) if isinstance(item, dict)],
@@ -560,6 +561,18 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     enriched_draft["preset_values"] = preset_values
     try:
         prepared = prepare_backup(source.backup_document, enriched_draft)
+        from app.models import CatalogActivation, CatalogSnapshot
+        active_catalog = db.get(CatalogActivation, 1)
+        if source.catalog_snapshot_id:
+            snapshot = db.get(CatalogSnapshot, source.catalog_snapshot_id)
+            pinned = [repo for repo in source.backup_document.get("repositories", []) if repo.get("git_branch") == snapshot.source_sha]
+            if not pinned or any(not any(repo.get("name") == original.get("name") and
+                    repo.get("git_url") == original.get("git_url") and repo.get("git_branch") == snapshot.source_sha
+                    for repo in prepared.get("repositories", [])) for original in pinned):
+                raise ValueError("Die GitLab-Projektvorlage muss auf ihrer freigegebenen Commit-SHA bleiben.")
+        if (job.draft_data.get("provision_vault") and active_catalog and active_catalog.snapshot_id
+                and source.catalog_snapshot_id != active_catalog.snapshot_id):
+            raise ValueError("Für die Vault-Anlage die zum aktiven GitLab-Katalog gehörende Projektvorlage auswählen.")
         job.vault_plan = vault_service.prepare_plan(db, job.draft_data, prepared) if job.draft_data.get("provision_vault") else None
     except (BackupValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

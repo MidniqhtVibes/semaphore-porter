@@ -54,7 +54,7 @@ class SemaphoreClient:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
-            "User-Agent": "SemaphoreTenantPortal/1.0",
+            "User-Agent": "Semaporter/1.0",
         }
         url = self._url(path)
         try:

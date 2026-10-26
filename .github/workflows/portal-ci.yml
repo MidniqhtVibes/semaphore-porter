@@ -1,4 +1,4 @@
-name: Portal CI
+name: Semaporter CI
 
 on:
   push:
@@ -83,7 +83,7 @@ jobs:
       - frontend
     runs-on: ubuntu-latest
     env:
-      PORTAL_IMAGE_REGISTRY: semaphore-portal-ci
+      PORTAL_IMAGE_REGISTRY: semaporter-ci
       PORTAL_IMAGE_TAG: ci
       PORTAL_PULL_POLICY: missing
       POSTGRES_DB: portal_ci
@@ -111,8 +111,8 @@ jobs:
 
       - name: Build application images locally
         run: |
-          docker build --tag semaphore-portal-ci-backend:ci ./backend
-          docker build --tag semaphore-portal-ci-frontend:ci ./frontend
+          docker build --tag semaporter-ci-backend:ci ./backend
+          docker build --tag semaporter-ci-frontend:ci ./frontend
 
       - name: Start production Compose stack
         run: docker compose --profile tls up --detach --wait
@@ -162,7 +162,7 @@ jobs:
       - name: Resolve lowercase image name
         id: image
         shell: bash
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/semaporter-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         if: >-
@@ -179,6 +179,8 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ steps.image.outputs.name }}
+          labels: |
+            org.opencontainers.image.title=Semaporter ${{ matrix.component }}
           flavor: |
             latest=false
           tags: |

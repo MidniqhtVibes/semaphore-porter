@@ -1,8 +1,10 @@
-﻿# Semaphore Porter
+# Semaporter
 
 Webportal für die zentrale Verwaltung von Semaphore-UI-Projekten, Mandanten und freigegebenen Automatisierungsaufgaben. Administratoren konfigurieren Projektvorlagen, Zugriffsrechte und Task-Parameter. Benutzer führen die für sie freigegebenen Tasks über eine gemeinsame Oberfläche aus und verfolgen Status und Ausgaben direkt im Browser.
 
 [Installation](#installation) · [Lokaler Test](#lokaler-test) · [Erste Schritte](#erste-schritte) · [Designstudio](#designstudio) · [Dokumentation](#dokumentation)
+
+Produktname, Oberfläche und neue Image-Namen lauten **Semaporter**. Für bestehende Installationen beschreibt [die Umstellung](docs/UMBENENNUNG.md), wie Datenbank, Compose-Projekt und gespeicherte Designs erhalten bleiben.
 
 ## Funktionen
 
@@ -14,12 +16,13 @@ Webportal für die zentrale Verwaltung von Semaphore-UI-Projekten, Mandanten und
 | Parametersteuerung | Survey-Felder synchronisieren, Eingaben validieren und feste oder ausgeblendete Werte vorgeben |
 | Benutzer und Berechtigungen | Lokale Konten, Gruppen, Tenant-Mitgliedschaften und einzelne Task-Freigaben verwalten |
 | Vault-Integration | Optional neue KV-v2-Secrets für Tenants anlegen und AppRole- sowie Registry-Zugänge zentral konfigurieren |
+| GitLab und Programmpakete | Pakete entwerfen, Verträge prüfen, Branch/Merge Request übergeben, CI verfolgen und freigegebene Kataloge mit neuen Projektvorlagen übernehmen |
 | Gestaltung | Eigene Farben, Logos, Anmeldetexte und rechtliche Texte mit interaktiver Live-Vorschau gestalten |
 | Nachvollziehbarkeit | Verwaltungsaktionen und Task-Ausführungen über Audit-Log und Ausführungshistorie verfolgen |
 
 Portal-Konten und Semaphore-Konten sind getrennt. Benutzer benötigen für die freigegebenen Portal-Tasks keinen eigenen Semaphore-Login. Die Administration erfordert die Rolle `system_admin`; der Zugriff auf Tenants und Tasks richtet sich nach den gespeicherten Mitgliedschaften und Freigaben. Details beschreibt [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md).
 
-Das Adminmenü gliedert sich in **Arbeitsbereich**, **Katalog**, **Zugriff** und **Einstellungen**. Die Gruppen sind einklappbar; der Bereich der aktuellen Seite öffnet sich automatisch. **Tenant erstellen** ist direkt auf der Tenant-Seite erreichbar. Im Benutzerportal sind die Einträge in **Arbeitsbereich** und **Persönlich** unterteilt.
+Das Adminmenü gliedert sich als Baum in **Arbeitsbereich**, **Katalog**, **Entwicklung**, **Zugriff** und **Einstellungen**. Unter **Einstellungen → Verbindungen** liegen Semaphore, Vault und GitLab; Designs bleiben direkt unter Einstellungen. Kategorien lassen sich einzeln oder gemeinsam auf- und zuklappen. Der Browser merkt sich den Zustand getrennt für Admin- und Benutzerportal; der Zweig der aktuellen Seite öffnet sich bei Seitenwechsel und Neuladen automatisch. Die Baumstruktur lässt sich auch mit Pfeiltasten sowie `Home`/`End` bedienen. **Tenant erstellen** ist direkt auf der Tenant-Seite erreichbar. Im Benutzerportal sind die Einträge in **Arbeitsbereich** und **Persönlich** unterteilt. Die Designvorschau zeigt dieselbe Navigation, ohne die gespeicherten Menüeinstellungen zu verändern.
 
 ## Architektur
 
@@ -29,6 +32,7 @@ Browser
   ▼
 Caddy (optional) → Nginx / React → FastAPI → Semaphore UI API
                                     │    → Vault API (optional)
+                                    │    → GitLab API (optional)
                                     ▼
                                 PostgreSQL
 ```
@@ -60,6 +64,8 @@ Weitere Details: [Architektur und Sicherheitsmodell](docs/ARCHITECTURE.md).
 Für den Betrieb mit fertigen Images genügen `docker-compose.yml` und eine lokale `.env`. Python und Node.js werden nur für die Entwicklung außerhalb der Container benötigt.
 
 ### 1. Konfiguration anlegen
+
+Auf Servern mit weiteren Anwendungen zuerst bestehende Compose-Projekte, Portbelegungen einschließlich gestoppter Container, Docker-Netze und Ressourcen prüfen. Für den besprochenen internen Betrieb unter `semaporter.devops.kommunale.it` mit vorhandenem Nginx Proxy Manager auf demselben Linux-Server beschreibt [das Server-Setup](docs/SERVER_SETUP.md) die Vorabchecks, noch offene Netz-/Portentscheidungen und die spätere Einrichtung des Proxy Hosts per GUI. Es werden keine zusätzlichen Netze angelegt; die vorhandenen Netze müssen vor einem Serverstart ausdrücklich zugeordnet werden.
 
 Lege `docker-compose.yml` und `.env.example` in einem Verzeichnis auf dem Server ab. Erstelle dort die Konfiguration:
 
@@ -122,6 +128,8 @@ docker compose up -d --wait
 
 Leite den vorhandenen HTTPS-Reverse-Proxy auf `http://127.0.0.1:8080`. Er muss den ursprünglichen `Host` sowie `X-Forwarded-Proto: https` weitergeben. Ergänze den öffentlichen Hostnamen in `PORTAL_ALLOWED_HOSTS` und behalte `PORTAL_COOKIE_SECURE=true` bei.
 
+Dies gilt für einen direkt auf dem Host erreichbaren Proxy. Läuft Nginx Proxy Manager selbst in Docker, verwendet dessen `127.0.0.1` den Proxy-Container. Dafür zuerst [bestehende Netze, Portbelegung und GUI-Einrichtung](docs/SERVER_SETUP.md) klären; Netz, Upstream und gegebenenfalls Host-Port legt der Verantwortliche fest. Bei einer Host-Portvariante den Beispielport zuerst gegen Listener und Docker-Portreservierungen prüfen.
+
 Ohne TLS-Profil wird `PORTAL_DOMAIN` nicht verwendet. Die Adresse des Frontends lässt sich über `PORTAL_BIND_ADDRESS` und `PORTAL_PUBLIC_PORT` konfigurieren.
 
 ## Lokaler Test
@@ -136,10 +144,11 @@ if (!(Test-Path -LiteralPath .env)) {
 }
 ```
 
-Trage gültige Schlüssel, ein Datenbankpasswort und die Bootstrap-Zugangsdaten wie unter [Installation](#installation) beschrieben ein. Setze zusätzlich:
+Trage gültige Schlüssel, ein Datenbankpasswort und die Bootstrap-Zugangsdaten wie unter [Installation](#installation) beschrieben ein. Für eine neue lokale Installation gelten die folgenden Werte. Bei einem bereits vorhandenen Stack für `COMPOSE_PROJECT_NAME` dessen bisherigen Projektnamen beibehalten:
 
 ```dotenv
-PORTAL_IMAGE_REGISTRY=semaphore-portal-local
+COMPOSE_PROJECT_NAME=semaporter-local
+PORTAL_IMAGE_REGISTRY=semaporter-local
 PORTAL_IMAGE_TAG=dev
 PORTAL_PULL_POLICY=missing
 PORTAL_COOKIE_SECURE=false
@@ -151,18 +160,18 @@ PORTAL_ALLOWED_HOSTS=localhost,127.0.0.1
 Baue und starte den Stack im Repository-Stamm:
 
 ```powershell
-docker build -t semaphore-portal-local-backend:dev ./backend
-docker build -t semaphore-portal-local-frontend:dev ./frontend
-docker compose -p semaphore-porter-local up -d --wait
+docker build -t semaporter-local-backend:dev ./backend
+docker build -t semaporter-local-frontend:dev ./frontend
+docker compose up -d --wait
 ```
 
-Das Portal ist anschließend unter **http://127.0.0.1:18092** erreichbar. Verwende bei lokalen Status-, Log- und Betriebsbefehlen ebenfalls `-p semaphore-porter-local`, damit sie denselben Stack ansprechen.
+Das Portal ist anschließend unter **http://127.0.0.1:18092** erreichbar. Compose liest `COMPOSE_PROJECT_NAME` aus `.env`; dadurch sprechen alle Befehle denselben Stack an. `semaporter-local` ist das Beispiel für eine neue Installation. Bei einem bestehenden Stack den bisherigen Projektnamen eintragen und beibehalten, damit dessen Datenbank-Volume weiterverwendet wird. Die bereits vorhandene lokale Konfiguration wurde entsprechend ergänzt.
 
-Zum Stoppen dient `docker compose -p semaphore-porter-local stop`. Zum erneuten Start genügt derselbe `up`-Befehl; die vorhandene Datenbank und Konfiguration bleiben erhalten. Nach Codeänderungen baue die betroffenen Images neu und führe `up -d --wait` erneut aus.
+Zum Stoppen dient `docker compose stop`. Zum erneuten Start genügt derselbe `up`-Befehl; die vorhandene Datenbank und Konfiguration bleiben erhalten. Nach Codeänderungen baue die betroffenen Images neu und führe `up -d --wait` erneut aus.
 
 ## Erste Schritte
 
-1. **Semaphore verbinden:** Unter **Einstellungen → Semaphore-Verbindung** die Basis-URL, den Service-Token und bei Bedarf eine Proxy-URL hinterlegen. Die Verbindung testen.
+1. **Semaphore verbinden:** Unter **Einstellungen → Verbindungen → Semaphore-Verbindung** die Basis-URL, den Service-Token und bei Bedarf eine Proxy-URL hinterlegen. Die Verbindung testen.
 2. **Projektvorlage anlegen:** Unter **Projektvorlagen** ein vorhandenes Semaphore-Projekt als Vorlage sichern.
 3. **Zugriffe vorbereiten:** Benutzer und Gruppen erstellen und die vorgesehenen Rollen zuweisen.
 4. **Tenant erstellen:** Im Assistenten Vorlage, Tenant-Daten, Anwendungen, Datenbankprovider und Testdatensätze auswählen. Tasks und Zugriffe festlegen und die Zusammenfassung bestätigen.
@@ -196,6 +205,10 @@ Nach Aktivierung steht die Vault-Anlage im Tenant-Assistenten zur Verfügung. Di
 
 Die vollständige Einrichtung einschließlich erforderlicher Rechte, Unternehmens-CA und Fehlerbehandlung beschreibt [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md).
 
+## GitLab und Programmpakete
+
+Die GitLab-Anbindung steht unter **Einstellungen → Verbindungen → GitLab**. Unter **Entwicklung** werden Pakete erstellt und geprüft sowie Merge Requests, CI-Ergebnisse und Katalogübernahmen verwaltet. Einrichtung, CI-Vorlage und produktiver Ablauf: [GitLab und Programmpakete](docs/GITLAB.md).
+
 ## Designstudio
 
 Unter **Designs** lassen sich Designs auswählen, erstellen, bearbeiten, importieren und exportieren. Neue Entwürfe starten auf neutraler Basis. Neutral Hell, Neutral Dunkel, GitHub Black, SIT Hell und SIT Dunkel stehen als gleichwertige Vorlagen zur Verfügung.
@@ -203,7 +216,7 @@ Unter **Designs** lassen sich Designs auswählen, erstellen, bearbeiten, importi
 Das eigenständige Designstudio bietet:
 
 - Farbwähler, abgestimmte Farbpaletten und eine Kontrastprüfung
-- Logo-Upload, Logogröße und ein optionales Hintergrundbild für die Anmeldung
+- Logo-Upload und Anmeldehintergrund als PNG, JPEG, WebP oder animiertes GIF (je bis 250 KB), Logogröße und Hintergrund-Unschärfe von 0 bis 24 Pixeln
 - Anpassbare Portal-, Anmelde-, Footer-, Impressums- und Datenschutztexte
 - Live-Vorschauen für Anmeldung, Portal, Bedienelemente und rechtliche Seiten
 - Das vollständige Hauptmenü mit Admin- und Benutzeransicht sowie mobilem Menü
@@ -215,7 +228,7 @@ Details: [Designs und Unternehmensfarben](docs/DESIGNS.md).
 
 ## Betrieb
 
-Die folgenden Beispiele verwenden das produktive TLS-Profil. Für Installationen mit eigenem Reverse-Proxy entfällt `--profile tls`; für den lokalen Test kommt `-p semaphore-porter-local` hinzu.
+Die folgenden Beispiele verwenden das produktive TLS-Profil. Für Installationen mit eigenem Reverse-Proxy entfällt `--profile tls`. Der in `.env` festgelegte `COMPOSE_PROJECT_NAME` gilt auch für Status-, Log- und Betriebsbefehle.
 
 ### Status und Diagnose
 
@@ -293,15 +306,17 @@ npm.cmd run build
 
 Die CI prüft Backend, Frontend und den Compose-Stack einschließlich Health- und Login-Route. Erfolgreiche Builds auf `main` veröffentlichen die Tags `latest`, `main` und `sha-<vollständiger-Commit>` für:
 
-- `ghcr.io/midniqhtvibes/semaphore-porter-backend`
-- `ghcr.io/midniqhtvibes/semaphore-porter-frontend`
+- `ghcr.io/midniqhtvibes/semaporter-backend`
+- `ghcr.io/midniqhtvibes/semaporter-frontend`
+
+Diese Image-Namen sind vom GitHub-Repositorynamen unabhängig. Die lokale Umbenennung veröffentlicht keine Images; vor einem Pull muss der gewählte Tag unter dem neuen Namen durch den CI-Workflow veröffentlicht worden sein. Bestehende Registry-Adressen können bis dahin über `PORTAL_IMAGE_REGISTRY` weiterverwendet werden.
 
 Release-Tags im Format `vX.Y.Z` erzeugen zusätzlich versionierte Images. Die veröffentlichten Images verwenden die Plattform `linux/amd64`.
 
 <!--
 Secret found: Das optionale Doom-Easter-Egg ist im Standardbuild ausgeschaltet.
 Nur bei Bedarf aktivieren:
-docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaphore-portal-local-frontend:dev ./frontend
+docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaporter-local-frontend:dev ./frontend
 Im angemeldeten Portal außerhalb von Eingabefeldern IDDQD tippen.
 Ohne Flag oder mit PORTAL_BUILD_IDDQD=0 fehlen Spielroute, Trigger und alle
 Spieldateien im fertigen Frontend. Ein Container-Environment-Eintrag aktiviert
@@ -312,9 +327,12 @@ Direkte Vite-Builds, Herkunft, Bedienung und Lizenzen: docs/ARCADE.md
 
 ## Dokumentation
 
+- [Präsentationsunterlagen: Architektur, Code, Docker und Vorführung](präsentieren/README.md)
 - [Architektur und Sicherheitsmodell](docs/ARCHITECTURE.md)
+- [Umbenennung und bestehende Installationen](docs/UMBENENNUNG.md)
 - [Projektverwaltung und Tenant-Assistent](docs/PROJECT_MANAGEMENT.md)
 - [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md)
 - [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md)
 - [Designs und Unternehmensfarben](docs/DESIGNS.md)
+- [GitLab-Integration, Programmpakete und Katalogübernahme](docs/GITLAB.md)
 - [Abnahmetestplan für die eigene Umgebung](docs/ABNAHMETESTS.md)

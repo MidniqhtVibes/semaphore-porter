@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useStat
 import { BUILTIN_THEMES, DEFAULT_THEME_ID, FONT_STACKS, parseThemeFile, resolveCustomTheme, type Theme, type ThemeFile } from './themes'
 import { applyWebsiteSymbol } from './websiteSymbols'
 
-export const THEME_STORAGE_KEY='semaphore-porter.designs.v1'
+export const THEME_STORAGE_KEY='semaporter.designs.v1'
+const LEGACY_THEME_STORAGE_KEY='semaphore-porter.designs.v1'
 type ThemeState={selected:string;custom:ThemeFile[];hidden:string[]}
 type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void;restoreDefaults:()=>void;hasHiddenDefaults:boolean}
 const ThemeContext=createContext<ThemeContextValue|null>(null)
@@ -10,7 +11,7 @@ const initial:ThemeState={selected:DEFAULT_THEME_ID,custom:[],hidden:[]}
 
 function readState(): ThemeState {
   try{
-    const stored=JSON.parse(localStorage.getItem(THEME_STORAGE_KEY)||'null')
+    const stored=JSON.parse(localStorage.getItem(THEME_STORAGE_KEY)??localStorage.getItem(LEGACY_THEME_STORAGE_KEY)??'null')
     if(!stored||!Array.isArray(stored.custom))return initial
     const custom:ThemeFile[]=[]
     for(const value of stored.custom.slice(0,20)){
@@ -42,7 +43,7 @@ export function ThemeProvider({children}:{children:ReactNode}){
   useLayoutEffect(()=>applyTheme(active),[active])
   useLayoutEffect(()=>applyWebsiteSymbol(),[])
   useEffect(()=>{
-    const update=(event:StorageEvent)=>{if(event.key===THEME_STORAGE_KEY||event.key===null)setState(readState())}
+    const update=(event:StorageEvent)=>{if(event.key===THEME_STORAGE_KEY||event.key===LEGACY_THEME_STORAGE_KEY||event.key===null)setState(readState())}
     window.addEventListener('storage',update)
     return ()=>window.removeEventListener('storage',update)
   },[])

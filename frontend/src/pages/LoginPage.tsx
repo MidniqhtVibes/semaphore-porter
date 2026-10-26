@@ -11,6 +11,7 @@ import { ApiError } from '../api'
 import { Button, Notice } from '../components/ui'
 import { BrandMark } from '../components/BrandMark'
 import { SiteFooter } from '../components/SiteFooter'
+import { LoginBackground } from '../components/LoginBackground'
 
 const schema = z.object({ identifier: z.string().trim().min(1, 'Benutzername oder E-Mail-Adresse fehlt.').max(320), password: z.string().min(1, 'Passwort fehlt.') })
 type FormData = z.infer<typeof schema>
@@ -29,7 +30,8 @@ export function LoginPage() {
       navigate(user.roles.includes('system_admin') ? '/admin' : '/portal', { replace: true })
     } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Anmeldung nicht möglich.') }
   }
-  return <div className={`login-page ${active.loginBackground?'login-page-image':''}`} style={active.loginBackground?{backgroundImage:`linear-gradient(var(--overlay), var(--overlay)), url("${active.loginBackground}")`}:undefined}>
+  return <div className={`login-page ${active.loginBackground?'login-page-image':''}`}>
+    <LoginBackground image={active.loginBackground} blur={active.loginBackgroundBlur}/>
     <section className="login-intro"><div className="brand brand-large"><BrandMark size={26}/><div><strong>{copy.title}</strong><span>{copy.subtitle}</span></div></div><div className="login-copy"><h1>{copy.headline}<br/><em>{copy.emphasis}</em></h1><p>{copy.intro}</p></div></section>
     <section className="login-panel"><form className="login-card" onSubmit={handleSubmit(submit)}><div><h2>{copy.welcome}</h2><p>{copy.loginHint}</p></div>{error && <Notice type="error">{error}</Notice>}
       <label className="field"><span className="field-label">Benutzername oder E-Mail-Adresse</span><div className="input-icon"><UserRound size={17}/><input autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus {...register('identifier')} placeholder="benutzername oder name@unternehmen.de"/></div>{errors.identifier && <span className="field-error">{errors.identifier.message}</span>}</label>

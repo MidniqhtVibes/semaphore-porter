@@ -47,7 +47,7 @@ def save_configuration(db: Session, payload: VaultSettingsInput) -> None:
         if value is not None and value.get_secret_value():
             config[key] = value.get_secret_value()
     registry = dict(config.get("registry_passwords", {}))
-    catalog = load_catalog()
+    catalog = load_catalog(db)
     for app_id, value in payload.registry_passwords.items():
         if app_id not in catalog.applications:
             raise ValueError("Unbekannte Anwendung für Registry-Zugang.")
@@ -72,7 +72,7 @@ def prepare_plan(db: Session, draft: dict[str, Any], prepared: dict[str, Any]) -
     config = configuration(db)
     if not config.get("enabled"):
         raise ValueError("Vault zuerst unter Administration → Vault vollständig konfigurieren und aktivieren.")
-    catalog = load_catalog()
+    catalog = load_catalog(db)
     apps = selected_options(draft, "application_id") or []
     types = selected_options(draft, "database_type") or []
     datasets = selected_options(draft, "dataset_id") or ["none"]

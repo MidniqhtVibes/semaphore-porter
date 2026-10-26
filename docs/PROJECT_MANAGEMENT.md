@@ -50,7 +50,7 @@ Vault-Pfade wie `vault_tenant_secret_root`, `vault_provider_secret_paths`, `vaul
 
 ## Zugangsdaten und Löschung
 
-Bestehende geschützte Werte werden nicht an den Browser zurückgegeben. Änderungen normaler Variablen behalten bestehende geheime Werte bei. Neue Geheimnisse werden über separate Eingaben direkt an Semaphore geschrieben; Entwürfe und Auditdetails enthalten diese Werte nicht. Beim normalen Duplizieren werden Quell-Credentials und private Key-Inhalte entfernt. Mit aktivierter [Vault-Integration](VAULT_IMPLEMENTIERUNG.md) legt der Porter die benötigten KV-Objekte direkt über die Vault-API an und ergänzt den einmalig zentral hinterlegten Semaphore-Lesezugang. AppRoles, Policies und Zielhosts werden weiterhin extern bereitgestellt.
+Bestehende geschützte Werte werden nicht an den Browser zurückgegeben. Änderungen normaler Variablen behalten bestehende geheime Werte bei. Neue Geheimnisse werden über separate Eingaben direkt an Semaphore geschrieben; Entwürfe und Auditdetails enthalten diese Werte nicht. Beim normalen Duplizieren werden Quell-Credentials und private Key-Inhalte entfernt. Mit aktivierter [Vault-Integration](VAULT_IMPLEMENTIERUNG.md) legt der Semaporter die benötigten KV-Objekte direkt über die Vault-API an und ergänzt den einmalig zentral hinterlegten Semaphore-Lesezugang. AppRoles, Policies und Zielhosts werden weiterhin extern bereitgestellt.
 
 Für den vorliegenden Stack in `Vault-Access` die AppRole Role ID als geschützte Extra Variable `vault_approle_role_id` (Typ `var`) und die Secret ID als geschützte Prozessvariable `ANSIBLE_HASHI_VAULT_SECRET_ID` (Typ `env`) setzen. Adresse, Mounts und Tenantwurzel bleiben normale editierbare Variablen.
 

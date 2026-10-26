@@ -21,10 +21,11 @@ export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'succ
 
 export function StatusBadge({ status }: { status: string }) {
   const tone = ['active', 'success', 'successful', 'completed'].includes(status) ? 'success'
-    : ['failed', 'error'].includes(status) ? 'danger'
+    : ['failed', 'error', 'verification_required'].includes(status) ? 'danger'
     : ['running', 'queued', 'draft'].includes(status) ? 'warning' : 'neutral'
   const labels: Record<string, string> = { active: 'Aktiv', inactive: 'Deaktiviert', draft: 'Entwurf', running: 'Läuft', queued: 'Wartet', success: 'Erfolgreich', failed: 'Fehlgeschlagen', stopped: 'Abgebrochen' }
-  return <Badge tone={tone}>{labels[status] || status}</Badge>
+  const packageLabels:Record<string,string>={validated:'Geprüft',committing:'Commit wird abgeglichen',commit_created:'Commit erstellt',mr_pending:'Merge Request ausstehend',submitted:'Im Review',merged:'Gemergt',closed:'Geschlossen',verification_required:'Abgleich erforderlich',skipped:'Übersprungen',manual:'Manuell freizugeben',pending:'Ausstehend',canceled:'Abgebrochen'}
+  return <Badge tone={tone}>{labels[status] || packageLabels[status] || status}</Badge>
 }
 
 export function Loading({ label = 'Daten werden geladen …' }: { label?: string }) {

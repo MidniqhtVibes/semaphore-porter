@@ -4,7 +4,7 @@ import { Button, Field, Notice } from '../components/ui'
 import { DesignLivePreview, type PreviewPage } from './DesignLivePreview'
 import { LOGO_ASSETS } from './logoAssets'
 import type { NavigationMode } from '../components/navigation'
-import { ALPHA_COLORS, BUILTIN_THEMES, COLOR_KEYS, DEFAULT_COPY, DEFAULT_LEGAL, contrast, parseThemeFile, resolveCustomTheme, type ColorKey, type ThemeCopy, type ThemeFile } from './themes'
+import { ALPHA_COLORS, BUILTIN_THEMES, COLOR_KEYS, DEFAULT_COPY, DEFAULT_LEGAL, MAX_THEME_IMAGE_BYTES, MAX_LOGIN_BACKGROUND_BLUR, THEME_IMAGE_TYPES, contrast, parseThemeFile, resolveCustomTheme, type ColorKey, type ThemeCopy, type ThemeFile } from './themes'
 
 const mainColors: ColorKey[]=['bg','header','surface','text','muted','accent','primary','on-primary','nav-indicator','border','success','warning','danger']
 const colorLabels: Record<ColorKey,string> = {
@@ -39,7 +39,7 @@ export function DesignCreator({initial,onSave,onClose,initialMode='admin'}:{init
     const version=++uploadVersion.current
     setLoading(key);setError('')
     try{
-      if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>250*1024)throw new Error('Bitte ein PNG-, JPEG- oder WebP-Bild bis 250 KB auswählen.')
+      if(!THEME_IMAGE_TYPES.some(type=>type===file.type)||file.size>MAX_THEME_IMAGE_BYTES)throw new Error('Bitte ein PNG-, JPEG-, WebP- oder GIF-Bild bis 250 KB auswählen.')
       const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Die Datei konnte nicht gelesen werden.'));reader.readAsDataURL(file)})
       await new Promise<void>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve();image.onerror=()=>reject(new Error('Die Datei ist kein lesbares Bild.'));image.src=data})
       if(version!==uploadVersion.current)return
@@ -57,7 +57,7 @@ export function DesignCreator({initial,onSave,onClose,initialMode='admin'}:{init
   }
   const assetField=(key:'logo'|'loginBackground',label:string)=><div className="creator-asset">
     <div className={`creator-asset-thumb ${key==='logo'?'creator-asset-logo':''}`}>{draft[key]?<img src={draft[key]} alt={`${label} Datei`}/>:<ImagePlus size={24}/>}</div>
-    <div><Field label={label} help={fileNames[key]||'PNG, JPEG oder WebP · maximal 250 KB'}><input aria-label={label} type="file" accept="image/png,image/jpeg,image/webp" disabled={!!loading} onChange={e=>void upload(e,key)}/></Field>
+    <div><Field label={label} help={fileNames[key]||'PNG, JPEG, WebP oder GIF · maximal 250 KB'}><input aria-label={label} type="file" accept={THEME_IMAGE_TYPES.join(',')} disabled={!!loading} onChange={e=>void upload(e,key)}/></Field>
       {draft[key]&&<Button variant="ghost" type="button" disabled={!!loading} onClick={()=>update({[key]:undefined})}><X size={13}/>{key==='logo'?'Eigenes Logo entfernen':'Hintergrundbild entfernen'}</Button>}
     </div>
   </div>
@@ -91,6 +91,7 @@ export function DesignCreator({initial,onSave,onClose,initialMode='admin'}:{init
             {(draft.logo||draft.logoAsset)&&<Field label={`Logobreite · ${draft.logoWidth??64} px`}><input type="range" min={32} max={120} value={draft.logoWidth??64} onChange={e=>update({logoWidth:Number(e.target.value)})}/></Field>}
             {(draft.logo||draft.logoAsset)&&<Field label="Logo-Darstellung"><select value={draft.logoTone??'original'} onChange={e=>update({logoTone:e.target.value as ThemeFile['logoTone']})}><option value="original">Originalfarben</option><option value="dark">Dunkel</option></select></Field>}
             {assetField('loginBackground','Hintergrundbild der Anmeldung')}
+            {draft.loginBackground&&<Field label={`Hintergrund-Unschärfe · ${draft.loginBackgroundBlur??0} px`} help="Nur das Hintergrundbild wird unscharf. GIFs bleiben animiert."><input aria-label="Hintergrund-Unschärfe" type="range" min={0} max={MAX_LOGIN_BACKGROUND_BLUR} step={1} value={draft.loginBackgroundBlur??0} onChange={e=>{update({loginBackgroundBlur:Number(e.target.value)});setPage('login')}}/></Field>}
             {loading&&<span role="status" className="field-help">Bild wird geprüft …</span>}
           </fieldset>
           <fieldset><legend>Portal und Anmeldung</legend><div className="creator-fields">{Object.entries(copyLabels).map(([key,label])=><Field key={key} label={label}>{key==='intro'?<textarea rows={3} maxLength={400} value={copy.intro} onFocus={()=>setPage('login')} onChange={e=>update({copy:{...draft.copy,intro:e.target.value}})}/>:<input maxLength={100} value={copy[key as keyof ThemeCopy]} onFocus={()=>setPage('login')} onChange={e=>update({copy:{...draft.copy,[key]:e.target.value}})}/>}</Field>)}</div></fieldset>

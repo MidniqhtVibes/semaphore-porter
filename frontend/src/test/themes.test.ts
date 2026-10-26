@@ -1,8 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_THEMES, contrast, exportThemeFile, parseThemeFile, resolveCustomTheme } from '../designs/themes'
+import { BUILTIN_THEMES, contrast, createDraft, exportThemeFile, MAX_THEME_IMAGE_BYTES, parseThemeFile, resolveCustomTheme } from '../designs/themes'
 import example from '../../public/themes/example.theme.json'
+import { ANIMATED_GIF } from './fixtures/images'
 
 describe('Design-Dateien',()=>{
+  it('erhält beide GIF-Bilder und die Unschärfe beim Export, Import und Kopieren',()=>{
+    const definition=parseThemeFile({...example,logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12})
+    const theme=resolveCustomTheme(definition)
+    const imported=parseThemeFile(JSON.parse(JSON.stringify(exportThemeFile(theme))))
+    expect(imported).toMatchObject({logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12})
+    expect(createDraft(resolveCustomTheme(imported))).toMatchObject({logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12})
+  })
+  it('validiert die Unschärfe und behält die Bildgrößengrenze auch für GIFs',()=>{
+    for(const loginBackgroundBlur of [-1,25,0.5,'12',null])expect(()=>parseThemeFile({...example,loginBackgroundBlur})).toThrow('Unschärfe')
+    for(const loginBackgroundBlur of [0,24])expect(parseThemeFile({...example,loginBackgroundBlur}).loginBackgroundBlur).toBe(loginBackgroundBlur)
+    const oversized='data:image/gif;base64,'+btoa('x'.repeat(MAX_THEME_IMAGE_BYTES+1))
+    for(const field of ['logo','loginBackground'])expect(()=>parseThemeFile({...example,[field]:oversized})).toThrow('250 KB')
+    expect(resolveCustomTheme(parseThemeFile(example)).loginBackgroundBlur).toBeUndefined()
+  })
+  it('aktualisiert alte Produkttexte und behält individuelle Firmenbezeichnungen',()=>{
+    const legacy=parseThemeFile({...example,copy:{title:'Semaphore',subtitle:'Meine Firma'},legal:{footer:'Tenant Portal',imprint:'Louis Findeisen'}})
+    expect(legacy.copy).toEqual({title:'Semaporter',subtitle:'Meine Firma'})
+    expect(legacy.legal).toEqual({footer:'Semaporter',imprint:'Louis Findeisen'})
+    const custom=parseThemeFile({...example,copy:{title:'Mein Firmenportal'},legal:{footer:'Meine Firma'}})
+    expect(custom.copy?.title).toBe('Mein Firmenportal')
+    expect(custom.legal?.footer).toBe('Meine Firma')
+  })
   it.each(BUILTIN_THEMES)('exportiert und importiert $name ohne Farbverlust',theme=>{
     const imported=resolveCustomTheme(parseThemeFile(JSON.parse(JSON.stringify(exportThemeFile(theme)))))
     expect(imported.colors).toEqual(theme.colors)

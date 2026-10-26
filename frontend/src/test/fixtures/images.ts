@@ -1,0 +1,2 @@
+// Two GIF89a frames with a 200 ms delay and an infinite animation loop.
+export const ANIMATED_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP8AAAAA/yH/C05FVFNDQVBFMi4wAwEAAAAh+QQAFAAAACwAAAAAAQABAAACAkQBACH5BAAUAAAALAAAAAABAAEAAAICTAEAOw=='

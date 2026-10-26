@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { AuthProvider } from '../auth'
 import { ThemeProvider, THEME_STORAGE_KEY } from '../designs/ThemeProvider'
+import { ANIMATED_GIF } from './fixtures/images'
 
 const admin = { id:'1', email:'admin@example.com', display_name:'Admin', is_active:true, must_change_password:false, roles:['system_admin'] }
 const operator = { ...admin, id:'2', email:'operator@example.com', display_name:'Operator', roles:['operator'] }
@@ -19,6 +20,39 @@ function renderApp() {
 beforeEach(() => { vi.restoreAllMocks(); localStorage.clear(); window.history.replaceState({}, '', '/') })
 
 describe('Portal-Flows', () => {
+  it('zeigt gespeicherte GIFs mit unscharfem Hintergrund und scharfem Anmeldeformular',async()=>{
+    window.history.replaceState({},'', '/login')
+    localStorage.setItem(THEME_STORAGE_KEY,JSON.stringify({selected:'custom:animiert',custom:[{
+      schema_version:1,id:'animiert',name:'Animiert',base:'neutral-dark',
+      logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12,
+    }]}))
+    vi.stubGlobal('fetch',vi.fn(()=>json({detail:'Anmeldung erforderlich'},401)))
+    renderApp()
+    await screen.findByRole('button',{name:'Sicher anmelden'})
+    expect(screen.getByRole('img',{name:'Eigenes Logo'})).toHaveAttribute('src',ANIMATED_GIF)
+    const background=document.querySelector('.login-background')
+    expect(background).toHaveStyle({filter:'blur(12px)',inset:'-24px'})
+    expect(background?.getAttribute('style')).toContain(ANIMATED_GIF)
+    expect(document.querySelector<HTMLElement>('.login-page')?.style.filter).toBe('')
+    expect(document.querySelector('.login-card .login-background')).toBeNull()
+    await userEvent.type(screen.getByLabelText('Benutzername oder E-Mail-Adresse'),'demo')
+    expect(screen.getByLabelText('Benutzername oder E-Mail-Adresse')).toHaveValue('demo')
+  })
+  it('behält Designs aus dem bisherigen Browser-Speicher bei der Umbenennung',async()=>{
+    window.history.replaceState({},'', '/portal/konto')
+    localStorage.setItem('semaphore-porter.designs.v1',JSON.stringify({selected:'custom:bisherig',custom:[{
+      schema_version:1,id:'bisherig',name:'Bisheriges Firmendesign',base:'sit-light',
+      copy:{title:'Semaphore',subtitle:'Meine Firma'},legal:{footer:'Tenant Portal',imprint:'Bestehende Kontaktdaten'},
+    }]}))
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL)=>String(input).endsWith('/api/auth/me')?json(operator):json({csrf_token:'csrf'})))
+    renderApp()
+    await screen.findByRole('button',{name:'Abmelden'})
+    expect(document.documentElement).toHaveAttribute('data-theme','custom:bisherig')
+    expect(document.querySelector('.brand strong')).toHaveTextContent('Semaporter')
+    expect(document.querySelector('.brand')).toHaveTextContent('Meine Firma')
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Semaporter')
+    expect(screen.getByRole('link',{name:'Impressum'})).toBeVisible()
+  })
   it('gruppiert die Navigation, zeigt den Seitenpfad und erhält die Tenant-Anlage als Seitenaktion', async () => {
     window.history.replaceState({}, '', '/admin/tenants')
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).endsWith('/api/auth/me') ? json(admin)
@@ -324,7 +358,7 @@ describe('Portal-Flows', () => {
     const user = userEvent.setup()
     await user.type(await screen.findByLabelText('Benutzername oder E-Mail-Adresse'), identifier)
     expect(screen.queryByText(/KONTROLLIERTE AUTOMATISIERUNG|Serverseitige Task Policies|Keine API-Tokens im Browser/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Tenant Portal')
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Semaporter')
     await user.type(screen.getByLabelText('Passwort'), 'correct-horse-battery')
     await user.click(screen.getByRole('button', {name:'Sicher anmelden'}))
     expect(await screen.findByText('Admin Dashboard')).toBeInTheDocument()

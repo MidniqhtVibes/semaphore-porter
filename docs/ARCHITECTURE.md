@@ -41,6 +41,8 @@ Erst das validierte Ergebnis wird als Semaphore-`environment` serialisiert.
 
 ## Authentifizierung
 
+Die GitLab-Integration ergänzt ausschließlich Admin-APIs. Projektbezogene Tokens liegen verschlüsselt in PostgreSQL. Paketentwürfe frieren Basis-SHA und Dateisnapshot ein; Versionen und persistierte Sperren schützen die Übergabe. Repository-Code wird nicht im Backend ausgeführt. Ein lokaler, geprüfter Compiler validiert deklarative Verträge. GitLab-CI und menschlicher Review gehen der ausdrücklichen Aktivierung eines Katalogstandes voraus. Diese erzeugt eine separate Projektvorlage mit fester Git-SHA; bestehende Tenants bleiben unverändert. Ablauf und Grenzen: [GitLab](GITLAB.md).
+
 - Passwörter: Argon2 über `pwdlib`
 - Session: kryptografisch zufälliger, opaker Wert; nur SHA-256-Hash in der Datenbank
 - Cookie: `HttpOnly`, `SameSite=Lax`, in Produktion `Secure`

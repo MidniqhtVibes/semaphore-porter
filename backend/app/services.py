@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from sqlalchemy import select
@@ -11,12 +10,6 @@ from app.models import SemaphoreSettings
 from app.project_backup import is_secret_name
 from app.security import decrypt_secret
 from app.semaphore_client import SemaphoreClient, SemaphoreConnection
-
-
-SECRET_NAME = re.compile(
-    r"password|passwd|passwort|token|secret|private.?key|credential|role.?id|api.?key|access.?key",
-    re.IGNORECASE,
-)
 
 
 def contains_secret(value: Any) -> bool:

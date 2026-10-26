@@ -1,4 +1,4 @@
-name: semaphore-tenant-portal
+name: semaporter
 
 x-logging: &portal-logging
   driver: json-file
@@ -30,7 +30,7 @@ services:
     stop_grace_period: 30s
 
   backend:
-    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaphore-porter}-backend:${PORTAL_IMAGE_TAG:-latest}
+    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaporter}-backend:${PORTAL_IMAGE_TAG:-latest}
     pull_policy: ${PORTAL_PULL_POLICY:-always}
     restart: unless-stopped
     init: true
@@ -49,6 +49,8 @@ services:
       SEMAPHORE_REQUEST_TIMEOUT_SECONDS: ${SEMAPHORE_REQUEST_TIMEOUT_SECONDS:-30}
       VAULT_REQUEST_TIMEOUT_SECONDS: ${VAULT_REQUEST_TIMEOUT_SECONDS:-30}
       VAULT_CA_BUNDLE: ${VAULT_CA_BUNDLE:-}
+      GITLAB_REQUEST_TIMEOUT_SECONDS: ${GITLAB_REQUEST_TIMEOUT_SECONDS:-30}
+      GITLAB_CA_BUNDLE: ${GITLAB_CA_BUNDLE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +63,7 @@ services:
     networks:
       portal_database:
       portal_application:
-      # Ausgehender Zugriff auf Semaphore und optional Vault.
+      # Ausgehender Zugriff auf Semaphore, Vault und GitLab.
       portal_backend_egress:
         gw_priority: 1
     security_opt:
@@ -75,7 +77,7 @@ services:
     stop_grace_period: 30s
 
   frontend:
-    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaphore-porter}-frontend:${PORTAL_IMAGE_TAG:-latest}
+    image: ${PORTAL_IMAGE_REGISTRY:-ghcr.io/midniqhtvibes/semaporter}-frontend:${PORTAL_IMAGE_TAG:-latest}
     pull_policy: ${PORTAL_PULL_POLICY:-always}
     restart: unless-stopped
     init: true
