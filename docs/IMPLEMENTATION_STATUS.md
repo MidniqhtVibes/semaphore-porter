@@ -1,5 +1,7 @@
 # Implementierungs- und Abnahmestatus
 
+Ergänzung 29.10.2026: Live-Deploymentüberwachung mit getrenntem lokalem Status-Exporter und Sender ohne Docker-Rechte, privaten Token-Dateien, echten Lifecycle-Ablaufzeiten, Containerzuständen und veralteten/teilweise erfassten Snapshots. Migration `20261029_0007`. Linux-Dateirechte und ein echter unprivilegierter Senderprozess wurden im isolierten lokalen Testcontainer geprüft. Einrichtung, systemd-Isolation und verbleibende Abnahme am echten Zielhost: [DEPLOYMENT_MONITORING.md](DEPLOYMENT_MONITORING.md). Keine Serverzugriffe vorgenommen. Ohne eingerichtete Quelle werden noch keine Host-Deployments angezeigt; die bisherige Portal-Task-Historie bleibt verfügbar.
+
 Ergänzung 29.10.2026: Zentrale SSH-Zugangsprofile mit eigenem Vault-Lesezugang, Host-/Git-Zielprüfung, versionierter Wizard-Zuordnung, automatischer Übertragung nach dem Restore und bestätigter Rotation je Projekt. Einrichtung: [SSH_ZUGANGSPROFILE.md](SSH_ZUGANGSPROFILE.md). Private SSH-Inhalte werden nicht im Semaporter gespeichert; die benötigten Projektkopien liegen im Semaphore-Key-Store. Der bestehende Tenant-Vault-Schreibzugang bleibt unverändert.
 
 Stand: 26.10.2026. Aktuelle Bedienungs- und Einrichtungsanleitungen stehen in der [README](../README.md), im [GitLab-Leitfaden](GITLAB.md), der [Vault-Vereinbarung](VAULT_IMPLEMENTIERUNG.md) und der [Projektverwaltung](PROJECT_MANAGEMENT.md). Frühere Zwischenstände sind im [Changelog](../CHANGELOG.md) und in der Git-Historie nachvollziehbar.

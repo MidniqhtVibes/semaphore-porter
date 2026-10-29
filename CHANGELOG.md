@@ -1,5 +1,13 @@
 # Änderungen
 
+## Live-Deploymentüberwachung – 29.10.2026
+
+- Überwachung mit regelmäßig aktualisierter Hostansicht, sekundengenauem TTL-Countdown, Filtern und Deployment-Metadaten; auch für direkt in Semaphore gestartete Deployments.
+- Getrennter lokaler Status-Exporter ohne Token/HTTP und Sender unter einem Dienstkonto ohne Docker-Rechte; beide über die Web-App herunterladbar, ohne zusätzliche Python-Abhängigkeiten.
+- Root-eigene, atomar ersetzte Statusdatei, Prüfungen auf Besitzer/Schreibrechte, Symlinks, Größe, Schema und Alter. Token als private Credential-Datei statt Umgebungswert; wiederholte Snapshots erhalten keine neue Beobachtungszeit. Echte Linux-Rechteprüfung im isolierten Testcontainer.
+- Separate, erneuerbare Collector-Tokens je Zielhost; nur Hashspeicherung und ein ausschließlich schreibbarer Report-Endpunkt. Veraltete oder unvollständige Meldungen bestätigen keinen gesunden Zustand und löschen keine bisherigen Einträge.
+- Additive Migration `20261029_0007`; Einrichtung und Abnahme unter [Deployment-Monitoring](docs/DEPLOYMENT_MONITORING.md). Keine Pipeline- oder CAYO-Konfigurationsdateien ergänzt.
+
 ## Zentrale SSH-Zugangsprofile – 29.10.2026
 
 - Eigener Vault-Lesezugang und administrierbare Host-/Git-Profile unter Einstellungen → Zugangsprofile; private Schlüssel verbleiben als Quelle in Vault.

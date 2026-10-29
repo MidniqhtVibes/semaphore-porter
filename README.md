@@ -335,6 +335,7 @@ Direkte Vite-Builds, Herkunft, Bedienung und Lizenzen: docs/ARCADE.md
 - [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md)
 - [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md)
 - [Zentrale SSH-Zugangsprofile und Einrichtung](docs/SSH_ZUGANGSPROFILE.md)
+- [Live-Deploymentüberwachung, TTL und Collector-Einrichtung](docs/DEPLOYMENT_MONITORING.md)
 - [Designs und Unternehmensfarben](docs/DESIGNS.md)
 - [GitLab-Integration, Programmpakete und Katalogübernahme](docs/GITLAB.md)
 - [Abnahmetestplan für die eigene Umgebung](docs/ABNAHMETESTS.md)

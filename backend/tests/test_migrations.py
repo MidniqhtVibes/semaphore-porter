@@ -7,6 +7,29 @@ from alembic.operations import Operations
 import sqlalchemy as sa
 
 
+def test_monitoring_migration_is_additive_and_reversible():
+    path = Path(__file__).parents[1] / "alembic/versions/20261029_0007_monitoring.py"
+    spec = importlib.util.spec_from_file_location("monitoring_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = sa.create_engine("sqlite://")
+    existing = sa.Table("task_runs", sa.MetaData(), sa.Column("id", sa.Integer(), primary_key=True))
+    existing.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.execute(existing.insert().values(id=42))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        table = sa.Table("deployment_sources", sa.MetaData(), autoload_with=connection)
+        connection.execute(table.insert().values(id=uuid.uuid4().hex, name="Host", token_hash="a" * 64,
+            snapshot={"observed_at": 100, "deployments": []}))
+        assert connection.execute(sa.select(table.c.snapshot)).scalar_one()["observed_at"] == 100
+        assert "token" not in {column["name"] for column in sa.inspect(connection).get_columns("deployment_sources")}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert "deployment_sources" not in sa.inspect(connection).get_table_names()
+        assert connection.execute(sa.select(existing.c.id)).scalar_one() == 42
+
+
 def test_ssh_profiles_migration_preserves_existing_jobs_and_has_no_private_key_column():
     path = Path(__file__).parents[1] / "alembic/versions/20261029_0006_credentials.py"
     spec = importlib.util.spec_from_file_location("credentials_migration", path)

@@ -16,7 +16,7 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/admin', 'Dashboard', LayoutDashboard],
     ['/admin/tenants', 'Tenants', Boxes],
     ['/admin/projekte', 'Semaphore-Projekte', ServerCog],
-    ['/admin/tasks', 'Task-Überwachung', Activity],
+    ['/admin/tasks', 'Überwachung', Activity],
   ] },
   { id: 'catalog', label: 'Katalog', icon: PackageOpen, items: [
     ['/admin/anwendungen', 'Anwendungen', AppWindow],

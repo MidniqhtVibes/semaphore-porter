@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.routers import admin, auth, portal, projects, vault, gitlab, credentials
+from app.routers import admin, auth, portal, projects, vault, gitlab, credentials, monitoring
 from app.security import SESSION_COOKIE, get_session, verify_csrf
 
 
@@ -32,7 +32,8 @@ async def validation_error(request: Request, exc: RequestValidationError):
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     unsafe = request.method not in {"GET", "HEAD", "OPTIONS"}
-    csrf_exempt = request.url.path in {"/api/auth/login"}
+    csrf_exempt = request.url.path == "/api/auth/login"
+    machine_report = request.url.path == "/api/monitoring/report" and request.method == "POST"
     if unsafe and csrf_exempt:
         origin = request.headers.get("origin")
         if origin:
@@ -41,7 +42,7 @@ async def security_middleware(request: Request, call_next):
             parsed = urlsplit(origin)
             if parsed.netloc.lower() != request.headers.get("host", "").lower():
                 return JSONResponse(status_code=403, content={"detail": "Fremder Anfrageursprung abgelehnt."})
-    if unsafe and not csrf_exempt:
+    if unsafe and not csrf_exempt and not machine_report:
         with SessionLocal() as db:
             portal_session = get_session(db, request.cookies.get(SESSION_COOKIE))
             if portal_session is None:
@@ -77,4 +78,5 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(vault.router, prefix="/api")
 app.include_router(gitlab.router, prefix="/api")
 app.include_router(credentials.router, prefix="/api")
+app.include_router(monitoring.router, prefix="/api")
 

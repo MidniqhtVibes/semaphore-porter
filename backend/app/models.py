@@ -495,6 +495,16 @@ class CatalogActivation(Base, TimestampMixin):
     snapshot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("catalog_snapshots.id", ondelete="RESTRICT"))
 
 
+class DeploymentSource(Base, TimestampMixin):
+    __tablename__ = "deployment_sources"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(160))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 Index("ix_task_runs_tenant_started", TaskRun.tenant_id, TaskRun.started_at.desc())
 Index("ix_audit_events_type_time", AuditEvent.event_type, AuditEvent.occurred_at.desc())
 

@@ -4,12 +4,16 @@ import { Activity, ShieldCheck } from 'lucide-react'
 import { api } from '../../api'
 import { Badge, Button, Card, Empty, Field, Loading, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'
 import type { TaskRun, TaskTemplate, Tenant, User } from '../../types'
+import DeploymentMonitor from '../../components/DeploymentMonitor'
 
 type Audit={id:string;occurred_at:string;actor_user_id?:string|null;event_type:string;target_type?:string;target_id?:string;details:Record<string,unknown>;success:boolean}
 export function AdminTasksPage(){
+  return <><PageHeader title="Überwachung" description="Live-Deploymentzustand, Restlaufzeiten und vom Portal gestartete Tasks."/><DeploymentMonitor/><PortalTaskRuns/></>
+}
+function PortalTaskRuns(){
   const query=useQuery({queryKey:['admin-task-runs'],queryFn:()=>api<TaskRun[]>('/admin/task-runs'),refetchInterval:15_000})
   if(query.isLoading)return <Loading/>
-  return <><PageHeader title="Task-Überwachung" description="Alle vom Portal ausgelösten Semaphore-Tasks."/>{query.data?.length?<Card><div className="table-wrap"><table><thead><tr><th>Task</th><th>Tenant</th><th>Ausgeführt von</th><th>Status</th><th>Start</th><th>Semaphore-ID</th></tr></thead><tbody>{query.data.map(run=><tr key={run.id}><td><strong>{run.task_template}</strong></td><td>{run.tenant}</td><td>{run.started_by}</td><td><StatusBadge status={run.status}/>{run.sync_error&&<span className="subtle">{run.sync_error}</span>}</td><td>{formatDate(run.started_at)}</td><td>#{run.semaphore_task_id}</td></tr>)}</tbody></table></div></Card>:<Empty title="Keine Task-Ausführungen" text="Vom Portal gestartete Tasks erscheinen hier."/>}</>
+  return <><h2>Portal-Tasks</h2><p>Diese Task-Historie enthält die über Semaporter gestarteten Ausführungen.</p>{query.isError&&<Notice type="error">Task-Historie konnte nicht geladen werden: {query.error.message}</Notice>}{query.data?.length?<Card><div className="table-wrap"><table><thead><tr><th>Task</th><th>Tenant</th><th>Ausgeführt von</th><th>Status</th><th>Start</th><th>Semaphore-ID</th></tr></thead><tbody>{query.data.map(run=><tr key={run.id}><td><strong>{run.task_template}</strong></td><td>{run.tenant}</td><td>{run.started_by}</td><td><StatusBadge status={run.status}/>{run.sync_error&&<span className="subtle">{run.sync_error}</span>}</td><td>{formatDate(run.started_at)}</td><td>#{run.semaphore_task_id}</td></tr>)}</tbody></table></div></Card>:!query.isError&&<Empty title="Keine Task-Ausführungen" text="Vom Portal gestartete Tasks erscheinen hier."/>}</>
 }
 
 export function AuditPage(){
