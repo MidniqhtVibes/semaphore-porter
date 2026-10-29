@@ -185,6 +185,13 @@ class CopyResources(BaseModel):
     templates: list[dict[str, Any]]
 
 
+class CredentialBindingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile_id: uuid.UUID
+    resource_kind: Literal["inventories", "repositories"]
+    resource_name: str = Field(min_length=1, max_length=255)
+
+
 class CreationDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project_name: str = Field(default="", max_length=255)
@@ -210,6 +217,7 @@ class CreationDraft(BaseModel):
     create_default_policies: bool = True
     activate_after_creation: bool = False
     provision_vault: bool = False
+    ssh_bindings: list[CredentialBindingInput] = Field(default_factory=list, max_length=100)
 
 
 class CreationJobUpdate(BaseModel):

@@ -112,6 +112,8 @@ describe('Gruppiertes Hauptmenü', () => {
     fireEvent.keyDown(settings, { key: 'Home' })
     expect(screen.getByRole('button', { name: 'Arbeitsbereich' })).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(screen.getByRole('link', { name: 'Zugangsprofile' })).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
     expect(screen.getByRole('link', { name: 'Designs' })).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
     expect(connections).toHaveFocus()

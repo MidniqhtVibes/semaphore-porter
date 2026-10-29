@@ -9,6 +9,7 @@ import { ApplicationsPage, PresetsPage, ProjectTemplatesPage } from './pages/adm
 import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPages'
 import { SemaphorePage } from './pages/admin/SemaphorePage'
 import { VaultPage } from './pages/admin/VaultPage'
+const CredentialsPage=lazy(()=>import('./pages/admin/CredentialsPage').then(module=>({default:module.CredentialsPage})))
 const GitLabPage=lazy(()=>import('./pages/admin/GitLabPage').then(module=>({default:module.GitLabPage})))
 const ProgramPackagesPage=lazy(()=>import('./pages/admin/ProgramPackagesPage').then(module=>({default:module.ProgramPackagesPage})))
 const ProgramPackagePage=lazy(()=>import('./pages/admin/ProgramPackagePage').then(module=>({default:module.ProgramPackagePage})))
@@ -56,6 +57,7 @@ export function App(){return <Routes>
     <Route path="/admin/designs/studio" element={<StudioRoute/>}/>
     <Route path="/admin" element={<AdminShell/>}>
     <Route path="vault" element={<VaultPage/>}/>
+    <Route path="zugangsprofile" element={<DeferredPage><CredentialsPage/></DeferredPage>}/>
     <Route path="gitlab" element={<DeferredPage><GitLabPage/></DeferredPage>}/>
     <Route path="programmpakete" element={<DeferredPage><ProgramPackagesPage/></DeferredPage>}/>
     <Route path="programmpakete/:draftId" element={<DeferredPage><ProgramPackagePage/></DeferredPage>}/>

@@ -7,13 +7,15 @@ import { Button, Card, Field, Loading, Notice, PageHeader } from '../../componen
 import type { User } from '../../types'
 import { Link } from 'react-router-dom'
 import { VaultWizard } from '../../components/VaultWizard'
+import { SshProfilesWizard } from '../../components/SshProfilesWizard'
+import type { SshBinding, SshPlan } from '../../credentials'
 import type { VaultCatalog, VaultConfig, VaultInputs, VaultPlan, VaultProgress } from '../../vault'
 
 type Template = {id:string;name:string;description:string;survey_catalog:Record<string,unknown[]>;task_templates:string[];environments:string[]}
 type Preset = {id:string;name:string;category:string;description:string}
 type Group = {id:string;name:string}
 type Resources = Record<'environments'|'repositories'|'inventories'|'templates',Array<Record<string,unknown>>>
-type CreationJob = {id:string;project_template_id:string;status:string;draft_data:Draft;validation_result?:{errors:string[];warnings:string[]}|null;tenant_id?:string|null;last_error?:string|null;vault_plan?:VaultPlan|null;vault_progress?:VaultProgress|null;vault_values_saved?:boolean}
+type CreationJob = {id:string;project_template_id:string;status:string;draft_data:Draft;validation_result?:{errors:string[];warnings:string[]}|null;tenant_id?:string|null;last_error?:string|null;vault_plan?:VaultPlan|null;vault_progress?:VaultProgress|null;vault_values_saved?:boolean;credential_plan?:SshPlan[]|null;credential_progress?:{started?:boolean;installed?:boolean}|null}
 type Draft = {
   project_name:string;tenant_slug:string;runtime_scope_id:string;display_name:string;description:string
   application_id:string;database_type:string;dataset_id:string
@@ -23,6 +25,7 @@ type Draft = {
   access_assignments:Array<{user_id?:string;group_id?:string;role_code:string}>
   create_default_policies:boolean;activate_after_creation:boolean
   provision_vault:boolean
+  ssh_bindings:SshBinding[]
 }
 const steps = [
   ['Vorlage','Projektquelle auswählen',Layers3],['Tenant','Stammdaten festlegen',Settings2],
@@ -37,8 +40,9 @@ const initial:Draft = {
   wizard_step:0,ttl_minutes:60,task_template_names:[],environment_names:[],preset_ids:[],access_assignments:[],
   create_default_policies:true,activate_after_creation:false,
   provision_vault:false,
+  ssh_bindings:[],
 }
-const editable = (job:CreationJob|null) => !job || !job.vault_values_saved&&['draft','validated','failed'].includes(job.status)
+const editable = (job:CreationJob|null) => !job || !job.vault_values_saved&&!job.credential_progress&&['draft','validated','failed'].includes(job.status)
 
 export function TenantWizardPage() {
   const navigate=useNavigate(), [params]=useSearchParams()
@@ -115,6 +119,7 @@ export function TenantWizardPage() {
       task_template_names:item.task_templates,environment_names:item.environments,
       application_id:'',database_type:'',dataset_id:'',application_ids:[],database_types:[],dataset_ids:[],
       provision_vault:Boolean(vault.data?.enabled),
+      ssh_bindings:[],
     }))
   }
   useEffect(()=>{const id=params.get('template');if(id&&templates.data&&!templateId)chooseTemplate(id)},[params,templates.data,templateId])
@@ -153,7 +158,7 @@ export function TenantWizardPage() {
       {step===0&&<WizardTemplate templates={templates.data||[]} selected={templateId} onSelect={chooseTemplate}/>}
       {step===1&&<WizardTenant draft={draft} setDraft={setDraft}/>}
       {step===2&&<><WizardApplication draft={draft} setDraft={setDraft} template={selected}/>{draft.provision_vault&&<Notice type="info">Freigegebene Kombinationen im Vault-Katalog: {Object.entries(catalog.data?.applications||{}).map(([id,app])=>`${id}: ${Object.keys(app.database_types).join(', ')}`).join(' · ')||'Katalog wird geladen.'}</Notice>}</>}
-      {step===3&&<><WizardResources draft={draft} setDraft={setDraft} template={draft.resource_overrides?{...selected!,task_templates:draft.resource_overrides.templates.map(x=>String(x.name)),environments:draft.resource_overrides.environments.map(x=>String(x.name))}:selected}/><WizardResourceEditor key={templateId} templateId={templateId} draft={draft} setDraft={setDraft}/></>}
+      {step===3&&<><WizardResources draft={draft} setDraft={setDraft} template={draft.resource_overrides?{...selected!,task_templates:draft.resource_overrides.templates.map(x=>String(x.name)),environments:draft.resource_overrides.environments.map(x=>String(x.name))}:selected}/><SshProfilesWizard templateId={templateId} overrides={draft.resource_overrides} bindings={draft.ssh_bindings} onChange={ssh_bindings=>setDraft(value=>({...value,ssh_bindings}))}/><WizardResourceEditor key={templateId} templateId={templateId} draft={draft} setDraft={setDraft}/></>}
       {step===4&&<><WizardPresets draft={draft} setDraft={setDraft} presets={presets.data||[]}/><h3>Vault-Anlage</h3><label className="toggle-row"><input type="checkbox" disabled={!vault.data?.enabled&&!draft.provision_vault} checked={draft.provision_vault} onChange={e=>setDraft(v=>({...v,provision_vault:e.target.checked}))}/><span>Benötigte Vault-Objekte anlegen und den Semaphore-Lesezugang hinterlegen</span></label>{!vault.data?.enabled&&<Notice type="info">Vault ist noch nicht aktiviert. <Link to="/admin/vault">Vault konfigurieren</Link></Notice>}{vault.error&&<Notice type="error">{vault.error.message}</Notice>}</>}
       {step===5&&<WizardAccess draft={draft} setDraft={setDraft} users={users.data||[]} groups={groups.data||[]}/>}
       {step===6&&<><WizardValidation job={job} draft={draft}/>{job?.vault_plan&&<VaultWizard plan={job.vault_plan} inputs={vaultInputs} onChange={setVaultInputs} saved={Boolean(job.vault_values_saved)} progress={job.vault_progress} jobId={job.id} disabled={locked} onResolved={async()=>setJob(await api<CreationJob>(`/admin/creation-jobs/${job.id}`))}/>} {job&&['verification_required','restoring','semaphore_created'].includes(job.status)&&<Notice type="info">Der Vorgang wird anhand des Projektnamens geprüft und fortgesetzt.<label><input type="checkbox" checked={retry} onChange={e=>setRetry(e.target.checked)}/> Falls das Projekt nachweislich fehlt, erneuten Restore ausdrücklich erlauben.</label></Notice>}</>}
@@ -211,6 +216,7 @@ function WizardValidation({job,draft}:{job:CreationJob|null;draft:Draft}){
     <div className="review-grid"><div><span>Projektname</span><strong>{draft.project_name}</strong></div><div><span>Tenant</span><strong>{draft.tenant_slug}</strong></div><div><span>Tasks</span><strong>{draft.task_template_names.length}</strong></div><div><span>Zugriffe</span><strong>{draft.access_assignments.length}</strong></div>
       {optionFields.map(([plural,,label])=><div key={plural}><span>{label}</span><strong>{draft[plural].join(', ')||'Keine Survey-Auswahl'}</strong></div>)}
     </div>
+    {Boolean(job?.credential_plan?.length)&&<section aria-label="Geprüfte SSH-Zuordnungen"><h3>SSH-Zugangsprofile</h3>{job?.credential_plan?.map(item=><p key={item.profile.id}><strong>{item.name}</strong> · Version {item.profile.vault_version} · {item.fingerprint}<br/>{item.bindings.map(binding=>`${binding.name}: ${binding.targets.join(', ')}`).join(' · ')}{job.credential_progress?.installed?' · Übertragen':''}</p>)}</section>}
     {!result?<Notice type="info">Der Entwurf wurde geändert. Vor der Erstellung erneut validieren.</Notice>:result.errors.length?<Notice type="error"><strong>Validierung fehlgeschlagen</strong><ul>{result.errors.map(item=><li key={item}>{item}</li>)}</ul></Notice>:<Notice type="success">Struktur- und Verbindungsprüfung bestanden. Das Quellprojekt wird nicht verändert. Deployments und Datenimporte starten erst mit einem Task.</Notice>}
     {Boolean(result?.warnings.length)&&<Notice type="info"><ul>{result?.warnings.map(item=><li key={item}>{item}</li>)}</ul></Notice>}
   </>

@@ -62,7 +62,7 @@ from app.semaphore_client import SemaphoreClient, SemaphoreConnection, Semaphore
 from app.services import contains_secret, semaphore_client_from_db
 from app.tenant_options import SELECTION_FIELDS, allowed_options, selected_options
 from app.usernames import suggest_username
-from app import vault_service
+from app import vault_service, credential_service
 from app.vault_client import VaultError
 
 
@@ -149,6 +149,8 @@ def creation_json(job: CreationJob) -> dict[str, Any]:
         "vault_plan": job.vault_plan,
         "vault_progress": job.vault_progress,
         "vault_values_saved": bool(job.encrypted_vault_payload),
+        "credential_plan": job.credential_plan,
+        "credential_progress": job.credential_progress,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
@@ -515,7 +517,7 @@ def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, a
     job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
-    if job.encrypted_vault_payload or job.execution_started_at:
+    if job.encrypted_vault_payload or job.execution_started_at or job.credential_progress:
         raise HTTPException(409, "Ein gestarteter Vorgang kann nicht mehr geändert werden; gespeicherte Werte zur Wiederaufnahme verwenden.")
     if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED}:
         raise HTTPException(status_code=409, detail="Dieser Erstellungsvorgang kann nicht mehr bearbeitet werden.")
@@ -529,6 +531,8 @@ def update_creation_job(job_id: uuid.UUID, payload: CreationJobUpdate, db: Db, a
     job.validation_result = None
     job.vault_plan = None
     job.vault_progress = None
+    job.credential_plan = None
+    job.credential_progress = None
     job.last_error = None
     db.commit()
     return creation_json(job)
@@ -539,7 +543,7 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     job = db.scalar(select(CreationJob).where(CreationJob.id == job_id).with_for_update())
     if job is None or job.project_template_id is None:
         raise HTTPException(status_code=404, detail="Erstellungsvorgang nicht gefunden.")
-    if job.encrypted_vault_payload or job.execution_started_at:
+    if job.encrypted_vault_payload or job.execution_started_at or job.credential_progress:
         raise HTTPException(409, "Ein gestarteter Vorgang darf nicht neu validiert werden.")
     if job.status not in {CreationStatus.DRAFT, CreationStatus.VALIDATED, CreationStatus.FAILED} or job.semaphore_project_id is not None:
         raise HTTPException(409, "Ein bereits gestarteter Restore darf nicht neu validiert werden.")
@@ -574,6 +578,9 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
                 and source.catalog_snapshot_id != active_catalog.snapshot_id):
             raise ValueError("Für die Vault-Anlage die zum aktiven GitLab-Katalog gehörende Projektvorlage auswählen.")
         job.vault_plan = vault_service.prepare_plan(db, job.draft_data, prepared) if job.draft_data.get("provision_vault") else None
+        job.credential_plan = await credential_service.prepare_plan(db, job.draft_data, prepared)
+    except VaultError as exc:
+        raise HTTPException(502, str(exc)) from exc
     except (BackupValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     errors, warnings = validate_backup(prepared)
@@ -649,6 +656,13 @@ async def _execute_creation_job(
     client = semaphore_client_from_db(db)
     project_name = str(job.prepared_backup["meta"]["name"])
 
+    try:
+        await credential_service.check_plan(db, job)
+    except (VaultError, ValueError) as exc:
+        job.last_error = str(exc)
+        db.commit()
+        raise HTTPException(409 if isinstance(exc, ValueError) else 502, str(exc)) from exc
+
     if job.draft_data.get("provision_vault"):
         try:
             if job.semaphore_project_id is None and job.status in {CreationStatus.VALIDATED, CreationStatus.FAILED}:
@@ -662,6 +676,10 @@ async def _execute_creation_job(
                 job.vault_progress = {**(job.vault_progress or {}), "audit_recorded": True}
                 db.commit()
         except (VaultError, ValueError) as exc:
+            # Before the encrypted Vault payload exists no KV write has begun.
+            # A failed login/preflight must still allow correcting and revalidating the draft.
+            if not job.encrypted_vault_payload and job.semaphore_project_id is None:
+                job.credential_progress = None
             job.last_error = str(exc)
             record_audit(db, "vault_provisioning_failed", actor=admin, request=request,
                 target_type="creation_job", target_id=job.id, success=False, details={"message": str(exc)})
@@ -736,6 +754,15 @@ async def _execute_creation_job(
         job.vault_progress = {**(job.vault_progress or {}), "access_installed": True}
         job.last_error = None
         db.commit()
+
+    try:
+        await credential_service.install(db, job, client)
+    except (VaultError, SemaphoreError, ValueError) as exc:
+        job.last_error = str(exc)
+        record_audit(db, "ssh_access_install_failed", actor=admin, request=request,
+                     target_type="creation_job", target_id=job.id, success=False)
+        db.commit()
+        raise HTTPException(502, str(exc)) from exc
 
     # Portalregistrierung ist wiederholbar und löscht niemals Semaphore-Ressourcen.
     db.refresh(job, with_for_update=True)

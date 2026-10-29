@@ -16,6 +16,7 @@ Produktname, Oberfläche und neue Image-Namen lauten **Semaporter**. Für besteh
 | Parametersteuerung | Survey-Felder synchronisieren, Eingaben validieren und feste oder ausgeblendete Werte vorgeben |
 | Benutzer und Berechtigungen | Lokale Konten, Gruppen, Tenant-Mitgliedschaften und einzelne Task-Freigaben verwalten |
 | Vault-Integration | Optional neue KV-v2-Secrets für Tenants anlegen und AppRole- sowie Registry-Zugänge zentral konfigurieren |
+| SSH-Zugangsprofile | Bestehende Host- und Git-Schlüssel aus Vault in neuen Tenant-Projekten wiederverwenden, Zuordnungen prüfen und Versionen gezielt aktualisieren |
 | GitLab und Programmpakete | Pakete entwerfen, Verträge prüfen, Branch/Merge Request übergeben, CI verfolgen und freigegebene Kataloge mit neuen Projektvorlagen übernehmen |
 | Gestaltung | Eigene Farben, Logos, Anmeldetexte und rechtliche Texte mit interaktiver Live-Vorschau gestalten |
 | Nachvollziehbarkeit | Verwaltungsaktionen und Task-Ausführungen über Audit-Log und Ausführungshistorie verfolgen |
@@ -333,6 +334,7 @@ Direkte Vite-Builds, Herkunft, Bedienung und Lizenzen: docs/ARCADE.md
 - [Projektverwaltung und Tenant-Assistent](docs/PROJECT_MANAGEMENT.md)
 - [Berechtigungen und Benutzerverwaltung](docs/PERMISSIONS.md)
 - [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md)
+- [Zentrale SSH-Zugangsprofile und Einrichtung](docs/SSH_ZUGANGSPROFILE.md)
 - [Designs und Unternehmensfarben](docs/DESIGNS.md)
 - [GitLab-Integration, Programmpakete und Katalogübernahme](docs/GITLAB.md)
 - [Abnahmetestplan für die eigene Umgebung](docs/ABNAHMETESTS.md)

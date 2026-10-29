@@ -47,7 +47,8 @@ class VaultClient:
             raise VaultError("Die konfigurierte Vault-CA konnte nicht geladen werden.") from exc
         self.token: str | None = None
 
-    async def _request(self, method: str, path: str, data: Any = None, *, absence_ok: bool = False, writing: bool = False) -> Any:
+    async def _request(self, method: str, path: str, data: Any = None, *, absence_ok: bool = False, writing: bool = False,
+                       params: dict | None = None) -> Any:
         headers = {"Accept": "application/json"}
         if self.config.get("namespace"):
             headers["X-Vault-Namespace"] = self.config["namespace"]
@@ -55,7 +56,7 @@ class VaultClient:
             headers["X-Vault-Token"] = self.token
         try:
             async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify, follow_redirects=False) as client:
-                response = await client.request(method, self.base + quote(path, safe="/"), headers=headers, json=data)
+                response = await client.request(method, self.base + quote(path, safe="/"), headers=headers, json=data, params=params)
         except httpx.TransportError as exc:
             raise VaultError("Vault ist nicht erreichbar; das Schreibergebnis muss gegebenenfalls geprüft werden.", uncertain=writing) from exc
         if absence_ok and response.status_code == 404:

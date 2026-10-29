@@ -7,6 +7,33 @@ from alembic.operations import Operations
 import sqlalchemy as sa
 
 
+def test_ssh_profiles_migration_preserves_existing_jobs_and_has_no_private_key_column():
+    path = Path(__file__).parents[1] / "alembic/versions/20261029_0006_credentials.py"
+    spec = importlib.util.spec_from_file_location("credentials_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = sa.create_engine("sqlite://")
+    old = sa.Table("creation_jobs", sa.MetaData(), sa.Column("id", sa.Uuid(), primary_key=True),
+                   sa.Column("status", sa.String()), sa.Column("draft_data", sa.JSON()))
+    old.metadata.create_all(engine)
+    identifier = uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(old.insert().values(id=identifier, status="validated", draft_data={"tenant_slug": "old-a"}))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        jobs = sa.Table("creation_jobs", sa.MetaData(), autoload_with=connection)
+        row = connection.execute(sa.select(jobs)).mappings().one()
+        assert row["draft_data"] == {"tenant_slug": "old-a"} and row["credential_plan"] is None
+        assert row["credential_progress"] is None
+        inspector = sa.inspect(connection)
+        assert {"credential_settings", "credential_profiles", "credential_uses"}.issubset(inspector.get_table_names())
+        assert "private_key" not in {column["name"] for column in inspector.get_columns("credential_profiles")}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert "credential_profiles" not in sa.inspect(connection).get_table_names()
+        assert connection.execute(sa.select(old.c.status)).scalar_one() == "validated"
+
+
 def test_tenant_options_migration_preserves_legacy_application():
     path = Path(__file__).parents[1] / "alembic/versions/20261016_0002_tenant_options.py"
     spec = importlib.util.spec_from_file_location("tenant_options_migration", path)

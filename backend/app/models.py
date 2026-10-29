@@ -319,6 +319,47 @@ class CreationJob(Base, TimestampMixin):
     encrypted_vault_payload: Mapped[bytes | None] = mapped_column(LargeBinary)
     execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    credential_plan: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    credential_progress: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+
+class CredentialSettings(Base, TimestampMixin):
+    __tablename__ = "credential_settings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class CredentialProfile(Base, TimestampMixin):
+    __tablename__ = "credential_profiles"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(160), unique=True)
+    purpose: Mapped[str] = mapped_column(String(20))
+    login: Mapped[str] = mapped_column(String(100))
+    vault_path: Mapped[str] = mapped_column(String(500))
+    vault_version: Mapped[int] = mapped_column(Integer)
+    allowed_targets: Mapped[list[str]] = mapped_column(JSON)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    fingerprint: Mapped[str | None] = mapped_column(String(100))
+    public_key: Mapped[str | None] = mapped_column(Text)
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CredentialUse(Base, TimestampMixin):
+    __tablename__ = "credential_uses"
+    __table_args__ = (UniqueConstraint("semaphore_project_id", "profile_id", name="uq_credential_project_profile"),)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credential_profiles.id", ondelete="RESTRICT"))
+    creation_job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creation_jobs.id", ondelete="RESTRICT"))
+    semaphore_project_id: Mapped[int] = mapped_column(BigInteger)
+    semaphore_key_id: Mapped[int] = mapped_column(BigInteger)
+    vault_version: Mapped[int] = mapped_column(Integer)
+    fingerprint: Mapped[str] = mapped_column(String(100))
+    bindings: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    source: Mapped[dict[str, Any]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    last_error: Mapped[str | None] = mapped_column(Text)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class TaskRun(Base, TimestampMixin):
     __tablename__ = "task_runs"

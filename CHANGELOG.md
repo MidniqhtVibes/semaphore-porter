@@ -1,5 +1,14 @@
 # Änderungen
 
+## Zentrale SSH-Zugangsprofile – 29.10.2026
+
+- Eigener Vault-Lesezugang und administrierbare Host-/Git-Profile unter Einstellungen → Zugangsprofile; private Schlüssel verbleiben als Quelle in Vault.
+- Explizite Profilzuordnung je Inventory/Repository im Tenant-Assistenten, Prüfung konkreter Ziele und SSH-Benutzer sowie Vorschau von Version und Fingerprint.
+- Automatische Übertragung in die vorgesehenen Semaphore-Key-Store-Einträge nach dem Restore; Wiederaufnahme mit derselben geprüften Version und bekannten Schlüssel-ID.
+- Projektverwendungen mit bestätigter Aktualisierung auf eine gewählte Vault-Version; verwaltete Schlüssel gegen Änderungen im normalen Projekteditor schützen.
+- Additive Migration `20261029_0006`; bestehende manuelle SSH-Einrichtung und der Objektvertrag der Tenant-Vault-Anlage bleiben erhalten.
+- Einrichtung und Grenzen unter [SSH-Zugangsprofile](docs/SSH_ZUGANGSPROFILE.md).
+
 ## GitLab-Integration und Bereinigung – 26.10.2026
 
 - GitLab unter Einstellungen → Verbindungen und Entwicklung mit Programmpaketen, Änderungen & Freigaben, Prüfungen sowie Versionen & Übernahme.

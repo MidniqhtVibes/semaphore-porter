@@ -162,6 +162,11 @@ async def save_resource(project_id: int, kind: str, payload: ResourceInput, requ
         current = await client.get_resource(project_id, kind, resource_id) if resource_id else {}
         if resource_id:
             check_revision(payload.revision, current)
+            if kind == "keys":
+                from app.models import CredentialUse
+                if db.scalar(select(CredentialUse.id).where(CredentialUse.semaphore_project_id == project_id,
+                                                            CredentialUse.semaphore_key_id == resource_id).limit(1)):
+                    raise HTTPException(409, "Dieser SSH-Eintrag wird zentral verwaltet. Änderungen unter Einstellungen → Zugangsprofile vornehmen.")
         values = {key: value for key, value in current.items() if key in FIELDS[kind]}
         values.update(payload.values)
         if not isinstance(values.get("name"), str) or not values["name"].strip():

@@ -36,6 +36,7 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
   ] },
   { id: 'settings', label: 'Einstellungen', icon: Settings2, items: [
     ['/admin/designs', 'Designs', Palette],
+    ['/admin/zugangsprofile', 'Zugangsprofile', ShieldCheck],
   ], children: [
     { id: 'connections', label: 'Verbindungen', icon: ServerCog, items: [
       ['/admin/semaphore', 'Semaphore-Verbindung', ServerCog],

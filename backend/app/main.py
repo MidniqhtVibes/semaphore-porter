@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.routers import admin, auth, portal, projects, vault, gitlab
+from app.routers import admin, auth, portal, projects, vault, gitlab, credentials
 from app.security import SESSION_COOKIE, get_session, verify_csrf
 
 
@@ -76,4 +76,5 @@ app.include_router(portal.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(vault.router, prefix="/api")
 app.include_router(gitlab.router, prefix="/api")
+app.include_router(credentials.router, prefix="/api")
 
