@@ -45,8 +45,9 @@ coverage.xml
 junit.xml
 
 # Supplementary documentation and offline maintenance tools
-# Keep README, changelog, CI, Docker/build files, migrations and runtime assets.
-/docs/
+# Keep the public setup guide; other documentation remains local.
+/docs/*
+!/docs/SETUP.md
 /tools/
 
 # Dependencies and generated builds
