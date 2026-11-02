@@ -34,13 +34,25 @@ function optionalArcade(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), optionalArcade()],
+  plugins: [react(), optionalArcade(), {
+    name: 'integrated-demo-security',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (/^\/demo(?:\/|$)/.test(request.url ?? '')) {
+          response.setHeader('Content-Security-Policy', `connect-src http://${request.headers.host}/api/demo-instance/ ws://${request.headers.host}/__vite_hmr; form-action 'none'`)
+          response.setHeader('Cache-Control', 'no-store')
+        }
+        next()
+      })
+    },
+  }],
   define: { __PORTAL_ARCADE__: JSON.stringify(arcadeEnabled) },
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
   },
   server: {
+    hmr: { path: '/__vite_hmr' },
     proxy: {
       '/api': { target: 'http://localhost:8000', changeOrigin: true },
     },

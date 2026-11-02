@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
+from app.integration_http import integration_client
 
 
 class SemaphoreError(RuntimeError):
@@ -58,7 +59,7 @@ class SemaphoreClient:
         }
         url = self._url(path)
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, proxy=self._proxy, follow_redirects=False) as client:
+            async with integration_client("semaphore", timeout=self._timeout, proxy=self._proxy, follow_redirects=False) as client:
                 for _ in range(6):
                     response = await client.request(method, url, headers=headers, json=payload)
                     if response.status_code not in {301, 302, 303, 307, 308}:

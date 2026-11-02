@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { Boxes, CheckCircle2, Download, ExternalLink, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
-import { api } from '../../api'
+import { api, apiUrl } from '../../api'
 import { Badge, Button, Card, Empty, Field, Loading, Modal, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'
 import type { TaskTemplate, Tenant, User } from '../../types'
 
@@ -37,7 +37,7 @@ export function TenantDetailPage() {
   if (query.isLoading) return <Loading />
   if (!query.data) return <Notice type="error">Tenant konnte nicht geladen werden.</Notice>
   const tenant = query.data
-  return <><PageHeader title={tenant.display_name} description={`${tenant.tenant_slug} · Tenant-Detailansicht`} actions={<><a className="button button-secondary" href={`/api/admin/tenants/${tenant.id}/export`} target="_blank"><Download size={16}/>Export</a><Button variant="secondary" onClick={() => setEditOpen(true)}><Save size={16}/>Bearbeiten</Button></>}/>
+  return <><PageHeader title={tenant.display_name} description={`${tenant.tenant_slug} · Tenant-Detailansicht`} actions={<><a className="button button-secondary" href={apiUrl(`/admin/tenants/${tenant.id}/export`)} target="_blank"><Download size={16}/>Export</a><Button variant="secondary" onClick={() => setEditOpen(true)}><Save size={16}/>Bearbeiten</Button></>}/>
     {message && <Notice type="success">{message}</Notice>}
     {[sync.error,check.error,removeMember.error].filter(Boolean).map((error,index)=><Notice type="error" key={index}>{error?.message}</Notice>)}
     {tenant.semaphore_project&&<Card><a className="button button-secondary" href={`/admin/projekte/${tenant.semaphore_project.id}`}>Semaphore-Projekt und Variablengruppen bearbeiten</a></Card>}

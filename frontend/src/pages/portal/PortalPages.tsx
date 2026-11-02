@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowRight, Boxes, CheckCircle2, KeyRound, Play, Square } from 'lucide-react'
-import { api, ApiError } from '../../api'
+import { api, apiUrl, ApiError } from '../../api'
 import { useAuth } from '../../auth'
 import { Badge, Button, Card, Empty, Field, Loading, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'
 import type { TaskRun, TaskTemplate, Tenant } from '../../types'
@@ -63,7 +63,7 @@ type RunDetail=TaskRun&{output:Array<{task_id:number;time:string;output:string}>
 export function RunDetailPage(){
   const {runId}=useParams(),qc=useQueryClient(),query=useQuery({queryKey:['run',runId],queryFn:()=>api<RunDetail>(`/portal/runs/${runId}`)}),[liveLines,setLiveLines]=useState<RunDetail['output']>([]),[streamError,setStreamError]=useState('')
   const stop=useMutation({mutationFn:()=>api(`/portal/runs/${runId}/stop`,{method:'POST'}),onSuccess:()=>void qc.invalidateQueries({queryKey:['run',runId]})})
-  useEffect(()=>{if(!runId)return;setLiveLines([]);setStreamError('');const source=new EventSource(`/api/portal/runs/${runId}/events`);source.addEventListener('update',event=>{const data=JSON.parse((event as MessageEvent).data) as {lines:RunDetail['output'];run:TaskRun};qc.setQueryData<RunDetail>(['run',runId],current=>current?{...current,...data.run}:current);if(data.lines.length)setLiveLines(current=>[...current,...data.lines])});source.addEventListener('complete',()=>{source.close();void qc.invalidateQueries({queryKey:['run',runId]})});source.addEventListener('error',()=>{setStreamError('Live-Verbindung wurde beendet.');source.close()});return()=>source.close()},[runId,qc])
+  useEffect(()=>{if(!runId)return;setLiveLines([]);setStreamError('');const source=new EventSource(apiUrl(`/portal/runs/${runId}/events`));source.addEventListener('update',event=>{const data=JSON.parse((event as MessageEvent).data) as {lines:RunDetail['output'];run:TaskRun};qc.setQueryData<RunDetail>(['run',runId],current=>current?{...current,...data.run}:current);if(data.lines.length)setLiveLines(current=>[...current,...data.lines])});source.addEventListener('complete',()=>{source.close();void qc.invalidateQueries({queryKey:['run',runId]})});source.addEventListener('error',()=>{setStreamError('Live-Verbindung wurde beendet.');source.close()});return()=>source.close()},[runId,qc])
   if(query.isLoading)return <Loading/>
   if(!query.data)return <Notice type="error">Task nicht gefunden.</Notice>
   const run=query.data,lines=liveLines.length?liveLines:run.output

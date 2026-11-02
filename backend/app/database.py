@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from contextvars import ContextVar
+from contextlib import asynccontextmanager
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -27,7 +29,23 @@ _engine_kwargs: dict = {"pool_pre_ping": True}
 if settings.database_url.startswith("sqlite"):
     _engine_kwargs.update(connect_args={"check_same_thread": False}, poolclass=StaticPool)
 engine = create_engine(settings.database_url, **_engine_kwargs)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+_default_sessions = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+session_context: ContextVar[sessionmaker | None] = ContextVar("session_context", default=None)
+demo_gate_context: ContextVar = ContextVar("demo_gate_context", default=None)
+
+
+@asynccontextmanager
+async def demo_database_turn():
+    gate = demo_gate_context.get()
+    if gate is None:
+        yield
+    else:
+        async with gate:
+            yield
+
+
+def SessionLocal(**kwargs) -> Session:
+    return (session_context.get() or _default_sessions)(**kwargs)
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { BUILTIN_THEMES, DEFAULT_THEME_ID, FONT_STACKS, parseThemeFile, resolveCustomTheme, type Theme, type ThemeFile } from './themes'
 import { applyWebsiteSymbol } from './websiteSymbols'
+import { demoDocument } from '../api'
 
-export const THEME_STORAGE_KEY='semaporter.designs.v1'
-const LEGACY_THEME_STORAGE_KEY='semaphore-porter.designs.v1'
+export const THEME_STORAGE_KEY=demoDocument?'semaporter.demo.designs.v1':'semaporter.designs.v1'
+const LEGACY_THEME_STORAGE_KEY=demoDocument?THEME_STORAGE_KEY:'semaphore-porter.designs.v1'
 type ThemeState={selected:string;custom:ThemeFile[];hidden:string[]}
 type ThemeContextValue={themes:Theme[];active:Theme;storageWarning:string;select:(id:string)=>void;importTheme:(value:unknown)=>Theme;remove:(id:string)=>void;restoreDefaults:()=>void;hasHiddenDefaults:boolean}
 const ThemeContext=createContext<ThemeContextValue|null>(null)

@@ -41,6 +41,7 @@ from app.models import (
 )
 from app.project_backup import BackupValidationError, TENANT_VARIABLES, is_defaults, json_object, parse_backup, prepare_backup, public_variables, survey_catalog, validate_backup
 from app.schemas import (
+    AccountLabelsUpdate,
     CreationExecuteRequest,
     CreationJobCreate,
     CreationJobUpdate,
@@ -75,6 +76,8 @@ def user_json(user: User) -> dict[str, Any]:
         "email": user.email,
         "username": user.username,
         "display_name": user.display_name,
+        "color": user.color,
+        "tags": user.tags,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
         "roles": [role.code for role in user.roles],
@@ -220,6 +223,8 @@ def create_user(payload: UserCreate, request: Request, db: Db, admin: SystemAdmi
         username=username,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
+        color=payload.color,
+        tags=payload.tags,
         must_change_password=payload.must_change_password,
     )
     user.roles = roles
@@ -255,6 +260,10 @@ def update_user(user_id: uuid.UUID, payload: UserUpdate, request: Request, db: D
         user.roles = roles
     if payload.username is not None:
         user.username = payload.username
+    if payload.color is not None:
+        user.color = payload.color
+    if payload.tags is not None:
+        user.tags = payload.tags
     record_audit(db, "user_updated", actor=admin, request=request, target_type="user", target_id=user.id, details=payload.model_dump(exclude_none=True))
     try:
         db.commit()
@@ -282,7 +291,7 @@ def list_groups(db: Db, admin: SystemAdmin) -> list[dict[str, Any]]:
     del admin
     groups = db.scalars(select(Group).options(selectinload(Group.memberships)).order_by(Group.name)).all()
     return [
-        {"id": str(group.id), "name": group.name, "description": group.description, "user_ids": [str(item.user_id) for item in group.memberships]}
+        {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags, "user_ids": [str(item.user_id) for item in group.memberships]}
         for group in groups
     ]
 
@@ -291,12 +300,27 @@ def list_groups(db: Db, admin: SystemAdmin) -> list[dict[str, Any]]:
 def create_group(payload: GroupCreate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
     if db.scalar(select(Group.id).where(func.lower(Group.name) == payload.name.lower().strip())):
         raise HTTPException(status_code=409, detail="Gruppenname ist bereits vergeben.")
-    group = Group(name=payload.name.strip(), description=payload.description.strip())
+    group = Group(name=payload.name.strip(), description=payload.description.strip(), color=payload.color, tags=payload.tags)
     db.add(group)
     db.flush()
     record_audit(db, "group_created", actor=admin, request=request, target_type="group", target_id=group.id)
     db.commit()
-    return {"id": str(group.id), "name": group.name, "description": group.description, "user_ids": []}
+    return {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags, "user_ids": []}
+
+
+@router.patch("/groups/{group_id}")
+def update_group_labels(group_id: uuid.UUID, payload: AccountLabelsUpdate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
+    group = db.get(Group, group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Gruppe nicht gefunden.")
+    if payload.color is not None:
+        group.color = payload.color
+    if payload.tags is not None:
+        group.tags = payload.tags
+    record_audit(db, "group_labels_updated", actor=admin, request=request, target_type="group", target_id=group.id,
+                 details=payload.model_dump(exclude_none=True))
+    db.commit()
+    return {"id": str(group.id), "color": group.color, "tags": group.tags}
 
 
 @router.put("/groups/{group_id}/members")

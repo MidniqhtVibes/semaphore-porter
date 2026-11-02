@@ -2,6 +2,14 @@ import type { ApiErrorBody } from './types'
 
 let csrfToken = ''
 
+// Entering/leaving the sandbox always loads a fresh document. Never derive the
+// API target from a mutable SPA route or from a user-controlled preference.
+export const demoDocument = /^\/demo(?:\/|$)/.test(window.location.pathname)
+export function apiUrl(path: string) {
+  if (!path.startsWith('/') || path.startsWith('//')) throw new Error('Ungültiger API-Pfad.')
+  return `${demoDocument ? '/api/demo-instance' : ''}/api${path}`
+}
+
 export class ApiError extends Error {
   status: number
   fields?: Record<string, string>
@@ -24,7 +32,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (options.body && !isForm && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const method = (options.method || 'GET').toUpperCase()
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && csrfToken) headers.set('X-CSRF-Token', csrfToken)
-  const response = await fetch(`/api${path}`, { ...options, headers, credentials: 'same-origin' })
+  const response = await fetch(apiUrl(path), { ...options, headers, credentials: 'same-origin' })
   if (!response.ok) {
     let body: ApiErrorBody = {}
     try { body = await response.json() as ApiErrorBody } catch { body = { detail: response.statusText } }

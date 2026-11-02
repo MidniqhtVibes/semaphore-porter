@@ -1,9 +1,10 @@
 import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import { navigationContext, navigationGroups, type NavigationGroup, type NavigationItem, type NavigationMode } from './navigation'
+import { demoDocument } from '../api'
 
-export const NAVIGATION_STORAGE_KEY = 'semaporter.navigation.v1'
-const LEGACY_NAVIGATION_STORAGE_KEY = 'semaphore-porter.navigation.v1'
+export const NAVIGATION_STORAGE_KEY = demoDocument ? 'semaporter.demo.navigation.v1' : 'semaporter.navigation.v1'
+const LEGACY_NAVIGATION_STORAGE_KEY = demoDocument ? NAVIGATION_STORAGE_KEY : 'semaphore-porter.navigation.v1'
 type ExpandedGroups = Record<string, boolean>
 
 function branchKeys(mode: NavigationMode, groups: readonly NavigationGroup[] = navigationGroups(mode), parent = ''): string[] {

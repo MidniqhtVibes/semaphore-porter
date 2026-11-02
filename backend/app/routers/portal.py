@@ -12,7 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from app.audit import record_audit, sanitize
-from app.database import SessionLocal
+from app.database import SessionLocal, demo_database_turn
 from app.dependencies import CurrentUser, Db
 from app.models import (
     GroupMembership,
@@ -31,7 +31,7 @@ from app.permissions import can_access_tenant, task_actions
 from app.policy import PolicyViolation, build_form_schema, enforce_policy
 from app.project_backup import TENANT_VARIABLES
 from app.schemas import TaskStartRequest
-from app.security import SESSION_COOKIE, get_session, user_has_role
+from app.security import session_cookie_name, get_session, user_has_role
 from app.semaphore_client import SemaphoreError
 from app.services import semaphore_client_from_db
 
@@ -402,38 +402,39 @@ async def stop_run(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUse
 def run_events(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUser) -> StreamingResponse:
     _authorized_run(db, user, run_id)
     user_id = user.id
-    session_cookie = request.cookies.get(SESSION_COOKIE)
+    session_cookie = request.cookies.get(session_cookie_name())
 
     async def stream():
         last_lines = 0
         for _ in range(900):  # maximal 30 Minuten pro Verbindung
-            with SessionLocal() as poll_db:
-                poll_session = get_session(poll_db, session_cookie)
-                poll_user = poll_session.user if poll_session else None
-                if poll_user is None or poll_user.id != user_id or not poll_user.is_active or poll_user.must_change_password:
-                    yield "event: error\ndata: {\"message\":\"Zugriff beendet\"}\n\n"
-                    return
-                try:
-                    run = _authorized_run(poll_db, poll_user, run_id)
-                    remote = await _sync_run(poll_db, run)
-                    assert run.tenant.semaphore_project is not None
-                    output = await semaphore_client_from_db(poll_db).get_task_output(
-                        run.tenant.semaphore_project.semaphore_project_id, run.semaphore_task_id
-                    )
-                    new_lines = output[last_lines:]
-                    last_lines = len(output)
-                    data = {
-                        "run": _run_payload(run),
-                        "remote": {"id": remote.get("id"), "status": remote.get("status")},
-                        "lines": new_lines,
-                    }
-                    yield f"event: update\ndata: {json.dumps(data, default=str, ensure_ascii=False)}\n\n"
-                    if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED}:
-                        yield "event: complete\ndata: {}\n\n"
+            async with demo_database_turn():
+                with SessionLocal() as poll_db:
+                    poll_session = get_session(poll_db, session_cookie)
+                    poll_user = poll_session.user if poll_session else None
+                    if poll_user is None or poll_user.id != user_id or not poll_user.is_active or poll_user.must_change_password:
+                        yield "event: error\ndata: {\"message\":\"Zugriff beendet\"}\n\n"
                         return
-                except (HTTPException, SemaphoreError, RuntimeError) as exc:
-                    yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
-                    return
+                    try:
+                        run = _authorized_run(poll_db, poll_user, run_id)
+                        remote = await _sync_run(poll_db, run)
+                        assert run.tenant.semaphore_project is not None
+                        output = await semaphore_client_from_db(poll_db).get_task_output(
+                            run.tenant.semaphore_project.semaphore_project_id, run.semaphore_task_id
+                        )
+                        new_lines = output[last_lines:]
+                        last_lines = len(output)
+                        data = {
+                            "run": _run_payload(run),
+                            "remote": {"id": remote.get("id"), "status": remote.get("status")},
+                            "lines": new_lines,
+                        }
+                        yield f"event: update\ndata: {json.dumps(data, default=str, ensure_ascii=False)}\n\n"
+                        if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED}:
+                            yield "event: complete\ndata: {}\n\n"
+                            return
+                    except (HTTPException, SemaphoreError, RuntimeError) as exc:
+                        yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+                        return
             await asyncio.sleep(2)
 
     return StreamingResponse(

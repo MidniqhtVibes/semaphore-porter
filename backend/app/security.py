@@ -15,6 +15,14 @@ from app.models import PortalSession, User, utcnow
 
 
 SESSION_COOKIE = "portal_session"
+
+
+def session_cookie_name() -> str:
+    return "semaporter_demo_session" if get_settings().demo_mode else SESSION_COOKIE
+
+
+def session_cookie_path() -> str:
+    return "/api/demo-instance" if get_settings().demo_mode else "/"
 password_hash = PasswordHash.recommended()
 
 

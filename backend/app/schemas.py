@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, StringConstraints, field_validator, model_validator
 
 from app.models import RuleType
 
@@ -40,7 +40,43 @@ class PasswordChangeRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=512)
 
 
-class UserCreate(UsernameFields):
+LabelColor = Literal["slate", "blue", "violet", "green", "amber", "rose"]
+AccountTag = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32, pattern=r"^[^\x00-\x1f\x7f]+$")]
+
+
+def unique_tags(values):
+    if values is None:
+        return None
+    seen, result = set(), []
+    for value in values:
+        if value.casefold() not in seen:
+            seen.add(value.casefold())
+            result.append(value)
+    return result
+
+
+class AccountLabels(BaseModel):
+    color: LabelColor = "slate"
+    tags: list[AccountTag] = Field(default_factory=list, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, values):
+        return unique_tags(values)
+
+
+class AccountLabelsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    color: LabelColor | None = None
+    tags: list[AccountTag] | None = Field(default=None, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, values):
+        return unique_tags(values)
+
+
+class UserCreate(UsernameFields, AccountLabels):
     email: EmailStr
     display_name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=512)
@@ -48,7 +84,7 @@ class UserCreate(UsernameFields):
     must_change_password: bool = True
 
 
-class UserUpdate(UsernameFields):
+class UserUpdate(UsernameFields, AccountLabelsUpdate):
     display_name: str | None = Field(default=None, min_length=2, max_length=160)
     is_active: bool | None = None
     role_codes: list[str] | None = None
@@ -59,7 +95,7 @@ class PasswordReset(BaseModel):
     must_change_password: bool = True
 
 
-class GroupCreate(BaseModel):
+class GroupCreate(AccountLabels):
     name: str = Field(min_length=2, max_length=120)
     description: str = Field(default="", max_length=500)
 

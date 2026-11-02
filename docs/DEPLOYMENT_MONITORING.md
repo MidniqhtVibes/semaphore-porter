@@ -2,6 +2,19 @@
 
 Unter **Arbeitsbereich → Überwachung** stehen jetzt Live-Deployments und die bisherige Portal-Task-Historie. Die Ansicht ist Systemadmins vorbehalten.
 
+## Einrichtung im Überblick
+
+Die neue Oberfläche zeigt drei Schritte: **Quelle anlegen → Lokal erfassen → Status übertragen**. Das Monitoring bleibt optional; ein Update installiert oder startet keine Hostdienste.
+
+1. Frontend und Backend gemeinsam aktualisieren. Die Datenbankmigration läuft über den bestehenden Backend-Start.
+2. Unter **Monitoring-Quellen und Einrichtung** eine Quelle je Deployment-Zielhost anlegen, Token sichern und beide Skripte herunterladen.
+3. Auf dem Zielhost die root-eigenen Skripte, eine geschützte Statusablage und ein Dienstkonto ohne Anmeldung, Docker-Gruppe und sudo einrichten. Dieser Schritt wird manuell ausgeführt, nicht vom Portal.
+4. Exporter als kurzen lokalen Dienst ohne Netzwerk/Token starten: Lifecycle-Dateien und Docker-Zustände werden gelesen und atomar als `snapshot.json` geschrieben.
+5. Sender als Dienstkonto starten: nur Statusdatei und private Token-Credential lesen und über die konfigurierte HTTPS-Adresse an Semaporter übertragen. URL und Token-Dateipfad gehören ausschließlich zu diesem Dienst.
+6. Zuerst Exporter und Sender einzeln testen, Rechte und HTTPS prüfen, anschließend Export-Timer und Sender automatisch starten lassen. Neue Meldungen erscheinen nach etwa 15–30 Sekunden. Nach mehr als 90 Sekunden ohne neue Erfassung wird die Anzeige unbekannt.
+
+Die folgenden Abschnitte erklären Daten, Rechte und Funktionsprüfung im Detail. Die konkreten Server-Dienstdateien bleiben entsprechend der Vorgabe im Chat; das Repository enthält keine zusätzlichen Deployment-Dateien dafür.
+
 ## Datenquelle und Umfang
 
 Der Semaphore-Stack schreibt pro Deployment auf dem **Deployment-Zielhost** unter `/opt/semaphore-deployments/<deployment_id>/`:

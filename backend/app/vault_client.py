@@ -5,6 +5,7 @@ from typing import Any
 from urllib.parse import quote, urlsplit
 
 import httpx
+from app.integration_http import integration_client
 
 from app.config import get_settings
 
@@ -55,7 +56,7 @@ class VaultClient:
         if self.token:
             headers["X-Vault-Token"] = self.token
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify, follow_redirects=False) as client:
+            async with integration_client("vault", timeout=self.timeout, verify=self.verify, follow_redirects=False) as client:
                 response = await client.request(method, self.base + quote(path, safe="/"), headers=headers, json=data, params=params)
         except httpx.TransportError as exc:
             raise VaultError("Vault ist nicht erreichbar; das Schreibergebnis muss gegebenenfalls geprüft werden.", uncertain=writing) from exc

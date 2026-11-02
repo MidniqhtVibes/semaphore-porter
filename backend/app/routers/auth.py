@@ -12,7 +12,8 @@ from app.dependencies import CurrentUser, Db
 from app.models import LoginAttempt, PortalSession, User, utcnow
 from app.schemas import LoginRequest, PasswordChangeRequest
 from app.security import (
-    SESSION_COOKIE,
+    session_cookie_name,
+    session_cookie_path,
     create_session,
     digest,
     hash_password,
@@ -71,13 +72,13 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Db) -
     record_audit(db, "login", actor=user, request=request)
     db.commit()
     response.set_cookie(
-        SESSION_COOKIE,
+        session_cookie_name(),
         token,
         max_age=settings.portal_session_hours * 3600,
         httponly=True,
         secure=settings.portal_cookie_secure,
         samesite="lax",
-        path="/",
+        path=session_cookie_path(),
     )
     return {"user": _user_payload(user), "csrf_token": csrf}
 
@@ -85,9 +86,9 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Db) -
 @router.post("/logout")
 def logout(request: Request, response: Response, db: Db, user: CurrentUser) -> dict[str, str]:
     record_audit(db, "logout", actor=user, request=request)
-    revoke_session(db, request.cookies.get(SESSION_COOKIE))
+    revoke_session(db, request.cookies.get(session_cookie_name()))
     db.commit()
-    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="lax")
+    response.delete_cookie(session_cookie_name(), path=session_cookie_path(), httponly=True, samesite="lax")
     return {"message": "Abgemeldet."}
 
 

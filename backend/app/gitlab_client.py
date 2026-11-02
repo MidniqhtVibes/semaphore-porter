@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import quote, urlsplit
 
 import httpx
+from app.integration_http import integration_client
 
 from app.config import get_settings
 
@@ -58,7 +59,7 @@ class GitLabClient:
 
     async def request(self, method: str, path: str, *, params=None, data=None, absence_ok=False):
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify, follow_redirects=False, trust_env=False) as client:
+            async with integration_client("gitlab", timeout=self.timeout, verify=self.verify, follow_redirects=False, trust_env=False) as client:
                 async with client.stream(method, self.base + path, params=params, json=data,
                         headers={"PRIVATE-TOKEN": self.config["token"], "Accept": "application/json"}) as response:
                     if absence_ok and response.status_code == 404:

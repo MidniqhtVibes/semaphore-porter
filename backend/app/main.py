@@ -8,11 +8,13 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.routers import admin, auth, portal, projects, vault, gitlab, credentials, monitoring
-from app.security import SESSION_COOKIE, get_session, verify_csrf
+from app.routers import admin, auth, portal, projects, vault, gitlab, credentials, monitoring, demo
+from app.security import session_cookie_name, get_session, verify_csrf
 
 
 settings = get_settings()
+
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
@@ -31,9 +33,15 @@ async def validation_error(request: Request, exc: RequestValidationError):
 
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
+    settings = get_settings()
+    path = request.url.path.removeprefix(request.scope.get("root_path", ""))
+    # The mounted application owns its session and CSRF checks. Never resolve
+    # its cookies against the production database in this outer middleware.
+    if not settings.demo_mode and path.startswith("/api/demo-instance/"):
+        return await call_next(request)
     unsafe = request.method not in {"GET", "HEAD", "OPTIONS"}
-    csrf_exempt = request.url.path == "/api/auth/login"
-    machine_report = request.url.path == "/api/monitoring/report" and request.method == "POST"
+    csrf_exempt = path == "/api/auth/login" or (settings.demo_mode and path == "/api/demo/login")
+    machine_report = path == "/api/monitoring/report" and request.method == "POST"
     if unsafe and csrf_exempt:
         origin = request.headers.get("origin")
         if origin:
@@ -44,7 +52,7 @@ async def security_middleware(request: Request, call_next):
                 return JSONResponse(status_code=403, content={"detail": "Fremder Anfrageursprung abgelehnt."})
     if unsafe and not csrf_exempt and not machine_report:
         with SessionLocal() as db:
-            portal_session = get_session(db, request.cookies.get(SESSION_COOKIE))
+            portal_session = get_session(db, request.cookies.get(session_cookie_name()))
             if portal_session is None:
                 return JSONResponse(status_code=401, content={"detail": "Anmeldung erforderlich."})
             if not verify_csrf(portal_session, request.headers.get("x-csrf-token")):
@@ -59,6 +67,9 @@ async def security_middleware(request: Request, call_next):
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
+    if settings.demo_mode:
+        response.headers["X-Semaporter-Mode"] = "demo"
+        response.headers["Cache-Control"] = "no-store"
     if settings.portal_cookie_secure:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -79,4 +90,16 @@ app.include_router(vault.router, prefix="/api")
 app.include_router(gitlab.router, prefix="/api")
 app.include_router(credentials.router, prefix="/api")
 app.include_router(monitoring.router, prefix="/api")
+
+app.include_router(demo.router, prefix="/api")
+
+if settings.demo_enabled:
+    from app.demo.application import DemoApplication
+    demo_app = FastAPI(title="Semaporter Demo", docs_url=None, openapi_url=None)
+    demo_app.add_exception_handler(RequestValidationError, validation_error)
+    demo_app.middleware("http")(security_middleware)
+    for module in (auth, admin, portal, projects, vault, gitlab, credentials, monitoring, demo):
+        demo_app.include_router(module.router, prefix="/api")
+    demo_app.get("/api/health")(health)
+    app.mount("/api/demo-instance", DemoApplication(demo_app, settings))
 

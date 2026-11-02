@@ -7,19 +7,20 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
-from app.security import SESSION_COOKIE, get_session, user_has_role
+from app.security import session_cookie_name, get_session, user_has_role
 
 
 Db = Annotated[Session, Depends(get_db)]
 
 
 def current_user(request: Request, db: Db) -> User:
-    portal_session = get_session(db, request.cookies.get(SESSION_COOKIE))
+    portal_session = get_session(db, request.cookies.get(session_cookie_name()))
     if portal_session is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Anmeldung erforderlich.")
     request.state.portal_session = portal_session
     request.state.user = portal_session.user
-    if portal_session.user.must_change_password and request.url.path not in {
+    path = request.url.path.removeprefix(request.scope.get("root_path", ""))
+    if portal_session.user.must_change_password and path not in {
         "/api/auth/me", "/api/auth/csrf", "/api/auth/password", "/api/auth/logout"
     }:
         raise HTTPException(status_code=403, detail="Bitte zuerst das Passwort ändern.")

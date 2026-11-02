@@ -211,6 +211,10 @@ def deployment_status(item, stale, now):
 
 @router.get("/admin/deployments")
 def deployments(response: Response, db: Db, admin: SystemAdmin):
+    from app.config import get_settings
+    if get_settings().demo_mode:
+        from app.demo.simulator import monitoring
+        monitoring(db)
     response.headers["Cache-Control"] = "no-store"
     now = int(utcnow().timestamp())
     tenants = {t.tenant_slug: t for t in db.scalars(select(Tenant))}

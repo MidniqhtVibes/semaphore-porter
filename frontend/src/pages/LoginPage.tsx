@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { LockKeyhole, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { useAuth } from '../auth'
+import { useRuntime } from '../demo/runtime'
 import { ApiError } from '../api'
 import { Button, Notice } from '../components/ui'
 import { BrandMark } from '../components/BrandMark'
@@ -23,6 +24,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) })
+  const runtime=useRuntime()
   const submit = async (values: FormData) => {
     setError('')
     try {
@@ -37,7 +39,7 @@ export function LoginPage() {
       <label className="field"><span className="field-label">Benutzername oder E-Mail-Adresse</span><div className="input-icon"><UserRound size={17}/><input autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus {...register('identifier')} placeholder="benutzername oder name@unternehmen.de"/></div>{errors.identifier && <span className="field-error">{errors.identifier.message}</span>}</label>
       <label className="field"><span className="field-label">Passwort</span><div className="input-icon"><LockKeyhole size={17}/><input type="password" autoComplete="current-password" {...register('password')}/></div>{errors.password && <span className="field-error">{errors.password.message}</span>}</label>
       <Button type="submit" loading={isSubmitting}>Sicher anmelden</Button><p className="login-note">Bei wiederholten Fehlversuchen wird die Anmeldung vorübergehend begrenzt.</p>
-    </form></section>
+    </form>{runtime.demo_available&&<a className="button button-secondary" href="/demo/">{runtime.mode==='demo'?'Zur Demo-Rollenauswahl':'Mit Beispieldaten ausprobieren'}</a>}</section>
     <SiteFooter/>
   </div>
 }

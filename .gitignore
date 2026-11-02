@@ -15,9 +15,46 @@ htmlcov/
 coverage/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.benchmarks/
+
+# Tests and development-only dependencies (kept locally)
+/backend/tests/
+/backend/requirements-dev.txt
+/frontend/src/test/
+/frontend/tests/
+/frontend/e2e/
+__tests__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
+
+# Test reports and browser-test output
+test-results/
+playwright-report/
+blob-report/
+.nyc_output/
+coverage.xml
+junit.xml
+
+# Supplementary documentation and offline maintenance tools
+# Keep README, changelog, CI, Docker/build files, migrations and runtime assets.
+/docs/
+/tools/
 
 # Dependencies and generated builds
 node_modules/
+.npm/
+.vite/
+.vitest/
+.eslintcache
 *.tsbuildinfo
 dist/
 build/
@@ -43,3 +80,17 @@ präsentieren/
 *.log
 .vscode/
 .idea/
+
+# Local release copies and temporary editing files
+/release/
+/releases/
+/Semaporter-Upload-*/
+/Semaporter-*.zip
+/Release-Info.txt
+/SHA256-Dateien.txt
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Ignore rules do not untrack files already committed to Git.

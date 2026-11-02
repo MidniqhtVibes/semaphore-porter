@@ -1,5 +1,12 @@
 # Änderungen
 
+## Benutzerverwaltung und Monitoring-Oberfläche – 02.11.2026
+
+- Durchsuchbare Benutzer-/Gruppenauswahl mit getrennten Detailbereichen für Kontodaten, Rollen, Mitgliedschaften und Sicherheit; Filter nach Rolle, Status und Tags.
+- Gemeinsam gespeicherte Farben und freie Tags je Benutzer/Gruppe. Additive Migration `20261102_0008`; keine Änderung an Rollen oder Freigaben. Einrichtung unter [Benutzerverwaltung](docs/BENUTZERVERWALTUNG.md).
+- Monitoring-Einrichtung als drei verständliche Schritte, einheitliche Download-Schaltflächen und getrennte Quellkarten mit Status und Token-Aktionen.
+- [Integrierte Demo](docs/DEMO.md) unter `/demo/`: eigene In-Memory-Datenbank, separate Sitzungen, vier Beispielrollen und lokale Simulatoren für Semaphore, Vault, SSH-Zugangsprofile, GitLab und Monitoring. Keine zusätzlichen Container, Ports oder Hostdienste. Keycloak bleibt geplant; keine Serverzugriffe oder Deployment-Artefakte ergänzt.
+
 ## Live-Deploymentüberwachung – 29.10.2026
 
 - Überwachung mit regelmäßig aktualisierter Hostansicht, sekundengenauem TTL-Countdown, Filtern und Deployment-Metadaten; auch für direkt in Semaphore gestartete Deployments.

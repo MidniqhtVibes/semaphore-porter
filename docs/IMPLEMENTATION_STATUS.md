@@ -1,5 +1,9 @@
 # Implementierungs- und Abnahmestatus
 
+Ergänzung 02.11.2026: Benutzerverwaltung mit durchsuchbarer Auswahl, getrennten Detailbereichen, Farben und Tags für Benutzer/Gruppen sowie Migration `20261102_0008`; Monitoring-Einrichtung mit klaren Download- und Quellkarten. Einrichtung unter [BENUTZERVERWALTUNG.md](BENUTZERVERWALTUNG.md).
+
+Die [integrierte Demo](DEMO.md) ist unter `/demo/` im vorhandenen Frontend/Backend verfügbar. Sie verwendet eigene flüchtige Daten und simulierte Integrationen, ohne zusätzliche Container, Ports oder Hostdienste. Keycloak bleibt unter [DEMO_UND_KEYCLOAK_PLAN.md](DEMO_UND_KEYCLOAK_PLAN.md) geplant. Es wurden keine Serverzugriffe oder Deployments vorgenommen.
+
 Ergänzung 29.10.2026: Live-Deploymentüberwachung mit getrenntem lokalem Status-Exporter und Sender ohne Docker-Rechte, privaten Token-Dateien, echten Lifecycle-Ablaufzeiten, Containerzuständen und veralteten/teilweise erfassten Snapshots. Migration `20261029_0007`. Linux-Dateirechte und ein echter unprivilegierter Senderprozess wurden im isolierten lokalen Testcontainer geprüft. Einrichtung, systemd-Isolation und verbleibende Abnahme am echten Zielhost: [DEPLOYMENT_MONITORING.md](DEPLOYMENT_MONITORING.md). Keine Serverzugriffe vorgenommen. Ohne eingerichtete Quelle werden noch keine Host-Deployments angezeigt; die bisherige Portal-Task-Historie bleibt verfügbar.
 
 Ergänzung 29.10.2026: Zentrale SSH-Zugangsprofile mit eigenem Vault-Lesezugang, Host-/Git-Zielprüfung, versionierter Wizard-Zuordnung, automatischer Übertragung nach dem Restore und bestätigter Rotation je Projekt. Einrichtung: [SSH_ZUGANGSPROFILE.md](SSH_ZUGANGSPROFILE.md). Private SSH-Inhalte werden nicht im Semaporter gespeichert; die benötigten Projektkopien liegen im Semaphore-Key-Store. Der bestehende Tenant-Vault-Schreibzugang bleibt unverändert.

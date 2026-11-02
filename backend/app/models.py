@@ -81,6 +81,8 @@ class User(Base, TimestampMixin):
     username: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(160))
     password_hash: Mapped[str] = mapped_column(String(512))
+    color: Mapped[str] = mapped_column(String(16), default="slate", server_default="slate", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -113,6 +115,8 @@ class Group(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(120), unique=True)
     description: Mapped[str] = mapped_column(String(500), default="")
+    color: Mapped[str] = mapped_column(String(16), default="slate", server_default="slate", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     memberships: Mapped[list[GroupMembership]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
 

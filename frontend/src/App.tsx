@@ -4,6 +4,8 @@ import { useAuth } from './auth'
 import { Layout } from './components/Layout'
 import { Loading, Notice } from './components/ui'
 import { LoginPage } from './pages/LoginPage'
+import { useRuntime } from './demo/runtime'
+const DemoPage=lazy(()=>import('./demo/DemoPage'))
 import { AdminDashboardPage } from './pages/admin/DashboardPage'
 import { ApplicationsPage, PresetsPage, ProjectTemplatesPage } from './pages/admin/CatalogPages'
 import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPages'
@@ -49,7 +51,9 @@ function LoginRoute(){const {user,loading,isAdmin}=useAuth();if(loading)return <
 function StudioRoute(){return <ErrorBoundary><Suspense fallback={<div className="app-loading"><Loading label="Designstudio wird geladen …"/></div>}><DesignStudioPage/></Suspense></ErrorBoundary>}
 function DeferredPage({children}:{children:ReactNode}){return <Suspense fallback={<Loading/>}>{children}</Suspense>}
 
-export function App(){return <Routes>
+export function App(){const runtime=useRuntime();return <Routes>
+  {runtime.mode==='demo'&&<Route path="/" element={<ErrorBoundary><DeferredPage><DemoPage/></DeferredPage></ErrorBoundary>}/>}
+  <Route path="/demo" element={<ErrorBoundary><DeferredPage><DemoPage/></DeferredPage></ErrorBoundary>}/>
   <Route path="/impressum" element={<LegalPage page="imprint"/>}/>
   <Route path="/datenschutz" element={<LegalPage page="privacy"/>}/>
   <Route path="/login" element={<LoginRoute/>}/>
@@ -75,6 +79,6 @@ export function App(){return <Routes>
     <Route path="designs" element={<DesignsPage/>}/>
     <Route index element={<PortalDashboardPage/>}/><Route path="projekte" element={<MyProjectsPage/>}/><Route path="projekte/:tenantId" element={<ProjectDetailPage/>}/><Route path="projekte/:tenantId/tasks/:taskId" element={<TaskStartPage/>}/><Route path="laufende-tasks" element={<RunsPage runningOnly/>}/><Route path="historie" element={<RunsPage/>}/><Route path="runs/:runId" element={<RunDetailPage/>}/><Route path="konto" element={<AccountPage/>}/>
   </Route></Route>
-  <Route path="*" element={<Navigate to="/portal" replace/>}/>
+  <Route path="*" element={<Navigate to={runtime.mode==='demo'?'/':'/portal'} replace/>}/>
   </Routes>}
 

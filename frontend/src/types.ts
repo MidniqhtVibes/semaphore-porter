@@ -3,6 +3,8 @@ export type User = {
   email: string
   username?: string | null
   display_name: string
+  color?: 'slate'|'blue'|'violet'|'green'|'amber'|'rose'
+  tags?: string[]
   is_active: boolean
   must_change_password: boolean
   roles: string[]

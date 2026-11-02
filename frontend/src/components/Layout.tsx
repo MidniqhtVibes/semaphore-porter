@@ -2,17 +2,18 @@ import { useTheme } from '../designs/ThemeProvider'
 import { DEFAULT_COPY } from '../designs/themes'
 import { useId, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import {ChevronDown, ChevronRight, ClipboardList, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
+import {ChevronDown, ChevronRight, ClipboardList, FlaskConical, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
 import {navigationContext} from './navigation'
 import {GroupedNavigation} from './GroupedNavigation'
 import { useAuth } from '../auth'
+import { useRuntime } from '../demo/runtime'
 import { Button } from './ui'
 import { BrandMark } from './BrandMark'
 import { SiteFooter } from './SiteFooter'
 import { DoomEasterEgg } from '../hooks/useDoomEasterEgg'
 
 export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children: ReactNode }) {
-  const {active}=useTheme()
+  const runtime=useRuntime(); const {active}=useTheme()
   const copy={...DEFAULT_COPY,...active.copy}
   const [open, setOpen] = useState(false)
   const menuId = useId()
@@ -26,6 +27,7 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
       <div className="mode-label">{mode === 'admin' ? 'ADMINPORTAL' : 'BENUTZERPORTAL'}</div>
       <GroupedNavigation mode={mode} pathname={location.pathname} renderItem={([to, label, Icon]) => <NavLink key={to} to={to} end={to === `/${mode}`} onClick={() => setOpen(false)} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><Icon size={18}/><span>{label}</span></NavLink>}/>
       <div className="sidebar-bottom">
+        {runtime.demo_available&&<a href="/demo/" className="nav-item"><FlaskConical size={18}/>Demo öffnen</a>}
         {mode === 'admin' && <NavLink to="/portal" className="nav-item"><PanelLeftClose size={18}/>Benutzeransicht</NavLink>}
         {mode === 'portal' && isAdmin && <NavLink to="/admin" className="nav-item"><ShieldCheck size={18}/>Administration</NavLink>}
       </div>
