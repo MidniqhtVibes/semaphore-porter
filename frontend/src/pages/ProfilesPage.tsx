@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, Mail, MapPin, Pencil, Phone, Search, Users } from 'lucide-react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Briefcase, ChevronLeft, ChevronRight, Mail, MapPin, Pencil, Phone, Search, Users } from 'lucide-react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, Button, Card, Empty, Field, Loading, Modal, Notice, PageHeader } from '../components/ui'
@@ -13,14 +13,26 @@ function useProfileBase(){return useLocation().pathname.startsWith('/admin')?'/a
 type Directory={items:PersonProfile[];total:number;offset:number;limit:number}
 const labels=(values:string[])=>values.length?<div className="badge-row">{values.map(value=><span className="account-tag" key={value}>{value}</span>)}</div>:<p className="subtle">Noch nicht angegeben.</p>
 
+function PeoplePagination({offset,limit,total,loading,onChange}:{offset:number;limit:number;total:number;loading:boolean;onChange:(offset:number)=>void}){
+  const pages=Math.max(1,Math.ceil(total/limit)),page=Math.floor(offset/limit)+1
+  return <div className="people-pagination">
+    <span className="people-pagination-summary">{total===0?'0 Personen':total===1?'1 Person':`${offset+1}–${Math.min(offset+limit,total)} von ${total} Personen`}</span>
+    {(pages>1||offset>0)&&<nav className="people-pagination-controls" aria-label="Personenseiten">
+      <Button variant="secondary" disabled={loading||offset===0} onClick={()=>onChange(Math.max(0,offset-limit))}><ChevronLeft size={16} aria-hidden="true"/>Zurück</Button>
+      <span className="people-pagination-page" aria-live="polite">Seite {page} von {pages}</span>
+      <Button variant="secondary" disabled={loading||offset+limit>=total} onClick={()=>onChange(offset+limit)}>Weiter<ChevronRight size={16} aria-hidden="true"/></Button>
+    </nav>}
+  </div>
+}
+
 export function PeoplePage(){
   const base=useProfileBase(),[q,setQ]=useState(''),[team,setTeam]=useState(''),[offset,setOffset]=useState(0)
   const teams=useQuery({queryKey:['profile-teams'],queryFn:()=>api<TeamProfile[]>('/profiles/teams')})
-  const people=useQuery({queryKey:['profile-directory',q,team,offset],queryFn:()=>api<Directory>(`/profiles?q=${encodeURIComponent(q)}&offset=${offset}&limit=24${team?`&team_id=${team}`:''}`)})
+  const people=useQuery({queryKey:['profile-directory',q,team,offset],queryFn:()=>api<Directory>(`/profiles?q=${encodeURIComponent(q)}&offset=${offset}&limit=24${team?`&team_id=${team}`:''}`),placeholderData:keepPreviousData})
   return <><PageHeader title="Personen & Teams" description="Profile, Kenntnisse und Zuständigkeiten aller aktiven Personen."/>
-    <Card><div className="toolbar"><Field label="Personen oder Zuständigkeiten suchen"><div className="input-icon"><Search size={17}/><input value={q} onChange={event=>{setQ(event.target.value);setOffset(0)}} placeholder="Name, Kenntnisse, Team, Aufgabenbereich …"/></div></Field><Field label="Nach Team filtern"><select value={team} onChange={event=>{setTeam(event.target.value);setOffset(0)}}><option value="">Alle Personen</option>{teams.data?.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field></div></Card>
+    <Card><div className="people-filters"><Field label="Personen oder Zuständigkeiten suchen"><div className="input-icon"><Search size={17}/><input type="search" maxLength={160} value={q} onChange={event=>{setQ(event.target.value);setOffset(0)}} placeholder="Name, Kenntnisse, Team, Aufgabenbereich …"/></div></Field><Field label="Nach Team filtern"><select value={team} onChange={event=>{setTeam(event.target.value);setOffset(0)}}><option value="">Alle Personen</option>{teams.data?.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field></div></Card>
     {(people.error||teams.error)&&<Notice type="error">{people.error?.message||teams.error?.message}</Notice>}
-    {people.isLoading?<Loading/>:people.data?.items?.length?<><div className="people-grid">{people.data.items.map(person=><Link key={person.id} className="card person-card" to={`${base}/personen/${person.id}`}><PersonAvatar person={person} large/><div><h2>{person.display_name}</h2><p>{person.position||'Profil ansehen'}</p><span className="subtle">{person.teams.map(item=>item.name).join(' · ')||person.department}</span></div>{labels([...new Set([...person.team_responsibilities,...person.responsibilities])].slice(0,4))}</Link>)}</div><div className="toolbar"><span>{offset+1}–{Math.min(offset+24,people.data.total)} von {people.data.total} Personen</span><Button variant="secondary" disabled={!offset} onClick={()=>setOffset(Math.max(0,offset-24))}>Zurück</Button><Button variant="secondary" disabled={offset+24>=people.data.total} onClick={()=>setOffset(offset+24)}>Weiter</Button></div></>:!people.error&&<Empty title="Keine passenden Profile" text="Suche oder Teamfilter anpassen."/>}
+    {people.isLoading?<Loading/>:people.data?.items?.length?<><div className="people-grid" aria-busy={people.isFetching}>{people.data.items.map(person=><Link key={person.id} className="card person-card" to={`${base}/personen/${person.id}`}><PersonAvatar person={person} large/><div><h2>{person.display_name}</h2><p>{person.position||'Profil ansehen'}</p><span className="subtle">{person.teams.map(item=>item.name).join(' · ')||person.department}</span></div>{labels([...new Set([...person.team_responsibilities,...person.responsibilities])].slice(0,4))}</Link>)}</div><PeoplePagination offset={people.data.offset} limit={people.data.limit} total={people.data.total} loading={people.isFetching} onChange={setOffset}/></>:!people.error&&<Empty title="Keine passenden Profile" text="Suche oder Teamfilter anpassen."/>}
     <h2>Teams</h2><div className="people-grid">{teams.data?.map(item=><Link className="card team-card" key={item.id} to={`${base}/teams/${item.id}`}><Users size={24}/><h3>{item.name}</h3><p>{item.description||'Keine Beschreibung hinterlegt.'}</p><Badge>{item.member_count} Mitglieder</Badge>{labels(item.responsibilities)}</Link>)}</div>{teams.data?.length===0&&<p className="subtle">Noch keine Gruppe als Team markiert. Systemadmins können bestehende Gruppen unter Benutzer & Gruppen dafür freigeben.</p>}
   </>
 }
@@ -29,12 +41,12 @@ export function TeamPage(){
   const {teamId}=useParams(),base=useProfileBase()
   const teams=useQuery({queryKey:['profile-teams'],queryFn:()=>api<TeamProfile[]>('/profiles/teams')})
   const [offset,setOffset]=useState(0)
-  const people=useQuery({queryKey:['team-people',teamId,offset],queryFn:()=>api<Directory>(`/profiles?team_id=${teamId}&offset=${offset}&limit=60`),enabled:Boolean(teamId)})
+  const people=useQuery({queryKey:['team-people',teamId,offset],queryFn:()=>api<Directory>(`/profiles?team_id=${teamId}&offset=${offset}&limit=60`),enabled:Boolean(teamId),placeholderData:keepPreviousData})
   const team=teams.data?.find(item=>item.id===teamId)
   if(teams.isLoading)return <Loading/>
   if(teams.error||people.error)return <Notice type="error">{teams.error?.message||people.error?.message}</Notice>
   if(!team)return <Empty title="Team nicht gefunden" text="Die Gruppe ist nicht als Team sichtbar."/>
-  return <><PageHeader title={team.name} description={team.description} actions={<Link className="button button-secondary" to={`${base}/personen`}>Alle Personen & Teams</Link>}/><Card><h2>Gemeinsame Zuständigkeiten</h2>{labels(team.responsibilities)}<p className="profile-text">{team.responsibility_notes}</p></Card><h2>{team.member_count} Teammitglieder</h2>{people.isLoading?<Loading/>:<div className="people-grid">{people.data?.items.map(person=><Link className="card person-card" key={person.id} to={`${base}/personen/${person.id}`}><PersonAvatar person={person}/><div><h3>{person.display_name}</h3><p>{person.position||'Profil ansehen'}</p></div></Link>)}</div>}<div className="toolbar"><Button variant="secondary" disabled={!offset} onClick={()=>setOffset(Math.max(0,offset-60))}>Zurück</Button><Button variant="secondary" disabled={!people.data||offset+60>=people.data.total} onClick={()=>setOffset(offset+60)}>Weiter</Button></div></>
+  return <><PageHeader title={team.name} description={team.description} actions={<Link className="button button-secondary" to={`${base}/personen`}>Alle Personen & Teams</Link>}/><Card><h2>Gemeinsame Zuständigkeiten</h2>{labels(team.responsibilities)}<p className="profile-text">{team.responsibility_notes}</p></Card><h2>{team.member_count} {team.member_count===1?'Teammitglied':'Teammitglieder'}</h2>{people.isLoading?<Loading/>:<div className="people-grid" aria-busy={people.isFetching}>{people.data?.items.map(person=><Link className="card person-card" key={person.id} to={`${base}/personen/${person.id}`}><PersonAvatar person={person}/><div><h3>{person.display_name}</h3><p>{person.position||'Profil ansehen'}</p></div></Link>)}</div>}{people.data&&<PeoplePagination offset={people.data.offset} limit={people.data.limit} total={people.data.total} loading={people.isFetching} onChange={setOffset}/>}</>
 }
 
 export function PersonPage(){
@@ -52,7 +64,7 @@ function ProfileView({personId}:{personId:string}){
   const query=useQuery({queryKey:['person-profile',personId],queryFn:()=>api<PersonProfile>(`/profiles/${personId}`)})
   const invalidate=()=>{void qc.invalidateQueries({queryKey:['person-profile']});void qc.invalidateQueries({queryKey:['profile-directory']});void qc.invalidateQueries({queryKey:['team-people']});void qc.invalidateQueries({queryKey:['admin-users']})}
   const upload=useMutation({mutationFn:async(file:File)=>{
-    if(file.size>512*1024)throw new Error('Profilbilder dürfen höchstens 512 KB groß sein.')
+    if(file.size>5*1024*1024)throw new Error('Profilbilder dürfen höchstens 5 MB groß sein.')
     if(!['image/png','image/jpeg','image/webp','image/gif'].includes(file.type))throw new Error('PNG, JPEG, WebP oder GIF verwenden.')
     const data=new FormData();data.append('file',file)
     return api<{avatar_version:string}>('/profiles/me/avatar',{method:'POST',body:data})
@@ -65,7 +77,7 @@ function ProfileView({personId}:{personId:string}){
   return <div className="person-profile">
     <Card className="person-profile-hero" data-color={person.profile_color}><div className="person-profile-heading"><PersonAvatar person={person} large/><div><h2>{person.display_name}</h2>{person.position&&<p><Briefcase size={16}/>{person.position}</p>}<span className="subtle">{[person.department,person.location].filter(Boolean).join(' · ')}</span>{!person.is_active&&<Badge tone="warning">Konto deaktiviert</Badge>}</div></div><div className="button-row">{own&&<Button variant="secondary" onClick={()=>setEditing(true)}><Pencil size={15}/>Persönliches Profil bearbeiten</Button>}{auth.isAdmin&&<Button variant="secondary" onClick={()=>setOrganization(true)}>Organisation bearbeiten</Button>}</div></Card>
     {imageError&&<Notice type="error">{imageError}</Notice>}
-    {own&&<Card><div className="card-heading"><div><h3>Profilbild</h3><p>PNG, JPEG, WebP oder animiertes GIF. Bis 512 KB und 1024 × 1024 Pixel; Animationen bis 120 Bilder und 16 Megapixel insgesamt.</p></div><div className="button-row"><Button variant="secondary" disabled={remove.isPending} loading={upload.isPending} onClick={()=>fileInput.current?.click()}>Bild hochladen</Button><Button variant="ghost" disabled={!person.avatar_version||upload.isPending} loading={remove.isPending} onClick={()=>remove.mutate()}>Bild entfernen</Button></div></div><input className="visually-hidden" aria-label="Profilbild auswählen" ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)upload.mutate(file)}}/></Card>}
+    {own&&<Card><div className="card-heading"><div><h3>Profilbild</h3><p>PNG, JPEG, WebP oder animiertes GIF. Bis 5 MB und 1024 × 1024 Pixel; Animationen bis 120 Bilder und 16 Megapixel insgesamt.</p></div><div className="button-row"><Button variant="secondary" disabled={remove.isPending} loading={upload.isPending} onClick={()=>fileInput.current?.click()}>Bild hochladen</Button><Button variant="ghost" disabled={!person.avatar_version||upload.isPending} loading={remove.isPending} onClick={()=>remove.mutate()}>Bild entfernen</Button></div></div><input className="visually-hidden" aria-label="Profilbild auswählen" ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)upload.mutate(file)}}/></Card>}
     <div className="person-profile-columns"><div className="person-profile-column"><Card><h3>Über mich</h3><p className="profile-text">{person.bio||'Noch keine Beschreibung hinterlegt.'}</p><h3>Kenntnisse & Schwerpunkte</h3>{labels(person.skills)}</Card><Card><h3>Persönliche Zuständigkeiten</h3>{labels(person.responsibilities)}<p className="profile-text">{person.responsibility_notes}</p></Card></div><div className="person-profile-column"><Card><h3>Teams</h3>{person.teams.length?person.teams.map(team=><div className="person-team" key={team.id}><Link to={`${base}/teams/${team.id}`}>{team.name}</Link>{team.id===primary?.id&&<Badge tone="info">Hauptteam</Badge>}{labels(team.responsibilities)}{team.responsibility_notes&&<p className="profile-text">{team.responsibility_notes}</p>}</div>):<p className="subtle">Noch keinem Team zugeordnet.</p>}</Card><Card><h3>Kontakt & Organisation</h3><dl className="detail-list"><div><dt><Mail size={15}/>Geschäftliche E-Mail</dt><dd>{person.email}</dd></div>{person.phone&&<div><dt><Phone size={15}/>Telefon / Durchwahl</dt><dd>{person.phone}</dd></div>}{person.location&&<div><dt><MapPin size={15}/>Standort</dt><dd>{person.location}</dd></div>}</dl><p className="account-note">Profile sind für alle angemeldeten Personen sichtbar. Teamzuordnungen und organisatorische Angaben werden administrativ gepflegt.</p></Card></div></div>
     {editing&&<PersonalEditor person={person} onClose={()=>setEditing(false)} onSaved={value=>{auth.syncProfile(value);setEditing(false);invalidate()}}/>}
     {organization&&<OrganizationEditor person={person} onClose={()=>setOrganization(false)} onSaved={()=>{setOrganization(false);invalidate()}}/>}

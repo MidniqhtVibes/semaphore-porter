@@ -15,7 +15,7 @@ Produktname, Oberfläche und neue Image-Namen lauten **Semaporter**. Für besteh
 | Automatisierung | Freigegebene Task Templates starten, Live-Ausgaben anzeigen, Ausführungen abbrechen und die Historie einsehen |
 | Parametersteuerung | Survey-Felder synchronisieren, Eingaben validieren und feste oder ausgeblendete Werte vorgeben |
 | Benutzer und Berechtigungen | Lokale Konten, Gruppen, Tenant-Mitgliedschaften und einzelne Task-Freigaben verwalten |
-| Personenprofile und Teams | Eigene Angaben und GIF-Profilbilder, gemeinsames Personenverzeichnis, optionale Teams aus Gruppen, geerbte und persönliche Zuständigkeiten; Organisation und Hauptteam administrativ pflegen |
+| Personenprofile und Teams | Eigene Angaben und GIF-Profilbilder bis 5 MB, gemeinsames Personenverzeichnis mit breiter Suche und Seitennavigation, optionale Teams aus Gruppen, geerbte und persönliche Zuständigkeiten; Organisation und Hauptteam administrativ pflegen |
 | Vault-Integration | Optional neue KV-v2-Secrets für Tenants anlegen und AppRole-Zugänge konfigurieren |
 | Registry-Zugänge | Je Anwendung ein Profil wählen oder neu erfassen; verschlüsselte Zugangswerte oder feste Vault-Referenzen in neue Tenant-Secrets übernehmen |
 | SSH-Zugangsprofile | Bestehende Host- und Git-Schlüssel aus Vault in neuen Tenant-Projekten wiederverwenden, Zuordnungen prüfen und Versionen gezielt aktualisieren |

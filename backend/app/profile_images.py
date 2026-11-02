@@ -6,7 +6,7 @@ browser decodes the image; these checks constrain format, dimensions and frames.
 import struct
 import zlib
 
-MAX_AVATAR_BYTES = 512 * 1024
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
 MAX_SIDE = 1024
 MAX_FRAMES = 120
 MAX_PIXELS = 16 * 1024 * 1024
@@ -19,7 +19,7 @@ def dimensions(width, height):
 
 def validate_avatar(data: bytes) -> str:
     if not data or len(data) > MAX_AVATAR_BYTES:
-        raise ValueError("Ein Profilbild darf höchstens 512 KB groß sein.")
+        raise ValueError("Ein Profilbild darf höchstens 5 MB groß sein.")
     try:
         if data.startswith(b"\x89PNG\r\n\x1a\n"):
             offset, count, seen_data = 8, 0, False

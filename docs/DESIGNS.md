@@ -20,9 +20,11 @@ Die Installation und Taskleistenverwaltung beschreibt auch [Microsoft Support](h
 
 ## Eigene Designs ohne Codeänderung
 
-1. Unter **Designs → JSON-Vorlage** eine Datei herunterladen oder das aktive Design exportieren.
+Die Seite zeigt das aktive Design separat. Die Auswahl lässt sich nach **Alle**, **Eigene** und **Standard** sowie **Hell/Dunkel** filtern. Pro Design steht **Anwenden** im Vordergrund; das Drei-Punkte-Menü enthält Bearbeiten/Als Vorlage, JSON-Export und Entfernen. Das aktive Design lässt sich außerdem direkt oben bearbeiten bzw. als Vorlage anpassen und exportieren.
+
+1. **Designs → Design importieren → Vorlage & Format → JSON-Vorlage** öffnen oder das aktive Design exportieren.
 2. ID, Namen und Farben anpassen.
-3. Die Datei unter **Eigenes Design verwenden** importieren. Sie wird als eigene Variante gespeichert und sofort aktiviert. Derselbe `id` aktualisiert einen vorhandenen Import.
+3. Unter **Design importieren** die JSON-Datei auswählen. Sie wird als eigene Variante gespeichert und sofort aktiviert. Die Auswahl wechselt zu **Eigene** und **Hell & Dunkel**, damit auch ein zur bisherigen Filterung unpassendes neues Design direkt sichtbar ist. Derselbe `id` aktualisiert einen vorhandenen Import.
 4. Die JSON-Datei kann an andere Installationen oder Kollegen verteilt und dort importiert werden.
 
 Beispiel:

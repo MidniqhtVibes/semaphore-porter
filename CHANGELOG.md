@@ -1,5 +1,18 @@
 # Änderungen
 
+## Aufgeräumte Designauswahl – 02.11.2026
+
+- Aktives Design separat anzeigen; Sammlung nach eigenen/Standarddesigns und Hell/Dunkel filtern. Kompaktere Vorschauen und zusätzliche Aktionen im Drei-Punkte-Menü statt ständig sichtbarer Bearbeiten-/Entfernen-Buttons.
+- JSON-Import bei Bedarf öffnen, Format-/Vorlagenhilfe einklappen und neue Importe direkt in der passenden Sammlung anzeigen. Bestehende Design-Dateien und Browserauswahl weiterverwenden.
+
+## Personenansicht und Profilbild-Uploads – 02.11.2026
+
+- Initialen bei vorhandenen Profilbildern vollständig ausblenden, damit transparente PNGs/GIFs keine Buchstaben im Hintergrund zeigen; Initialen weiterhin als Ersatz bei fehlendem oder nicht ladbarem Bild verwenden.
+
+- Profilbilder einschließlich GIFs bis 5 MB in Frontend und Backend zulassen; Hilfetexte und Größenfehler entsprechend aktualisiert.
+- Breite Personensuche mit responsiv angeordnetem Teamfilter sowie einheitliche Seitennavigation mit Pfeilen, Seitenzahl und Trefferanzahl für Personen und Teammitglieder. Bei einer einzigen Seite entfallen die Navigationsbuttons.
+- Beim Seitenwechsel bleiben Ergebnisse und Navigation während des Ladens sichtbar; weitere Seitenwechsel sind bis zum Abschluss gesperrt.
+
 ## Registry-Profile im Tenant-Ersteller – 02.11.2026
 
 - Mehrere interne Registries über anwendungsbezogene Profile verwalten: Zugang verschlüsselt erfassen, bisherige Portal-Werte übernehmen oder eine feste Vault-Version über einen separat konfigurierten Leser referenzieren.
