@@ -23,7 +23,7 @@ export function VaultWizard({plan,inputs,onChange,saved,progress,jobId,onResolve
       const state=progress?.objects[obj.path]?.state
       return <div className="vault-object" key={obj.path}><h4>{obj.id}</h4><p><code>{plan.kv_mount}/{obj.path}</code>{state&&<span> · {state==='created'?'Angelegt':state==='pending'?'Ausstehend':'Schreibergebnis prüfen'}</span>}</p>
         <div className="form-grid columns-2">{obj.fields.map(field=>{
-          if(field.source==='registry')return <p key={field.input_id}>{field.key}: zentraler Registry-Zugang</p>
+          if(field.source==='registry')return <p key={field.input_id}>{field.key}: {plan.registries?.some(item=>item.application_id===obj.id)?'ausgewähltes Registry-Profil':'bisheriger Registry-Zugang der Anwendung'}</p>
           const choice=inputs[field.input_id]||{mode:'manual' as const,value:''}
           return <div key={field.input_id}><Field label={`${obj.id}: ${field.key} – Quelle`}><select disabled={saved||disabled} value={choice.mode} onChange={e=>onChange({...inputs,[field.input_id]:{mode:e.target.value as 'manual'|'generate',value:''}})}><option value="manual">Vorhandenen Wert eingeben</option>{field.generate&&<option value="generate">Neuen Wert generieren lassen</option>}</select></Field>
             {choice.mode==='manual'&&!saved&&<Field label={`${obj.id}: ${field.key}`} help={field.hex?'Hex-Zeichenfolge, gerade Länge, mindestens 16 Zeichen.':`${field.min_length}–${field.max_length} Zeichen.`}><input disabled={disabled} type="password" autoComplete="new-password" value={choice.value||''} onChange={e=>onChange({...inputs,[field.input_id]:{mode:'manual',value:e.target.value}})}/></Field>}

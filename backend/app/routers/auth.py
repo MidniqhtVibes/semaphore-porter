@@ -31,6 +31,8 @@ def _user_payload(user: User) -> dict:
         "email": user.email,
         "username": user.username,
         "display_name": user.display_name,
+        "profile_color": user.profile_color,
+        "avatar_version": user.avatar_version,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
         "roles": [role.code for role in user.roles],

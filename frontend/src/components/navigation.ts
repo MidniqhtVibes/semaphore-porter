@@ -30,6 +30,7 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/admin/uebernahme', 'Versionen & Übernahme', Download],
   ] },
   { id: 'access', label: 'Zugriff', icon: ShieldCheck, items: [
+    ['/admin/personen', 'Personen & Teams', Users],
     ['/admin/benutzer', 'Benutzer & Gruppen', Users],
     ['/admin/berechtigungen', 'Berechtigungen', ShieldCheck],
     ['/admin/audit', 'Audit-Log', ScrollText],
@@ -37,6 +38,7 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
   { id: 'settings', label: 'Einstellungen', icon: Settings2, items: [
     ['/admin/designs', 'Designs', Palette],
     ['/admin/zugangsprofile', 'Zugangsprofile', ShieldCheck],
+    ['/admin/registries', 'Registry-Zugänge', PackageOpen],
   ], children: [
     { id: 'connections', label: 'Verbindungen', icon: ServerCog, items: [
       ['/admin/semaphore', 'Semaphore-Verbindung', ServerCog],
@@ -54,7 +56,8 @@ export const PORTAL_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/portal/historie', 'Task-Historie', FileClock],
   ] },
   { id: 'personal', label: 'Persönlich', icon: CircleUserRound, items: [
-    ['/portal/konto', 'Mein Konto', CircleUserRound],
+    ['/portal/konto', 'Mein Profil', CircleUserRound],
+    ['/portal/personen', 'Personen & Teams', Users],
     ['/portal/designs', 'Designs', Palette],
   ] },
 ]
@@ -64,13 +67,14 @@ export function navigationGroups(mode: NavigationMode) {
 }
 
 export function navigationContext(mode: NavigationMode, pathname: string) {
+  const navigationPath=pathname.replace(/^\/(admin|portal)\/teams\//,'/$1/personen/')
   const groups = navigationGroups(mode)
   const find = (branches: readonly NavigationGroup[], parents: NavigationGroup[] = []): { group: NavigationGroup; groups: NavigationGroup[]; label: string } | undefined => {
     for (const group of branches) {
       const path = [...parents, group]
       const nested = find(group.children || [], path)
       if (nested) return nested
-      const item = group.items.find(([to]) => pathname === to || to !== `/${mode}` && pathname.startsWith(`${to}/`))
+      const item = group.items.find(([to]) => navigationPath === to || to !== `/${mode}` && navigationPath.startsWith(`${to}/`))
       if (item) return { group: path[0], groups: path, label: item[1] }
     }
   }

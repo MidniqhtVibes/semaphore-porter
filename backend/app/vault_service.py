@@ -104,8 +104,9 @@ def prepare_plan(db: Session, draft: dict[str, Any], prepared: dict[str, Any]) -
                 continue
             fields = []
             for field in profile.fields:
-                if field.source == "registry" and not config.get("registry_passwords", {}).get(identifier):
-                    raise ValueError(f"{identifier}: Zentraler Registry-Zugang fehlt in der Vault-Konfiguration.")
+                selected_profile = (draft.get("registry_profiles") or {}).get(identifier)
+                if field.source == "registry" and selected_profile in {None, "legacy"} and not config.get("registry_passwords", {}).get(identifier):
+                    raise ValueError(f"{identifier}: Registry-Zugang fehlt. Im Tenant-Ersteller ein Registry-Profil auswählen oder neu anlegen.")
                 fields.append({**field.model_dump(), "input_id": f"{kind}:{identifier}.{field.key}"})
             objects.append({"kind": kind, "id": identifier,
                 "path": f"{root}/{'providers/' if kind == 'provider' else ''}{profile.profile}", "fields": fields})
@@ -145,7 +146,7 @@ def prepare_plan(db: Session, draft: dict[str, Any], prepared: dict[str, Any]) -
         "kv_mount": config["kv_mount"], "objects": objects}
 
 
-def make_payload(config: dict[str, Any], plan: dict[str, Any], inputs: dict[str, VaultFieldInput]) -> dict[str, Any]:
+def make_payload(config: dict[str, Any], plan: dict[str, Any], inputs: dict[str, VaultFieldInput], registry_values: dict[str, str] | None = None) -> dict[str, Any]:
     expected = {f["input_id"] for o in plan["objects"] for f in o["fields"] if f["source"] == "input"}
     if set(inputs) != expected:
         raise ValueError("Secret-Eingaben müssen genau den Feldern des validierten Vault-Plans entsprechen.")
@@ -154,7 +155,12 @@ def make_payload(config: dict[str, Any], plan: dict[str, Any], inputs: dict[str,
         values = {}
         for field in obj["fields"]:
             if field["source"] == "registry":
-                value = config["registry_passwords"][obj["id"]]
+                bound = {item["application_id"] for item in plan.get("registries", [])}
+                if obj["id"] in bound:
+                    if obj["id"] not in (registry_values or {}): raise ValueError("Validierter Registry-Zugang fehlt für die Ausführung.")
+                    value = registry_values[obj["id"]]
+                else:
+                    value = config["registry_passwords"][obj["id"]]
             else:
                 choice = inputs[field["input_id"]]
                 if choice.mode == "generate":
@@ -170,6 +176,12 @@ def make_payload(config: dict[str, Any], plan: dict[str, Any], inputs: dict[str,
                     value = choice.value.get_secret_value() if choice.value else ""
             validate_value(field, value)
             values[field["key"]] = value
+        registry_profile = next((item for item in plan.get("registries", []) if item["application_id"] == obj["id"] and obj["kind"] == "application"), None)
+        if registry_profile:
+            for key, value in (("registry_host", registry_profile["host"]), ("registry_username", registry_profile["username"])):
+                if key in values and values[key] != value:
+                    raise ValueError("Registry-Metadaten widersprechen dem Secret-Vertrag.")
+                values[key] = value
         objects[obj["path"]] = values
     return {"configuration": {key: value for key, value in config.items() if key != "registry_passwords"}, "objects": objects}
 
@@ -225,7 +237,9 @@ async def provision(db: Session, job: CreationJob, inputs: dict[str, VaultFieldI
         elif metadata is not None:
             raise VaultError(f"Vault-Objekt existiert bereits; keine Neuanlage: {path}", conflict=True)
     if not job.encrypted_vault_payload:
-        values = make_payload(config, plan, inputs)
+        from app.registry_service import execution_values
+        registry_values = await execution_values(db, plan.get("registries"))
+        values = make_payload(config, plan, inputs, registry_values)
         job.encrypted_vault_payload = encrypt_secret(json.dumps(values))
         db.commit()  # Persist generated values before any external write.
     else:

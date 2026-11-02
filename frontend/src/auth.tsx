@@ -10,6 +10,7 @@ type AuthContextValue = {
   loginDemo: (role: string) => Promise<User>
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  syncProfile: (profile: Pick<User,'id'> & Partial<Pick<User,'display_name'|'profile_color'|'avatar_version'>>) => void
   isAdmin: boolean
 }
 
@@ -60,7 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<AuthContextValue>(() => ({
-    user, loading, login, loginDemo, logout, refresh, isAdmin: Boolean(user?.roles.includes('system_admin')),
+    user, loading, login, loginDemo, logout, refresh,
+    syncProfile: profile=>setUser(current=>current?.id===profile.id?{...current,...profile}:current),
+    isAdmin: Boolean(user?.roles.includes('system_admin')),
   }), [user, loading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

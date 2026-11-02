@@ -16,14 +16,14 @@ export function VaultPage(){
   const query=useQuery({queryKey:['vault-config'],queryFn:()=>api<VaultConfig>('/admin/vault')})
   const catalog=useQuery({queryKey:['vault-catalog'],queryFn:()=>api<VaultCatalog>('/admin/vault/catalog')})
   const [form,setForm]=useState(defaults),[credentials,setCredentials]=useState<Record<string,string>>({})
-  const [registry,setRegistry]=useState<Record<string,string>>({}),[message,setMessage]=useState(''),[error,setError]=useState('')
+  const [message,setMessage]=useState(''),[error,setError]=useState('')
   useEffect(()=>{if(query.data)setForm({...defaults,...Object.fromEntries(Object.keys(defaults).filter(k=>k in query.data!).map(k=>[k,query.data![k as keyof VaultConfig]]))})},[query.data])
-  const save=useMutation({mutationFn:()=>api<VaultConfig>('/admin/vault',{method:'PUT',body:JSON.stringify({...form,...credentials,registry_passwords:registry})}),
-    onSuccess:()=>{setCredentials({});setRegistry({});setError('');setMessage('Vault-Konfiguration gespeichert.');void qc.invalidateQueries({queryKey:['vault-config']})},onError:(e:Error)=>{setError(e.message);setMessage('')}})
+  const save=useMutation({mutationFn:()=>api<VaultConfig>('/admin/vault',{method:'PUT',body:JSON.stringify({...form,...credentials})}),
+    onSuccess:()=>{setCredentials({});setError('');setMessage('Vault-Konfiguration gespeichert.');void qc.invalidateQueries({queryKey:['vault-config']})},onError:(e:Error)=>{setError(e.message);setMessage('')}})
   const test=useMutation({mutationFn:()=>api<{message:string}>('/admin/vault/test',{method:'POST'}),onSuccess:data=>{setMessage(data.message);setError('')},onError:(e:Error)=>{setError(e.message);setMessage('')}})
   if(query.isLoading||catalog.isLoading)return <Loading/>
   const labels:Record<keyof Omit<typeof defaults,'enabled'>,string>={base_url:'Vault Server-URL',namespace:'Vault Namespace (optional)',kv_mount:'KV-v2-Mount',tenant_root:'Tenantwurzel',writer_auth_mount:'Auth-Mount des Schreibzugangs',reader_auth_mount:'Auth-Mount des Semaphore-Lesezugangs'}
-  return <><PageHeader title="Vault" description="Zentrale Zugänge und Registry-Passwörter für neue Tenant-Projekte."/>
+  return <><PageHeader title="Vault" description="Vault-Verbindung und AppRole-Zugänge für neue Tenant-Projekte."/>
     {(error||query.error||catalog.error)&&<Notice type="error">{error||query.error?.message||catalog.error?.message}</Notice>}
     {message&&<Notice type="success">{message}</Notice>}
     <Card><h2>Verbindung und Pfade</h2><div className="form-grid columns-2">
@@ -32,9 +32,7 @@ export function VaultPage(){
     <Card><h2>AppRole-Zugänge</h2><p>Den vorhandenen Semaphore-Lesezugang einmalig hinterlegen. Neue Tenants erhalten diesen Zugang als geschützte Variablen. Die Schreib-AppRole dient ausschließlich dem Semaporter.</p><div className="form-grid columns-2">
       {Object.entries(credentialLabels).map(([key,label])=><Field key={key} label={label} help={query.data?.credentials_present?.[key]?'Hinterlegt; ein leeres Feld behält den bisherigen Wert.':'Noch nicht hinterlegt.'}><input type="password" autoComplete="new-password" value={credentials[key]||''} onChange={e=>setCredentials(v=>({...v,[key]:e.target.value}))}/></Field>)}
     </div></Card>
-    <Card><h2>Registry-Zugang pro Anwendung</h2><p>Gültiges Passwort oder Token eintragen. Host, Benutzer und Image-Angaben bleiben in den Projektvariablen.</p><div className="form-grid columns-2">
-      {Object.entries(catalog.data?.applications||{}).map(([id,app])=><Field key={id} label={`${app.display_name}: Registry-Passwort`} help={query.data?.registry_configured?.[id]?'Hinterlegt; leer lassen zum Beibehalten.':'Noch nicht hinterlegt.'}><input type="password" autoComplete="new-password" value={registry[id]||''} onChange={e=>setRegistry(v=>({...v,[id]:e.target.value}))}/></Field>)}
-    </div></Card>
+    <Card><h2>Registry-Zugänge je Tenant auswählen</h2><p>Mehrere Zugänge unter Registry-Zugänge verwalten. Im Tenant-Ersteller ein Profil auswählen oder neue Daten eingeben; die benötigten Tenant-Secrets werden hierüber weiterhin create-only angelegt.</p><Link className="button button-secondary" to="/admin/registries">Registry-Zugänge verwalten</Link>{Object.values(query.data?.registry_configured||{}).some(Boolean)&&<p className="account-note">Bisherige Zugänge bleiben für vorhandene Entwürfe verfügbar und können bei der Profilanlage übernommen werden.</p>}</Card>
     <div className="button-row"><Button loading={save.isPending} onClick={()=>save.mutate()}>Konfiguration speichern</Button><Button variant="secondary" loading={test.isPending} disabled={!query.data?.configured} onClick={()=>test.mutate()}>Gespeicherten Schreibzugang testen</Button><Link to="/admin/tenant-erstellen">Tenant erstellen</Link></div>
     <Card><h2>Unterstützte Anwendungen</h2><p>Der Katalog folgt den freigegebenen Kombinationen des Deployment-Stacks.</p><ul>{Object.entries(catalog.data?.applications||{}).map(([id,app])=><li key={id}>{app.display_name}: {Object.keys(app.database_types).join(', ')}</li>)}</ul><small>Stack-Revision: {catalog.data?.source_revision}</small></Card>
   </>

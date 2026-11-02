@@ -88,7 +88,7 @@ describe('Portal-Flows', () => {
     renderApp()
     const user=userEvent.setup()
     expect(await screen.findByRole('main',{name:'Designstudio'})).toBeVisible()
-    expect(screen.queryByRole('link',{name:'Mein Konto'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('link',{name:'Mein Profil'})).not.toBeInTheDocument()
     expect(screen.getByLabelText('Farbbasis')).toHaveValue('sit-light')
     expect(screen.queryByLabelText(/Hex/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button',{name:'Iris'}))

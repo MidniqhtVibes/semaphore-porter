@@ -55,10 +55,28 @@ class Dataset(BaseModel):
     provider_ids: list[str]
 
 
+class RegistryContract(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    login: bool
+    host_variable: str | None = None
+    username_variable: str | None = None
+    password_secret: str | None = None
+
+    @model_validator(mode="after")
+    def valid_variables(self):
+        for value in (self.host_variable, self.username_variable, self.password_secret):
+            if value is not None and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,159}", value):
+                raise ValueError("Ungültige Registry-Variable im Katalog.")
+        if self.login and (not self.host_variable or not self.username_variable or not self.password_secret):
+            raise ValueError("Registry-Anmeldung benötigt Host-, Benutzer- und Secret-Vertrag.")
+        return self
+
+
 class Application(Profile):
     display_name: str
     database_types: dict[str, str]
     datasets: dict[str, Dataset]
+    registry: RegistryContract | None = None
 
 
 class Catalog(BaseModel):

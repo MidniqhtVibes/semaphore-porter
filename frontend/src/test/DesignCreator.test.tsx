@@ -18,7 +18,7 @@ describe('Design-Creator',()=>{
     expect(menu.getByRole('button',{name:'Berechtigungen'})).toHaveClass('selected')
     fireEvent.change(screen.getByLabelText('Menüvorschau'),{target:{value:'portal'}})
     expect(menu.getByRole('button',{name:'Meine Projekte'})).toBeVisible()
-    expect(menu.getByRole('button',{name:'Mein Konto'})).toBeVisible()
+    expect(menu.getByRole('button',{name:'Mein Profil'})).toBeVisible()
     expect(menu.getByRole('button',{name:'Persönlich'})).toHaveAttribute('aria-expanded','true')
     expect(menu.queryByRole('button',{name:'Benutzer & Gruppen'})).not.toBeInTheDocument()
   })

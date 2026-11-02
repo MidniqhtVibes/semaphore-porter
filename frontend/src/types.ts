@@ -5,11 +5,27 @@ export type User = {
   display_name: string
   color?: 'slate'|'blue'|'violet'|'green'|'amber'|'rose'
   tags?: string[]
+  profile_color?: 'slate'|'blue'|'violet'|'green'|'amber'|'rose'
+  avatar_version?: string|null
+  position?: string
+  department?: string
+  location?: string
   is_active: boolean
   must_change_password: boolean
   roles: string[]
   last_login_at?: string | null
   created_at?: string
+}
+
+export type TeamProfile = {
+  id:string; name:string; description:string; color:NonNullable<User['color']>
+  responsibilities:string[]; responsibility_notes:string; member_count:number
+}
+export type PersonProfile = {
+  id:string; display_name:string; email:string; is_active:boolean; bio:string; skills:string[]
+  responsibilities:string[]; responsibility_notes:string; phone:string; profile_color:NonNullable<User['color']>
+  position:string; department:string; location:string; primary_team_id:string|null; avatar_version:string|null
+  teams:TeamProfile[]; team_responsibilities:string[]
 }
 
 export type Tenant = {

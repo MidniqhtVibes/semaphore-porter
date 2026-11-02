@@ -41,12 +41,12 @@ from app.models import (
 )
 from app.project_backup import BackupValidationError, TENANT_VARIABLES, is_defaults, json_object, parse_backup, prepare_backup, public_variables, survey_catalog, validate_backup
 from app.schemas import (
-    AccountLabelsUpdate,
     CreationExecuteRequest,
     CreationJobCreate,
     CreationJobUpdate,
     GroupCreate,
     GroupMembersUpdate,
+    GroupUpdate,
     PasswordReset,
     PresetInput,
     ProjectTemplateSave,
@@ -78,6 +78,11 @@ def user_json(user: User) -> dict[str, Any]:
         "display_name": user.display_name,
         "color": user.color,
         "tags": user.tags,
+        "position": user.position,
+        "department": user.department,
+        "location": user.location,
+        "profile_color": user.profile_color,
+        "avatar_version": user.avatar_version,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
         "roles": [role.code for role in user.roles],
@@ -291,7 +296,9 @@ def list_groups(db: Db, admin: SystemAdmin) -> list[dict[str, Any]]:
     del admin
     groups = db.scalars(select(Group).options(selectinload(Group.memberships)).order_by(Group.name)).all()
     return [
-        {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags, "user_ids": [str(item.user_id) for item in group.memberships]}
+        {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags,
+         "is_team": group.is_team, "responsibilities": group.responsibilities, "responsibility_notes": group.responsibility_notes,
+         "user_ids": [str(item.user_id) for item in group.memberships]}
         for group in groups
     ]
 
@@ -300,16 +307,20 @@ def list_groups(db: Db, admin: SystemAdmin) -> list[dict[str, Any]]:
 def create_group(payload: GroupCreate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
     if db.scalar(select(Group.id).where(func.lower(Group.name) == payload.name.lower().strip())):
         raise HTTPException(status_code=409, detail="Gruppenname ist bereits vergeben.")
-    group = Group(name=payload.name.strip(), description=payload.description.strip(), color=payload.color, tags=payload.tags)
+    if len(payload.name.strip()) < 2:
+        raise HTTPException(422, "Gruppenname benötigt mindestens zwei Zeichen.")
+    group = Group(name=payload.name.strip(), description=payload.description.strip(), color=payload.color, tags=payload.tags,
+        is_team=payload.is_team, responsibilities=payload.responsibilities, responsibility_notes=payload.responsibility_notes.strip())
     db.add(group)
     db.flush()
     record_audit(db, "group_created", actor=admin, request=request, target_type="group", target_id=group.id)
     db.commit()
-    return {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags, "user_ids": []}
+    return {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags,
+        "is_team": group.is_team, "responsibilities": group.responsibilities, "responsibility_notes": group.responsibility_notes, "user_ids": []}
 
 
 @router.patch("/groups/{group_id}")
-def update_group_labels(group_id: uuid.UUID, payload: AccountLabelsUpdate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
+def update_group_labels(group_id: uuid.UUID, payload: GroupUpdate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
     group = db.get(Group, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="Gruppe nicht gefunden.")
@@ -317,10 +328,32 @@ def update_group_labels(group_id: uuid.UUID, payload: AccountLabelsUpdate, reque
         group.color = payload.color
     if payload.tags is not None:
         group.tags = payload.tags
+    if payload.name is not None:
+        name = payload.name.strip()
+        if len(name) < 2:
+            raise HTTPException(422, "Gruppenname benötigt mindestens zwei Zeichen.")
+        if db.scalar(select(Group.id).where(func.lower(Group.name) == name.lower(), Group.id != group.id)):
+            raise HTTPException(409, "Gruppenname ist bereits vergeben.")
+        group.name = name
+    for key in ("description", "responsibility_notes"):
+        if getattr(payload, key) is not None:
+            setattr(group, key, getattr(payload, key).strip())
+    if payload.responsibilities is not None:
+        group.responsibilities = payload.responsibilities
+    if payload.is_team is not None:
+        group.is_team = payload.is_team
+        if not group.is_team:
+            db.execute(update(User).where(User.primary_team_id == group.id).values(primary_team_id=None))
     record_audit(db, "group_labels_updated", actor=admin, request=request, target_type="group", target_id=group.id,
-                 details=payload.model_dump(exclude_none=True))
-    db.commit()
-    return {"id": str(group.id), "color": group.color, "tags": group.tags}
+                 details={"fields": sorted(payload.model_fields_set), **{
+                     key: value for key, value in payload.model_dump(exclude_none=True).items() if key in {"color", "tags", "is_team"}}})
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Gruppenname ist bereits vergeben.")
+    return {"id": str(group.id), "name": group.name, "description": group.description, "color": group.color, "tags": group.tags,
+        "is_team": group.is_team, "responsibilities": group.responsibilities, "responsibility_notes": group.responsibility_notes}
 
 
 @router.put("/groups/{group_id}/members")
@@ -332,6 +365,7 @@ def set_group_members(group_id: uuid.UUID, payload: GroupMembersUpdate, request:
     if found != set(payload.user_ids):
         raise HTTPException(status_code=400, detail="Mindestens ein Benutzer existiert nicht.")
     db.execute(delete(GroupMembership).where(GroupMembership.group_id == group.id))
+    db.execute(update(User).where(User.primary_team_id == group.id, User.id.not_in(found)).values(primary_team_id=None))
     for user_id in found:
         db.add(GroupMembership(group_id=group.id, user_id=user_id))
     record_audit(db, "group_members_changed", actor=admin, request=request, target_type="group", target_id=group.id, details={"member_count": len(found)})
@@ -601,7 +635,13 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
         if (job.draft_data.get("provision_vault") and active_catalog and active_catalog.snapshot_id
                 and source.catalog_snapshot_id != active_catalog.snapshot_id):
             raise ValueError("Für die Vault-Anlage die zum aktiven GitLab-Katalog gehörende Projektvorlage auswählen.")
+        from app import registry_service
+        if job.draft_data.get("registry_profiles") and not job.draft_data.get("provision_vault"):
+            raise ValueError("Registry-Profile im Tenant-Ersteller benötigen die Vault-Anlage.")
+        registry_plan = await registry_service.prepare_bindings(db, job.draft_data, prepared) if job.draft_data.get("provision_vault") else []
         job.vault_plan = vault_service.prepare_plan(db, job.draft_data, prepared) if job.draft_data.get("provision_vault") else None
+        if job.vault_plan is not None and registry_plan:
+            job.vault_plan["registries"] = registry_plan
         job.credential_plan = await credential_service.prepare_plan(db, job.draft_data, prepared)
     except VaultError as exc:
         raise HTTPException(502, str(exc)) from exc

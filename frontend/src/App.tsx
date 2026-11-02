@@ -5,6 +5,9 @@ import { Layout } from './components/Layout'
 import { Loading, Notice } from './components/ui'
 import { LoginPage } from './pages/LoginPage'
 import { useRuntime } from './demo/runtime'
+const PeoplePage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.PeoplePage})))
+const PersonPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.PersonPage})))
+const TeamPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.TeamPage})))
 const DemoPage=lazy(()=>import('./demo/DemoPage'))
 import { AdminDashboardPage } from './pages/admin/DashboardPage'
 import { ApplicationsPage, PresetsPage, ProjectTemplatesPage } from './pages/admin/CatalogPages'
@@ -12,6 +15,7 @@ import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPag
 import { SemaphorePage } from './pages/admin/SemaphorePage'
 import { VaultPage } from './pages/admin/VaultPage'
 const CredentialsPage=lazy(()=>import('./pages/admin/CredentialsPage').then(module=>({default:module.CredentialsPage})))
+const RegistryProfilesPage=lazy(()=>import('./pages/admin/RegistryProfilesPage').then(module=>({default:module.RegistryProfilesPage})))
 const GitLabPage=lazy(()=>import('./pages/admin/GitLabPage').then(module=>({default:module.GitLabPage})))
 const ProgramPackagesPage=lazy(()=>import('./pages/admin/ProgramPackagesPage').then(module=>({default:module.ProgramPackagesPage})))
 const ProgramPackagePage=lazy(()=>import('./pages/admin/ProgramPackagePage').then(module=>({default:module.ProgramPackagePage})))
@@ -62,6 +66,7 @@ export function App(){const runtime=useRuntime();return <Routes>
     <Route path="/admin" element={<AdminShell/>}>
     <Route path="vault" element={<VaultPage/>}/>
     <Route path="zugangsprofile" element={<DeferredPage><CredentialsPage/></DeferredPage>}/>
+    <Route path="registries" element={<DeferredPage><RegistryProfilesPage/></DeferredPage>}/>
     <Route path="gitlab" element={<DeferredPage><GitLabPage/></DeferredPage>}/>
     <Route path="programmpakete" element={<DeferredPage><ProgramPackagesPage/></DeferredPage>}/>
     <Route path="programmpakete/:draftId" element={<DeferredPage><ProgramPackagePage/></DeferredPage>}/>
@@ -69,6 +74,9 @@ export function App(){const runtime=useRuntime();return <Routes>
     <Route path="pruefungen" element={<DeferredPage><GitLabChangesPage pipelinesOnly/></DeferredPage>}/>
     <Route path="uebernahme" element={<DeferredPage><GitLabReleasesPage/></DeferredPage>}/>
     <Route path="designs" element={<DesignsPage/>}/>
+    <Route path="personen" element={<DeferredPage><PeoplePage/></DeferredPage>}/>
+    <Route path="personen/:personId" element={<DeferredPage><PersonPage/></DeferredPage>}/>
+    <Route path="teams/:teamId" element={<DeferredPage><TeamPage/></DeferredPage>}/>
     <Route path="projekte" element={<ProjectsPage/>}/><Route path="projekte/:projectId" element={<ProjectEditorPage/>}/>
     <Route index element={<AdminDashboardPage/>}/><Route path="tenants" element={<TenantsPage/>}/><Route path="tenants/:tenantId" element={<TenantDetailPage/>}/><Route path="tenant-erstellen" element={<TenantWizardPage/>}/><Route path="anwendungen" element={<ApplicationsPage/>}/><Route path="vorlagen" element={<ProjectTemplatesPage/>}/><Route path="presets" element={<PresetsPage/>}/><Route path="benutzer" element={<UsersPage/>}/><Route path="berechtigungen" element={<PermissionsPage/>}/><Route path="tasks" element={<AdminTasksPage/>}/><Route path="audit" element={<AuditPage/>}/><Route path="semaphore" element={<SemaphorePage/>}/>
   </Route></Route>
@@ -77,6 +85,9 @@ export function App(){const runtime=useRuntime();return <Routes>
     <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
     <Route path="/portal" element={<PortalShell/>}>
     <Route path="designs" element={<DesignsPage/>}/>
+    <Route path="personen" element={<DeferredPage><PeoplePage/></DeferredPage>}/>
+    <Route path="personen/:personId" element={<DeferredPage><PersonPage/></DeferredPage>}/>
+    <Route path="teams/:teamId" element={<DeferredPage><TeamPage/></DeferredPage>}/>
     <Route index element={<PortalDashboardPage/>}/><Route path="projekte" element={<MyProjectsPage/>}/><Route path="projekte/:tenantId" element={<ProjectDetailPage/>}/><Route path="projekte/:tenantId/tasks/:taskId" element={<TaskStartPage/>}/><Route path="laufende-tasks" element={<RunsPage runningOnly/>}/><Route path="historie" element={<RunsPage/>}/><Route path="runs/:runId" element={<RunDetailPage/>}/><Route path="konto" element={<AccountPage/>}/>
   </Route></Route>
   <Route path="*" element={<Navigate to={runtime.mode==='demo'?'/':'/portal'} replace/>}/>

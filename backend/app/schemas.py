@@ -55,6 +55,12 @@ def unique_tags(values):
     return result
 
 
+def profile_text(value):
+    if value is not None and any((ord(char) < 32 and char not in "\t\r\n") or ord(char) == 127 for char in value):
+        raise ValueError("Text darf keine Steuerzeichen enthalten.")
+    return value
+
+
 class AccountLabels(BaseModel):
     color: LabelColor = "slate"
     tags: list[AccountTag] = Field(default_factory=list, max_length=10)
@@ -98,6 +104,47 @@ class PasswordReset(BaseModel):
 class GroupCreate(AccountLabels):
     name: str = Field(min_length=2, max_length=120)
     description: str = Field(default="", max_length=500)
+    is_team: bool = False
+    responsibilities: list[AccountTag] = Field(default_factory=list, max_length=20)
+    responsibility_notes: str = Field(default="", max_length=2000)
+
+    _normalize_responsibilities = field_validator("responsibilities")(unique_tags)
+    _safe_text = field_validator("name", "description", "responsibility_notes")(profile_text)
+
+
+class GroupUpdate(AccountLabelsUpdate):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    is_team: bool | None = None
+    responsibilities: list[AccountTag] | None = Field(default=None, max_length=20)
+    responsibility_notes: str | None = Field(default=None, max_length=2000)
+
+    _normalize_responsibilities = field_validator("responsibilities")(unique_tags)
+    _safe_text = field_validator("name", "description", "responsibility_notes")(profile_text)
+
+
+class PersonalProfileInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    display_name: str = Field(min_length=2, max_length=160)
+    bio: str = Field(default="", max_length=2000)
+    skills: list[AccountTag] = Field(default_factory=list, max_length=20)
+    responsibilities: list[AccountTag] = Field(default_factory=list, max_length=20)
+    responsibility_notes: str = Field(default="", max_length=2000)
+    phone: str = Field(default="", max_length=80)
+    profile_color: LabelColor = "slate"
+
+    _normalize_lists = field_validator("skills", "responsibilities")(unique_tags)
+    _safe_text = field_validator("display_name", "bio", "phone", "responsibility_notes")(profile_text)
+
+
+class ProfileOrganizationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    position: str = Field(default="", max_length=160)
+    department: str = Field(default="", max_length=160)
+    location: str = Field(default="", max_length=160)
+    primary_team_id: uuid.UUID | None = None
+
+    _safe_text = field_validator("position", "department", "location")(profile_text)
 
 
 class GroupMembersUpdate(BaseModel):
@@ -253,6 +300,7 @@ class CreationDraft(BaseModel):
     create_default_policies: bool = True
     activate_after_creation: bool = False
     provision_vault: bool = False
+    registry_profiles: dict[str, uuid.UUID | Literal["legacy"]] = Field(default_factory=dict, max_length=200)
     ssh_bindings: list[CredentialBindingInput] = Field(default_factory=list, max_length=100)
 
 

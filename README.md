@@ -15,7 +15,9 @@ Produktname, Oberfläche und neue Image-Namen lauten **Semaporter**. Für besteh
 | Automatisierung | Freigegebene Task Templates starten, Live-Ausgaben anzeigen, Ausführungen abbrechen und die Historie einsehen |
 | Parametersteuerung | Survey-Felder synchronisieren, Eingaben validieren und feste oder ausgeblendete Werte vorgeben |
 | Benutzer und Berechtigungen | Lokale Konten, Gruppen, Tenant-Mitgliedschaften und einzelne Task-Freigaben verwalten |
-| Vault-Integration | Optional neue KV-v2-Secrets für Tenants anlegen und AppRole- sowie Registry-Zugänge zentral konfigurieren |
+| Personenprofile und Teams | Eigene Angaben und GIF-Profilbilder, gemeinsames Personenverzeichnis, optionale Teams aus Gruppen, geerbte und persönliche Zuständigkeiten; Organisation und Hauptteam administrativ pflegen |
+| Vault-Integration | Optional neue KV-v2-Secrets für Tenants anlegen und AppRole-Zugänge konfigurieren |
+| Registry-Zugänge | Je Anwendung ein Profil wählen oder neu erfassen; verschlüsselte Zugangswerte oder feste Vault-Referenzen in neue Tenant-Secrets übernehmen |
 | SSH-Zugangsprofile | Bestehende Host- und Git-Schlüssel aus Vault in neuen Tenant-Projekten wiederverwenden, Zuordnungen prüfen und Versionen gezielt aktualisieren |
 | GitLab und Programmpakete | Pakete entwerfen, Verträge prüfen, Branch/Merge Request übergeben, CI verfolgen und freigegebene Kataloge mit neuen Projektvorlagen übernehmen |
 | Gestaltung | Eigene Farben, Logos, Anmeldetexte und rechtliche Texte mit interaktiver Live-Vorschau gestalten |
@@ -200,11 +202,11 @@ Versionierte Presets bündeln wiederverwendbare Parameter. Zugangsdaten gehören
 
 ### Vault einrichten
 
-Unter **Vault** werden Server-URL, KV-v2-Mount, Tenantwurzel und AppRole-Zugänge konfiguriert. Ein Schreibzugang dient der Anlage neuer Objekte; ein Lesezugang wird für neue Semaphore-Projekte bereitgestellt. Registry-Zugänge können pro Anwendung hinterlegt werden.
+Unter **Vault** werden Server-URL, KV-v2-Mount, Tenantwurzel und AppRole-Zugänge konfiguriert. Ein Schreibzugang dient der Anlage neuer Objekte; ein Lesezugang wird für neue Semaphore-Projekte bereitgestellt. Unter **Einstellungen → Registry-Zugänge** werden Registry-Profile mit manuell hinterlegten Zugangswerten oder festen Vault-Referenzen gepflegt. Im Tenant-Assistenten je Anwendung ein Profil wählen oder neu erfassen; die Daten werden erst bei bestätigter Erstellung in das neue Anwendungsobjekt im Vault übernommen. Es wird keine Registry-Infrastruktur angelegt. Einrichtung: [Registry-Zugänge](docs/REGISTRY_ZUGAENGE.md).
 
 Nach Aktivierung steht die Vault-Anlage im Tenant-Assistenten zur Verfügung. Die Zielobjekte werden vor dem Schreiben geprüft. Bestehende Secrets werden nicht überschrieben; unterbrochene Anlagen können anhand des gespeicherten Fortschritts wieder aufgenommen werden.
 
-Die vollständige Einrichtung einschließlich erforderlicher Rechte, Unternehmens-CA und Fehlerbehandlung beschreibt [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md).
+Die Auswahl mehrerer Registry-Zugänge einschließlich separatem Vault-Leser, erforderlichen Leserechten und Fehlerbehandlung beschreibt [Registry-Zugänge](docs/REGISTRY_ZUGAENGE.md). Rollen/Policies verwalten weiterhin die Vault-Verantwortlichen.
 
 ## GitLab und Programmpakete
 
@@ -336,7 +338,7 @@ Direkte Vite-Builds, Herkunft, Bedienung und Lizenzen: docs/ARCADE.md
 - [Benutzer-Panes, Farben und Tags](docs/BENUTZERVERWALTUNG.md)
 - [Integrierte Demo mit Beispieldaten](docs/DEMO.md)
 - [Keycloak: Bewertung und Planung](docs/DEMO_UND_KEYCLOAK_PLAN.md)
-- [Vault-Integration](docs/VAULT_IMPLEMENTIERUNG.md)
+- [Registry-Zugänge und Tenant-Vault](docs/REGISTRY_ZUGAENGE.md)
 - [Zentrale SSH-Zugangsprofile und Einrichtung](docs/SSH_ZUGANGSPROFILE.md)
 - [Live-Deploymentüberwachung, TTL und Collector-Einrichtung](docs/DEPLOYMENT_MONITORING.md)
 - [Designs und Unternehmensfarben](docs/DESIGNS.md)

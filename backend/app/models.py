@@ -21,6 +21,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -83,6 +84,19 @@ class User(Base, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String(512))
     color: Mapped[str] = mapped_column(String(16), default="slate", server_default="slate", nullable=False)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    bio: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
+    skills: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    responsibilities: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    responsibility_notes: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
+    phone: Mapped[str] = mapped_column(String(80), default="", server_default="", nullable=False)
+    profile_color: Mapped[str] = mapped_column(String(16), default="slate", server_default="slate", nullable=False)
+    position: Mapped[str] = mapped_column(String(160), default="", server_default="", nullable=False)
+    department: Mapped[str] = mapped_column(String(160), default="", server_default="", nullable=False)
+    location: Mapped[str] = mapped_column(String(160), default="", server_default="", nullable=False)
+    primary_team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id", ondelete="SET NULL"), index=True)
+    avatar_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    avatar_mime: Mapped[str | None] = mapped_column(String(40))
+    avatar_version: Mapped[str | None] = mapped_column(String(64))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -117,6 +131,9 @@ class Group(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(String(500), default="")
     color: Mapped[str] = mapped_column(String(16), default="slate", server_default="slate", nullable=False)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    is_team: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    responsibilities: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    responsibility_notes: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
     memberships: Mapped[list[GroupMembership]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
 
@@ -445,6 +462,31 @@ class VaultSettings(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class RegistrySettings(Base, TimestampMixin):
+    __tablename__ = "registry_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class RegistryProfile(Base, TimestampMixin):
+    __tablename__ = "registry_profiles"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(160), unique=True)
+    application_id: Mapped[str] = mapped_column(String(63), index=True)
+    host: Mapped[str] = mapped_column(String(255))
+    username: Mapped[str] = mapped_column(String(255))
+    host_variable: Mapped[str] = mapped_column(String(160))
+    username_variable: Mapped[str] = mapped_column(String(160))
+    source: Mapped[str] = mapped_column(String(20))
+    encrypted_password: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    vault_path: Mapped[str | None] = mapped_column(String(500))
+    vault_version: Mapped[int | None] = mapped_column(Integer)
+    vault_field: Mapped[str | None] = mapped_column(String(100))
+    vault_connection_id: Mapped[str | None] = mapped_column(String(64))
+    revision: Mapped[str] = mapped_column(String(64), default=lambda: uuid.uuid4().hex)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 class GitLabSettings(Base, TimestampMixin):

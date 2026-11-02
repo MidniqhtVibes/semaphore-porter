@@ -55,7 +55,11 @@ def export_catalog(root: Path, source_revision: str) -> dict:
                 "min_length": validation.get("min_length", 1), "max_length": validation.get("max_length", 4096),
                 "hex": validation.get("format") == "hex", "even_length": validation.get("even_length", False),
                 "forbid_whitespace": validation.get("forbid_whitespace", False)})
-        result["applications"][app_id] = {"display_name": entry["display_name"],
+        registry_contract = manifest.get("release", {}).get("registry")
+        registry_metadata = None if registry_contract is None else {
+            "login": registry_contract["login"], "host_variable": registry_contract.get("prefix_variable"),
+            "username_variable": registry_contract.get("username_variable"), "password_secret": registry_contract.get("password_secret")}
+        result["applications"][app_id] = {"display_name": entry["display_name"], "registry": registry_metadata,
             "profile": manifest["secrets"]["vault_profile"], "fields": fields,
             "database_types": {kind: contract["provider_id"] for kind, contract in manifest["database"]["types"].items()},
             "datasets": {name: {"database_type": ds["database_type"], "provider_ids": ds["provider_ids"]}

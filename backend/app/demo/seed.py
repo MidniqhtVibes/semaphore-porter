@@ -22,7 +22,9 @@ def backup(name="Demo-Basis", slug="demo-basis"):
                for key, values in {"application_id": ["azubiorga", "wordpress"], "database_type": ["postgresql", "mariadb", "mysql"], "dataset_id": ["none"]}.items()]
     surveys.append({"name": "ttl_minutes", "type": "int", "default_value": 60})
     return {"meta": {"name": name, "alert": False, "max_parallel_tasks": 2},
-        "environments": [{"name": "Semaphore-Defaults", "json": json.dumps({"tenant_slug": slug, "runtime_scope_id": slug + "-apps"}), "env": "{}"}],
+        "environments": [{"name": "Semaphore-Defaults", "json": json.dumps({"tenant_slug": slug, "runtime_scope_id": slug + "-apps",
+            "azubiorga_registry_host":"registry.demo.invalid", "azubiorga_registry_username":"demo",
+            "wordpress_registry_host":"registry-wp.demo.invalid", "wordpress_registry_username":"demo"}), "env": "{}"}],
         "keys": [{"name": "Demo SSH", "type": "ssh"}],
         "repositories": [{"name": "Demo-Stack", "git_url": "git@gitlab.demo.invalid:demo/stack.git", "git_branch": "main", "ssh_key": "Demo SSH"}],
         "inventories": [{"name": "Demo-Host", "type": "static", "inventory": "[docker_test]\ndemo ansible_host=192.0.2.10 ansible_user=deploy\n", "ssh_key": "Demo SSH"}],
@@ -58,7 +60,7 @@ def seed(db):
     from app.models import (Role, User, Group, GroupMembership, Tenant, TenantStatus, TenantMembership,
         SemaphoreProject, ProjectTemplate, SemaphoreSettings, VaultSettings, CredentialSettings,
         CredentialProfile, GitLabSettings, TaskTemplate, TaskPolicy, VariableRule, RuleType, TaskPermission,
-        Preset, PresetVersion, utcnow)
+        Preset, PresetVersion, RegistrySettings, RegistryProfile, utcnow)
     from app.bootstrap import ROLES, BUILTIN_PRESETS
     from app.security import encrypt_secret, hash_password
     from app.demo.simulator import reset_state, project_templates, private_key
@@ -71,16 +73,21 @@ def seed(db):
     for actor, role in ACTORS.items():
         user = User(id=identifier("user/" + actor), email=f"demo.{actor}@example.com", username="demo." + actor,
             display_name={"admin":"Demo Administrator", "tenant_admin":"Demo Tenant-Admin", "operator":"Demo Operator", "viewer":"Demo Viewer"}[actor],
-            password_hash=password_hash, must_change_password=False, color="blue" if actor=="admin" else "green", tags=["Demo", role])
+            password_hash=password_hash, must_change_password=False, color="blue" if actor=="admin" else "green", tags=["Demo", role],
+            position={"admin":"Plattformadministration","tenant_admin":"Anwendungsbetreuung","operator":"Deployment-Betrieb","viewer":"Qualitätssicherung"}[actor],
+            department="Demo IT", location="Beispielstandort", bio="Fiktives Profil für die Semaporter-Vorführung.",
+            skills=["Semaphore", "Docker"], responsibilities=["Betriebsprüfung"], profile_color="blue" if actor=="admin" else "green")
         user.roles = [role_rows[role]]
         users[actor] = user
         db.add(user)
     db.add(User(id=identifier("user/disabled"), email="demo.disabled@example.com", username="demo.disabled", display_name="Demo – deaktiviert",
                 password_hash=password_hash, is_active=False, color="rose", tags=["Demo"]))
-    group = Group(id=identifier("group/operators"), name="Demo Betrieb", description="Erfundene Gruppe für die Vorführung", color="violet", tags=["Demo", "Betrieb"])
+    group = Group(id=identifier("group/operators"), name="Demo Betrieb", description="Erfundenes Team für die Vorführung", color="violet", tags=["Demo", "Betrieb"],
+        is_team=True, responsibilities=["Deployment-Betrieb", "Monitoring"], responsibility_notes="Gemeinsame technische Zuständigkeiten des Demo-Teams.")
     db.add(group)
     db.flush()
     db.add(GroupMembership(group_id=group.id, user_id=users["operator"].id))
+    users["operator"].primary_team_id = group.id
     for project_id, name, slug in [(1,"Nordstadt","nordstadt"),(2,"Südtal","suedtal"),(3,"Internes Labor","labor")]:
         tenant = Tenant(id=identifier("tenant/"+slug), tenant_slug=slug, display_name=name, status=TenantStatus.ACTIVE,
             configuration_complete=True, application_id="azubiorga", application_ids=["azubiorga", "wordpress"],
@@ -115,6 +122,16 @@ def seed(db):
         "writer_auth_mount": "semaphore-ansible", "reader_auth_mount": "semaphore-ansible", "writer_role_id": "demo-writer", "writer_secret_id": "demo-writer-secret",
         "reader_role_id": "demo-reader", "reader_secret_id": "demo-reader-secret", "registry_passwords": {"azubiorga":"demo-registry-password", "wordpress":"demo-registry-password"}}
     db.add(VaultSettings(id=1, encrypted_configuration=encrypt_secret(json.dumps(vault))))
+    from app.registry_service import connection_id
+    registry_reader={"base_url":"https://"+HOSTS["vault"],"namespace":"","kv_mount":"kv","auth_mount":"semaphore-ansible","role_id":"demo-reader","secret_id":"demo-reader-secret"}
+    db.add(RegistrySettings(id=1, encrypted_configuration=encrypt_secret(json.dumps(registry_reader))))
+    for app,host in [("azubiorga","registry.demo.invalid"),("wordpress","registry-wp.demo.invalid")]:
+        db.add(RegistryProfile(id=identifier("registry/"+app),name="Demo Registry · "+app,application_id=app,host=host,username="demo",
+            host_variable=app+"_registry_host",username_variable=app+"_registry_username",source="stored" if app=="azubiorga" else "vault",
+            encrypted_password=encrypt_secret("demo-registry-password") if app=="azubiorga" else None,
+            vault_path="automation-credentials/registries/demo-wordpress" if app=="wordpress" else None,
+            vault_version=1 if app=="wordpress" else None,vault_field="registry_password" if app=="wordpress" else None,
+            vault_connection_id=connection_id(registry_reader) if app=="wordpress" else None,revision="demo-registry-"+app,is_active=True))
     db.add(CredentialSettings(id=1, encrypted_configuration=encrypt_secret(json.dumps({"base_url":"https://"+HOSTS["vault"],"namespace":"","kv_mount":"kv","auth_mount":"semaphore-ansible","role_id":"demo-reader","secret_id":"demo-reader-secret"}))))
     from cryptography.hazmat.primitives import serialization
     import base64, hashlib

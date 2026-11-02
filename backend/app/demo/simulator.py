@@ -37,6 +37,7 @@ def reset_state():
             add_project(pid, backup("Demo · "+name,slug))
         for purpose in ("host","git"):
             STATE["vault"]["automation-credentials/ssh/demo-"+purpose] = {"1":{"private_key":key,"passphrase":""}}
+        STATE["vault"]["automation-credentials/registries/demo-wordpress"] = {"1":{"registry_password":"demo-registry-password"}}
 
 
 def ensure():

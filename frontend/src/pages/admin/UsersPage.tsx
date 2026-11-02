@@ -1,12 +1,15 @@
 import { useId, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, Plus, Search, ShieldCheck, Tags, UserRound, Users } from 'lucide-react'
 import { api } from '../../api'
 import { Badge, Button, Card, Empty, Field, Loading, Modal, Notice, PageHeader, formatDate } from '../../components/ui'
 import type { User } from '../../types'
+import { ProfileTags } from '../../components/ProfileFields'
+import { PersonAvatar } from '../../components/PersonAvatar'
 
 type Color = NonNullable<User['color']>
-type Group = { id:string; name:string; description:string; user_ids:string[]; color?:Color; tags?:string[] }
+type Group = { id:string; name:string; description:string; user_ids:string[]; color?:Color; tags?:string[]; is_team?:boolean; responsibilities?:string[]; responsibility_notes?:string }
 const colors:Record<Color,string>={slate:'Grau',blue:'Blau',violet:'Violett',green:'Grün',amber:'Bernstein',rose:'Rosa'}
 const roles:Record<string,string>={system_admin:'Systemadmin',tenant_admin:'Tenant-Admin',operator:'Operator',viewer:'Viewer'}
 const roleNotes:Record<string,string>={system_admin:'Verwaltet das gesamte Portal.',tenant_admin:'Zusätzliche Tenant- und Task-Freigaben bestimmen den Zugriff.',operator:'Start und Abbruch benötigen passende Task-Freigaben.',viewer:'Lesender Zugriff auf freigegebene Bereiche.'}
@@ -26,7 +29,7 @@ export function UsersPage(){
   const [members,setMembers]=useState<Group|null>(null),[labelTarget,setLabelTarget]=useState<{kind:'users'|'groups';item:User|Group}|null>(null)
   const users=useQuery({queryKey:['admin-users'],queryFn:()=>api<User[]>('/admin/users')})
   const groups=useQuery({queryKey:['admin-groups'],queryFn:()=>api<Group[]>('/admin/groups')})
-  const refresh=()=>{void qc.invalidateQueries({queryKey:['admin-users']});void qc.invalidateQueries({queryKey:['admin-groups']})}
+  const refresh=()=>{for(const key of ['admin-users','admin-groups','person-profile','profile-directory','profile-teams','team-people'])void qc.invalidateQueries({queryKey:[key]})}
   const switchMode=(next:'users'|'groups')=>{setMode(next);setSearch('');setTag('')}
   const openUser=(id:string)=>{switchMode('users');setStatus('');setRole('');setUserId(id)}
   const openGroup=(id:string)=>{switchMode('groups');setGroupId(id)}
@@ -78,7 +81,7 @@ function UserPane({user,groups,onSaved,onLabels,onGroup}:{user:User;groups:Group
   const toggle=useMutation({mutationFn:()=>api(`/admin/users/${user.id}`,{method:'PATCH',body:JSON.stringify({is_active:!user.is_active})}),onSuccess:onSaved})
   const reset=useMutation({mutationFn:(password:string)=>api(`/admin/users/${user.id}/reset-password`,{method:'POST',body:JSON.stringify({password,must_change_password:true})}),onSuccess:()=>{setPasswordOpen(false);onSaved()}})
   return <>
-    <Card className="account-profile"><div className="account-profile-heading"><span className="account-avatar large" data-color={user.color||'slate'}>{user.display_name.slice(0,2).toUpperCase()}</span><div><h2>{user.display_name}</h2><p>{user.email}</p><div className="badge-row"><Badge tone={user.is_active?'success':'danger'}>{user.is_active?'Aktiv':'Deaktiviert'}</Badge>{user.must_change_password&&<Badge tone="warning">Passwortwechsel erforderlich</Badge>}</div></div></div><div className="account-label-row"><AccountTags item={user}/><Button variant="ghost" onClick={onLabels}><Tags size={15}/>Farben &amp; Tags bearbeiten</Button></div></Card>
+    <Card className="account-profile"><div className="account-profile-heading"><PersonAvatar person={user} large/><div><h2>{user.display_name}</h2><p>{user.email}</p><div className="badge-row"><Badge tone={user.is_active?'success':'danger'}>{user.is_active?'Aktiv':'Deaktiviert'}</Badge>{user.must_change_password&&<Badge tone="warning">Passwortwechsel erforderlich</Badge>}</div></div></div><Link className="button button-secondary" to={`/admin/personen/${user.id}`}>Personenprofil öffnen</Link><div className="account-label-row"><AccountTags item={user}/><Button variant="ghost" onClick={onLabels}><Tags size={15}/>Farben &amp; Tags bearbeiten</Button></div></Card>
     {toggle.error&&<Notice type="error">{toggle.error.message}</Notice>}
     <div className="account-pane-grid"><Card><h3>Kontodaten</h3><dl className="detail-list"><div><dt>Benutzername</dt><dd>{user.username||'Nicht vergeben'}</dd></div><div><dt>Letzte Anmeldung</dt><dd>{formatDate(user.last_login_at)}</dd></div><div><dt>Erstellt</dt><dd>{formatDate(user.created_at)}</dd></div></dl><Button variant="secondary" aria-label={`Benutzername ändern · ${user.display_name}`} onClick={()=>setUsernameOpen(true)}>Benutzername ändern</Button></Card>
       <Card><h3>Rollen &amp; Zugriff</h3><RoleTags user={user}/>{user.roles.map(role=><p className="account-note" key={role}>{roleNotes[role]||role}</p>)}<p className="account-note">Farben und Tags sind Kennzeichnungen. Tenant- und Task-Freigaben werden unter Berechtigungen verwaltet.</p></Card></div>
@@ -90,10 +93,19 @@ function UserPane({user,groups,onSaved,onLabels,onGroup}:{user:User;groups:Group
 }
 
 function GroupPane({group,users,onMembers,onLabels,onUser}:{group:Group;users:User[];onMembers:()=>void;onLabels:()=>void;onUser:(id:string)=>void}){
+  const [teamOpen,setTeamOpen]=useState(false),qc=useQueryClient()
   const members=users.filter(user=>group.user_ids.includes(user.id))
   return <><Card className="account-profile"><div className="account-profile-heading"><span className="account-avatar large" data-color={group.color||'slate'}><Users size={24}/></span><div><h2>{group.name}</h2><p>{group.description||'Keine Beschreibung hinterlegt.'}</p><Badge>{group.user_ids.length} Mitglieder</Badge></div></div><div className="account-label-row"><AccountTags item={group}/><Button variant="ghost" onClick={onLabels}><Tags size={15}/>Farben &amp; Tags bearbeiten</Button></div></Card>
     <Card><div className="card-heading"><div><h3>Mitglieder</h3><p>Konten und deren aktueller Status</p></div><Button variant="secondary" onClick={onMembers}>Mitglieder bearbeiten</Button></div>{members.length?<div className="account-members">{members.map(user=><button key={user.id} className="account-member" onClick={()=>onUser(user.id)}><span><strong>{user.display_name}</strong><span className="subtle">{user.email}</span></span><Badge tone={user.is_active?'success':'danger'}>{user.is_active?'Aktiv':'Deaktiviert'}</Badge></button>)}</div>:<p className="account-note">Diese Gruppe hat noch keine Mitglieder.</p>}</Card>
-    <Card><h3>Gruppenfreigaben</h3><p className="account-note">Tenant-Zuordnungen und Task-Rechte können dieser Gruppe gezielt zugewiesen werden. Eine Mitgliedschaft allein erlaubt noch keinen Taskstart. Farben und Tags vergeben keine Berechtigungen.</p></Card></>
+    <Card><div className="card-heading"><div><h3>Team & Zuständigkeiten</h3><p>{group.is_team?'Als Team im Personenverzeichnis sichtbar.':'Diese Gruppe wird bisher nur zur Verwaltung verwendet.'}</p></div><Button variant="secondary" onClick={()=>setTeamOpen(true)}>Team-Einstellungen bearbeiten</Button></div><div className="badge-row">{group.responsibilities?.map(value=><Badge key={value}>{value}</Badge>)}</div><p className="profile-text">{group.responsibility_notes}</p>{group.is_team&&<Link className="button button-secondary" to={`/admin/teams/${group.id}`}>Teamprofil ansehen</Link>}</Card>
+    <Card><h3>Gruppenfreigaben</h3><p className="account-note">Tenant-Zuordnungen und Task-Rechte können dieser Gruppe gezielt zugewiesen werden. Eine Mitgliedschaft allein erlaubt noch keinen Taskstart. Farben und Tags vergeben keine Berechtigungen.</p></Card>
+    {teamOpen&&<TeamSettings group={group} onClose={()=>setTeamOpen(false)} onSaved={()=>{setTeamOpen(false);for(const key of ['admin-groups','profile-teams','person-profile','profile-directory','team-people'])void qc.invalidateQueries({queryKey:[key]})}}/>}</>
+}
+
+function TeamSettings({group,onClose,onSaved}:{group:Group;onClose:()=>void;onSaved:()=>void}){
+  const [draft,setDraft]=useState({name:group.name,description:group.description,is_team:group.is_team||false,responsibilities:group.responsibilities||[],responsibility_notes:group.responsibility_notes||''})
+  const save=useMutation({mutationFn:()=>api(`/admin/groups/${group.id}`,{method:'PATCH',body:JSON.stringify(draft)}),onSuccess:onSaved})
+  return <Modal title={`Team-Einstellungen · ${group.name}`} onClose={onClose}><form onSubmit={event=>{event.preventDefault();save.mutate()}}>{save.error&&<Notice type="error">{save.error.message}</Notice>}<Field label="Gruppenname"><input required minLength={2} maxLength={120} value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></Field><Field label="Beschreibung"><textarea maxLength={500} rows={3} value={draft.description} onChange={event=>setDraft({...draft,description:event.target.value})}/></Field><label className="checkbox-row"><input type="checkbox" checked={draft.is_team} onChange={event=>setDraft({...draft,is_team:event.target.checked})}/>Als Team für alle angemeldeten Personen anzeigen</label><ProfileTags label="Gemeinsame Zuständigkeiten" values={draft.responsibilities} onChange={responsibilities=>setDraft(current=>({...current,responsibilities}))}/><Field label="Team-Zuständigkeiten beschreiben"><textarea maxLength={2000} rows={3} value={draft.responsibility_notes} onChange={event=>setDraft({...draft,responsibility_notes:event.target.value})}/></Field><Notice>Teamkennzeichnung und Zuständigkeiten vergeben keine Rechte. Bestehende Mitgliedschaften und Zugriffsfreigaben bleiben erhalten. Beim Abschalten entfallen Hauptteam-Markierungen für diese Gruppe.</Notice><div className="modal-actions"><Button variant="secondary" type="button" onClick={onClose}>Abbrechen</Button><Button type="submit" loading={save.isPending}>Team-Einstellungen speichern</Button></div></form></Modal>
 }
 
 function LabelsModal({kind,item,onClose,onSaved}:{kind:'users'|'groups';item:User|Group;onClose:()=>void;onSaved:()=>void}){

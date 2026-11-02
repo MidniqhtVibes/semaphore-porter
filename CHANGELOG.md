@@ -1,5 +1,19 @@
 # Änderungen
 
+## Registry-Profile im Tenant-Ersteller – 02.11.2026
+
+- Mehrere interne Registries über anwendungsbezogene Profile verwalten: Zugang verschlüsselt erfassen, bisherige Portal-Werte übernehmen oder eine feste Vault-Version über einen separat konfigurierten Leser referenzieren.
+- Im Tenant-Ersteller vorhandenes Profil wählen oder inline anlegen; Host/Benutzer in Semaphore-Defaults und vollständigen Zugang im neuen Anwendungsobjekt in Vault speichern. Kein zentraler Registry-Pflichtwert für diesen Ablauf und keine Registry-Infrastruktur-Provisionierung.
+- Quell-/Profilrevision vor dem ersten Schreiben prüfen, ausschließlich neue Zielobjekte mit CAS=0 anlegen und nach unklarem Schreiben dieselben eingefrorenen Werte verwenden. Bestehende Tenants werden nicht automatisch rotiert.
+- Additive Migration `20261102_0010`, simulierte Profile in der integrierten Demo und [Einrichtungsanleitung](docs/REGISTRY_ZUGAENGE.md).
+
+## Personenprofile und optionale Teams – 02.11.2026
+
+- „Mein Profil“ mit persönlichen Angaben, Kenntnissen, Zuständigkeiten, Kontakt, eigener Akzentfarbe und hochladbaren Rasterbildern einschließlich animierter GIFs. Bilder bleiben in der vorhandenen Datenbank; keine zusätzlichen Dienste/Ports.
+- Für alle angemeldeten Personen sichtbares Verzeichnis aktiver Benutzer mit Suche, Teamfilter und eigenen Profil-/Teamansichten. Nicht als Team markierte Berechtigungsgruppen und Rollen bleiben außerhalb der allgemeinen Profilansicht.
+- Gruppen administrativ als Team markieren, gemeinsame Zuständigkeiten pflegen und mehrere Teams je Person verwenden. Funktion, Abteilung, Standort und optionales Hauptteam administrativ verwalten; persönliche Ergänzungen bleiben getrennt.
+- Additive Migration `20261102_0009`, unveränderte bestehende Freigaben und dieselben Funktionen mit Beispieldaten in der isolierten Demo.
+
 ## Benutzerverwaltung und Monitoring-Oberfläche – 02.11.2026
 
 - Durchsuchbare Benutzer-/Gruppenauswahl mit getrennten Detailbereichen für Kontodaten, Rollen, Mitgliedschaften und Sicherheit; Filter nach Rolle, Status und Tags.
