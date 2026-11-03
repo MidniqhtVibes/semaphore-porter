@@ -191,7 +191,7 @@ export function parseThemeFile(value: unknown): ThemeFile {
   if(value.logoAsset!==undefined&&!LOGO_ASSETS.some(asset=>asset.id===value.logoAsset))throw new Error('Unbekannte Logo-Vorlage.')
   if(value.logoTone!==undefined&&(typeof value.logoTone!=='string'||!['original','dark'].includes(value.logoTone)))throw new Error('Unbekannte Logo-Darstellung.')
   const definition=JSON.parse(JSON.stringify(value)) as ThemeFile
-  // Update former default product labels while preserving company-specific text.
+  // Update former default project labels while preserving company-specific text.
   if(definition.copy?.title&&['Semaphore','Semaphore Porter','Semaphore Tenant Portal'].includes(definition.copy.title))definition.copy.title=DEFAULT_COPY.title
   if(definition.legal?.footer==='Tenant Portal')definition.legal.footer=DEFAULT_LEGAL.footer
   // Migrate older design files once; renderers use only generic logo metadata.
