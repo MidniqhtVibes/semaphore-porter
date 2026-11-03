@@ -42,6 +42,9 @@ export type ThemeFile = {
   logo?: string
   loginBackground?: string
   loginBackgroundBlur?: number
+  backgroundScope?: 'login' | 'all'
+  backgroundDim?: number
+  backgroundMilk?: number
   logoWidth?: number
   legal?: Partial<ThemeLegal>
 }
@@ -60,6 +63,9 @@ export type Theme = {
   logo?: string
   loginBackground?: string
   loginBackgroundBlur?: number
+  backgroundScope?: 'login' | 'all'
+  backgroundDim?: number
+  backgroundMilk?: number
   logoWidth?: number
   legal?: Partial<ThemeLegal>
 }
@@ -134,10 +140,10 @@ export function resolveCustomTheme(definition: ThemeFile): Theme {
   const base=BUILTIN_THEMES.find(theme=>theme.id===definition.base)!
   return {...base, id:`custom:${definition.id}`, name:definition.name, description:definition.description||'Eigenes Design',
     colors:{...base.colors,...definition.colors}, font:definition.font||base.font, radius:definition.radius??base.radius, logoAsset:definition.logoAsset, logoTone:definition.logoTone, copy:definition.copy, logo:definition.logo,
-    loginBackground:definition.loginBackground, loginBackgroundBlur:definition.loginBackgroundBlur, logoWidth:definition.logoWidth, legal:definition.legal, definition}
+    loginBackground:definition.loginBackground, loginBackgroundBlur:definition.loginBackgroundBlur, backgroundScope:definition.backgroundScope, backgroundDim:definition.backgroundDim, backgroundMilk:definition.backgroundMilk, logoWidth:definition.logoWidth, legal:definition.legal, definition}
 }
 export function parseThemeFile(value: unknown): ThemeFile {
-  const keys=['schema_version','id','name','description','base','colors','font','radius','branding','logoAsset','logoTone','copy','logo','loginBackground','loginBackgroundBlur','logoWidth','legal']
+  const keys=['schema_version','id','name','description','base','colors','font','radius','branding','logoAsset','logoTone','copy','logo','loginBackground','loginBackgroundBlur','backgroundScope','backgroundDim','backgroundMilk','logoWidth','legal']
   if(!object(value)||Object.keys(value).some(key=>!keys.includes(key)))throw new Error('Ungültiges Design-Format. Bitte die JSON-Vorlage verwenden.')
   if(value.schema_version!==1)throw new Error('Diese Design-Version wird nicht unterstützt. Erwartet wird schema_version: 1.')
   if(typeof value.id!=='string'||!/^[a-z0-9][a-z0-9-]{1,47}$/.test(value.id))throw new Error('Design-ID: 2–48 Kleinbuchstaben, Ziffern oder Bindestriche erforderlich.')
@@ -170,6 +176,11 @@ export function parseThemeFile(value: unknown): ThemeFile {
     }
   }
   if(value.loginBackgroundBlur!==undefined&&(typeof value.loginBackgroundBlur!=='number'||!Number.isInteger(value.loginBackgroundBlur)||value.loginBackgroundBlur<0||value.loginBackgroundBlur>MAX_LOGIN_BACKGROUND_BLUR))throw new Error(`Die Hintergrund-Unschärfe muss zwischen 0 und ${MAX_LOGIN_BACKGROUND_BLUR} Pixeln liegen.`)
+  if(value.backgroundScope!==undefined&&!['login','all'].includes(value.backgroundScope as string))throw new Error('Der Hintergrundbereich muss login oder all sein.')
+  for(const key of ['backgroundDim','backgroundMilk'] as const){
+    const amount=value[key]
+    if(amount!==undefined&&(typeof amount!=='number'||!Number.isInteger(amount)||amount<0||amount>100))throw new Error('Verdunkelung und Milchglas müssen zwischen 0 und 100 Prozent liegen.')
+  }
   if(value.logoWidth!==undefined&&(typeof value.logoWidth!=='number'||!Number.isInteger(value.logoWidth)||value.logoWidth<32||value.logoWidth>120))throw new Error('Die Logobreite muss zwischen 32 und 120 Pixeln liegen.')
   if(value.legal!==undefined){
     if(!object(value.legal))throw new Error('Footer und rechtliche Texte müssen als Objekt angegeben werden.')
@@ -197,9 +208,9 @@ export function parseThemeFile(value: unknown): ThemeFile {
   return definition
 }
 export function exportThemeFile(theme: Theme): ThemeFile {
-  return theme.definition||{schema_version:1,id:theme.id,name:theme.name,description:theme.description,base:theme.id as BuiltinId,font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,colors:{...theme.colors},copy:theme.copy,logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,logoWidth:theme.logoWidth,legal:theme.legal}
+  return theme.definition||{schema_version:1,id:theme.id,name:theme.name,description:theme.description,base:theme.id as BuiltinId,font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,colors:{...theme.colors},copy:theme.copy,logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,backgroundScope:theme.backgroundScope,backgroundDim:theme.backgroundDim,backgroundMilk:theme.backgroundMilk,logoWidth:theme.logoWidth,legal:theme.legal}
 }
 
 export function createDraft(theme: Theme): ThemeFile {
-  return {schema_version:1,id:`design-${crypto.randomUUID().slice(0,8)}`,name:`${theme.name} – Kopie`.slice(0,80),description:theme.description,base:theme.definition?.base??theme.id as ThemeFile['base'],colors:{...theme.colors},font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,copy:{...theme.copy},legal:{...theme.legal},logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,logoWidth:theme.logoWidth}
+  return {schema_version:1,id:`design-${crypto.randomUUID().slice(0,8)}`,name:`${theme.name} – Kopie`.slice(0,80),description:theme.description,base:theme.definition?.base??theme.id as ThemeFile['base'],colors:{...theme.colors},font:theme.font,radius:theme.radius,logoAsset:theme.logoAsset,logoTone:theme.logoTone,copy:{...theme.copy},legal:{...theme.legal},logo:theme.logo,loginBackground:theme.loginBackground,loginBackgroundBlur:theme.loginBackgroundBlur,backgroundScope:theme.backgroundScope,backgroundDim:theme.backgroundDim,backgroundMilk:theme.backgroundMilk,logoWidth:theme.logoWidth}
 }

@@ -252,6 +252,9 @@
       "minimum": 0,
       "maximum": 24
     },
+    "backgroundScope": { "enum": ["login", "all"] },
+    "backgroundDim": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "backgroundMilk": { "type": "integer", "minimum": 0, "maximum": 100 },
     "logoWidth": {
       "type": "integer",
       "minimum": 32,

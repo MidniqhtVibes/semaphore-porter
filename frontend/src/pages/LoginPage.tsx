@@ -33,7 +33,7 @@ export function LoginPage() {
     } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Anmeldung nicht möglich.') }
   }
   return <div className={`login-page ${active.loginBackground?'login-page-image':''}`}>
-    <LoginBackground image={active.loginBackground} blur={active.loginBackgroundBlur}/>
+    <LoginBackground image={active.loginBackground} blur={active.loginBackgroundBlur} dim={active.backgroundDim} milk={active.backgroundMilk}/>
     <section className="login-intro"><div className="brand brand-large"><BrandMark size={26}/><div><strong>{copy.title}</strong><span>{copy.subtitle}</span></div></div><div className="login-copy"><h1>{copy.headline}<br/><em>{copy.emphasis}</em></h1><p>{copy.intro}</p></div></section>
     <section className="login-panel"><form className="login-card" onSubmit={handleSubmit(submit)}><div><h2>{copy.welcome}</h2><p>{copy.loginHint}</p></div>{error && <Notice type="error">{error}</Notice>}
       <label className="field"><span className="field-label">Benutzername oder E-Mail-Adresse</span><div className="input-icon"><UserRound size={17}/><input autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus {...register('identifier')} placeholder="benutzername oder name@unternehmen.de"/></div>{errors.identifier && <span className="field-error">{errors.identifier.message}</span>}</label>

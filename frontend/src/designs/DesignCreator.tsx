@@ -43,7 +43,7 @@ export function DesignCreator({initial,onSave,onClose,initialMode='admin'}:{init
       const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Die Datei konnte nicht gelesen werden.'));reader.readAsDataURL(file)})
       await new Promise<void>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve();image.onerror=()=>reject(new Error('Die Datei ist kein lesbares Bild.'));image.src=data})
       if(version!==uploadVersion.current)return
-      setDraft(current=>({...current,[key]:data}));setFileNames(current=>({...current,[key]:file.name}));setPage('login')
+      setDraft(current=>({...current,[key]:data,...(key==='loginBackground'?{backgroundScope:current.backgroundScope??'all',backgroundDim:current.backgroundDim??50,backgroundMilk:current.backgroundMilk??0}:{})}));setFileNames(current=>({...current,[key]:file.name}));setPage(key==='logo'||draft.backgroundScope==='login'?'login':'workspace')
     }catch(reason){if(version===uploadVersion.current)setError((reason as Error).message)}finally{if(version===uploadVersion.current)setLoading(null)}
   }
   const reset=()=>{uploadVersion.current++;setLoading(null);setDraft(structuredClone(initial));setFileNames({});setError('')}
@@ -90,8 +90,15 @@ export function DesignCreator({initial,onSave,onClose,initialMode='admin'}:{init
             {!draft.logo&&<Field label="Logo-Vorlage"><select value={draft.logoAsset??''} onChange={e=>update({logoAsset:(e.target.value||undefined) as ThemeFile['logoAsset']})}><option value="">Neutrales Symbol</option>{LOGO_ASSETS.map(asset=><option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></Field>}
             {(draft.logo||draft.logoAsset)&&<Field label={`Logobreite · ${draft.logoWidth??64} px`}><input type="range" min={32} max={120} value={draft.logoWidth??64} onChange={e=>update({logoWidth:Number(e.target.value)})}/></Field>}
             {(draft.logo||draft.logoAsset)&&<Field label="Logo-Darstellung"><select value={draft.logoTone??'original'} onChange={e=>update({logoTone:e.target.value as ThemeFile['logoTone']})}><option value="original">Originalfarben</option><option value="dark">Dunkel</option></select></Field>}
-            {assetField('loginBackground','Hintergrundbild der Anmeldung')}
-            {draft.loginBackground&&<Field label={`Hintergrund-Unschärfe · ${draft.loginBackgroundBlur??0} px`} help="Nur das Hintergrundbild wird unscharf. GIFs bleiben animiert."><input aria-label="Hintergrund-Unschärfe" type="range" min={0} max={MAX_LOGIN_BACKGROUND_BLUR} step={1} value={draft.loginBackgroundBlur??0} onChange={e=>{update({loginBackgroundBlur:Number(e.target.value)});setPage('login')}}/></Field>}
+          </fieldset>
+          <fieldset><legend>Hintergrund</legend>
+            {assetField('loginBackground','Hintergrundbild')}
+            {draft.loginBackground&&<>
+              <Field label="Hintergrund anzeigen"><select value={draft.backgroundScope??'login'} onChange={e=>{update({backgroundScope:e.target.value as ThemeFile['backgroundScope']});setPage(e.target.value==='all'?'workspace':'login')}}><option value="login">Nur bei der Anmeldung</option><option value="all">Anmeldung und gesamte Oberfläche</option></select></Field>
+              <Field label={`Verdunkelung · ${draft.backgroundDim??50}%`} help="Schwarzer Schleier über dem Bild; 0 % zeigt das Original."><input aria-label="Hintergrund-Verdunkelung" type="range" min={0} max={100} value={draft.backgroundDim??50} onChange={e=>update({backgroundDim:Number(e.target.value)})}/></Field>
+              <Field label={`Milchglas · ${draft.backgroundMilk??0}%`} help="Heller Schleier über dem Bild. Mit Unschärfe kombinieren für einen milchigen Hintergrund."><input aria-label="Hintergrund-Milchglas" type="range" min={0} max={100} value={draft.backgroundMilk??0} onChange={e=>update({backgroundMilk:Number(e.target.value)})}/></Field>
+              <Field label={`Hintergrund-Unschärfe · ${draft.loginBackgroundBlur??0} px`} help="Nur das Hintergrundbild wird unscharf. GIFs bleiben animiert, Karten und Texte bleiben scharf."><input aria-label="Hintergrund-Unschärfe" type="range" min={0} max={MAX_LOGIN_BACKGROUND_BLUR} step={1} value={draft.loginBackgroundBlur??0} onChange={e=>update({loginBackgroundBlur:Number(e.target.value)})}/></Field>
+            </>}
             {loading&&<span role="status" className="field-help">Bild wird geprüft …</span>}
           </fieldset>
           <fieldset><legend>Portal und Anmeldung</legend><div className="creator-fields">{Object.entries(copyLabels).map(([key,label])=><Field key={key} label={label}>{key==='intro'?<textarea rows={3} maxLength={400} value={copy.intro} onFocus={()=>setPage('login')} onChange={e=>update({copy:{...draft.copy,intro:e.target.value}})}/>:<input maxLength={100} value={copy[key as keyof ThemeCopy]} onFocus={()=>setPage('login')} onChange={e=>update({copy:{...draft.copy,[key]:e.target.value}})}/>}</Field>)}</div></fieldset>
