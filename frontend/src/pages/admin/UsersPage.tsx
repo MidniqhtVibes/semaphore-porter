@@ -1,8 +1,9 @@
 import { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, Plus, Search, ShieldCheck, Tags, UserRound, Users } from 'lucide-react'
 import { api } from '../../api'
+import { useAuth } from '../../auth'
 import { Badge, Button, Card, Empty, Field, Loading, Modal, Notice, PageHeader, formatDate } from '../../components/ui'
 import type { User } from '../../types'
 import { ProfileTags } from '../../components/ProfileFields'
@@ -77,19 +78,41 @@ export function UsersPage(){
 }
 
 function UserPane({user,groups,onSaved,onLabels,onGroup}:{user:User;groups:Group[];onSaved:()=>void;onLabels:()=>void;onGroup:(id:string)=>void}){
-  const [usernameOpen,setUsernameOpen]=useState(false),[passwordOpen,setPasswordOpen]=useState(false)
+  const [usernameOpen,setUsernameOpen]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[rolesOpen,setRolesOpen]=useState(false)
   const toggle=useMutation({mutationFn:()=>api(`/admin/users/${user.id}`,{method:'PATCH',body:JSON.stringify({is_active:!user.is_active})}),onSuccess:onSaved})
   const reset=useMutation({mutationFn:(password:string)=>api(`/admin/users/${user.id}/reset-password`,{method:'POST',body:JSON.stringify({password,must_change_password:true})}),onSuccess:()=>{setPasswordOpen(false);onSaved()}})
   return <>
     <Card className="account-profile"><div className="account-profile-heading"><PersonAvatar person={user} large/><div><h2>{user.display_name}</h2><p>{user.email}</p><div className="badge-row"><Badge tone={user.is_active?'success':'danger'}>{user.is_active?'Aktiv':'Deaktiviert'}</Badge>{user.must_change_password&&<Badge tone="warning">Passwortwechsel erforderlich</Badge>}</div></div></div><Link className="button button-secondary" to={`/admin/personen/${user.id}`}>Personenprofil öffnen</Link><div className="account-label-row"><AccountTags item={user}/><Button variant="ghost" onClick={onLabels}><Tags size={15}/>Farben &amp; Tags bearbeiten</Button></div></Card>
     {toggle.error&&<Notice type="error">{toggle.error.message}</Notice>}
     <div className="account-pane-grid"><Card><h3>Kontodaten</h3><dl className="detail-list"><div><dt>Benutzername</dt><dd>{user.username||'Nicht vergeben'}</dd></div><div><dt>Letzte Anmeldung</dt><dd>{formatDate(user.last_login_at)}</dd></div><div><dt>Erstellt</dt><dd>{formatDate(user.created_at)}</dd></div></dl><Button variant="secondary" aria-label={`Benutzername ändern · ${user.display_name}`} onClick={()=>setUsernameOpen(true)}>Benutzername ändern</Button></Card>
-      <Card><h3>Rollen &amp; Zugriff</h3><RoleTags user={user}/>{user.roles.map(role=><p className="account-note" key={role}>{roleNotes[role]||role}</p>)}<p className="account-note">Farben und Tags sind Kennzeichnungen. Tenant- und Task-Freigaben werden unter Berechtigungen verwaltet.</p></Card></div>
+      <Card><div className="card-heading account-role-heading"><h3>Rollen &amp; Zugriff</h3><Button variant="secondary" onClick={()=>setRolesOpen(true)}><ShieldCheck size={15}/>Rollen bearbeiten</Button></div><RoleTags user={user}/>{user.roles.map(role=><p className="account-note" key={role}>{roleNotes[role]||role}</p>)}<p className="account-note">Farben und Tags sind Kennzeichnungen. Tenant- und Task-Freigaben werden unter Berechtigungen verwaltet.</p></Card></div>
     <Card><div className="card-heading"><div><h3>Gruppenmitgliedschaften</h3><p>{groups.length} zugeordnete Gruppen</p></div><Users size={18}/></div>{groups.length?<div className="account-members">{groups.map(group=><button className="account-member" key={group.id} onClick={()=>onGroup(group.id)}><AccountTag text={group.name} color={group.color}/><span>{group.description||'Gruppe öffnen'}</span></button>)}</div>:<p className="account-note">Noch keiner Gruppe zugeordnet. Mitglieder lassen sich im Bereich Gruppen hinzufügen.</p>}</Card>
     <Card><h3>Kontosicherheit</h3><p className="account-note">Ein temporäres Passwort muss bei der nächsten Anmeldung geändert werden.</p><div className="button-row"><Button variant="secondary" onClick={()=>{reset.reset();setPasswordOpen(true)}}><KeyRound size={15}/>Passwort zurücksetzen</Button><Button variant={user.is_active?'danger':'secondary'} loading={toggle.isPending} onClick={()=>{if(!user.is_active||window.confirm(`Konto ${user.display_name} deaktivieren?`))toggle.mutate()}}>{user.is_active?'Konto deaktivieren':'Konto aktivieren'}</Button></div></Card>
     {usernameOpen&&<UsernameModal user={user} onClose={()=>setUsernameOpen(false)} onSaved={()=>{setUsernameOpen(false);onSaved()}}/>}
+    {rolesOpen&&<RolesModal user={user} onClose={()=>setRolesOpen(false)} onSaved={()=>{setRolesOpen(false);onSaved()}}/>}
     {passwordOpen&&<PasswordModal name={user.display_name} error={reset.error?.message||''} onClose={()=>setPasswordOpen(false)} onSave={password=>reset.mutate(password)} loading={reset.isPending}/>}
   </>
+}
+
+function RolesModal({user,onClose,onSaved}:{user:User;onClose:()=>void;onSaved:()=>void}){
+  const [selected,setSelected]=useState(user.roles)
+  const auth=useAuth(),navigate=useNavigate()
+  const ownAccount=auth.user?.id===user.id
+  const losesAdmin=ownAccount&&user.roles.includes('system_admin')&&!selected.includes('system_admin')
+  const changed=selected.length!==user.roles.length||selected.some(role=>!user.roles.includes(role))
+  const save=useMutation({mutationFn:()=>api<User>(`/admin/users/${user.id}`,{method:'PATCH',body:JSON.stringify({role_codes:selected})}),onSuccess:async updated=>{
+    if(ownAccount)await auth.refresh()
+    if(ownAccount&&!updated.roles.includes('system_admin'))navigate('/portal',{replace:true})
+    else onSaved()
+  }})
+  return <Modal title={`Rollen bearbeiten · ${user.display_name}`} onClose={()=>{if(!save.isPending)onClose()}}><form onSubmit={event=>{event.preventDefault();if(selected.length&&changed&&!save.isPending)save.mutate()}}>
+    {save.error&&<Notice type="error">{save.error.message}</Notice>}
+    <p>Mindestens eine Portalrolle auswählen. Mehrere Rollen können kombiniert werden; Tenant- und Task-Freigaben werden separat verwaltet.</p>
+    <fieldset className="account-role-options" disabled={save.isPending}><legend>Portalrollen</legend>{Object.entries(roles).map(([code,label])=><label className="account-role-option" key={code}><input type="checkbox" checked={selected.includes(code)} onChange={event=>setSelected(current=>event.target.checked?[...current,code]:current.filter(role=>role!==code))}/><span><strong>{label}</strong><span>{roleNotes[code]}</span></span></label>)}</fieldset>
+    {losesAdmin&&<Notice>Du entfernst deine eigenen Administrationsrechte. Nach dem Speichern wechselst du ins Benutzerportal. Mindestens ein anderer aktiver Systemadmin muss vorhanden sein.</Notice>}
+    {!selected.length&&<p className="field-error" role="status">Bitte mindestens eine Portalrolle auswählen.</p>}
+    <div className="modal-actions"><Button type="button" variant="secondary" disabled={save.isPending} onClick={onClose}>Abbrechen</Button><Button type="submit" loading={save.isPending} disabled={!selected.length||!changed}>Rollen speichern</Button></div>
+  </form></Modal>
 }
 
 function GroupPane({group,users,onMembers,onLabels,onUser}:{group:Group;users:User[];onMembers:()=>void;onLabels:()=>void;onUser:(id:string)=>void}){

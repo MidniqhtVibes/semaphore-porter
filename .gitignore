@@ -23,6 +23,12 @@ coverage/
 # Tests and development-only dependencies (kept locally)
 /backend/tests/
 /backend/requirements-dev.txt
+/agent/tests/
+/agent/requirements-dev.txt
+/agent/policy.json
+/agent/*.pem
+/agent/*.key
+/agent/*.sqlite*
 /frontend/src/test/
 /frontend/tests/
 /frontend/e2e/

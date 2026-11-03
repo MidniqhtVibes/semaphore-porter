@@ -4,6 +4,13 @@ import example from '../../public/themes/example.theme.json'
 import { ANIMATED_GIF } from './fixtures/images'
 
 describe('Design-Dateien',()=>{
+  it('erhält Hintergrundbereich, Verdunkelung und Milchglas beim Export und Kopieren',()=>{
+    const theme=resolveCustomTheme(parseThemeFile({...example,loginBackground:ANIMATED_GIF,backgroundScope:'all',backgroundDim:35,backgroundMilk:25}))
+    expect(parseThemeFile(exportThemeFile(theme))).toMatchObject({backgroundScope:'all',backgroundDim:35,backgroundMilk:25})
+    expect(createDraft(theme)).toMatchObject({backgroundScope:'all',backgroundDim:35,backgroundMilk:25})
+    for(const value of [-1,101,0.5,'20',null])for(const field of ['backgroundDim','backgroundMilk'])expect(()=>parseThemeFile({...example,[field]:value})).toThrow('Prozent')
+    expect(()=>parseThemeFile({...example,backgroundScope:'external'})).toThrow('Hintergrundbereich')
+  })
   it('erhält beide GIF-Bilder und die Unschärfe beim Export, Import und Kopieren',()=>{
     const definition=parseThemeFile({...example,logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12})
     const theme=resolveCustomTheme(definition)

@@ -2,8 +2,8 @@ import { useTheme } from '../designs/ThemeProvider'
 import { DEFAULT_COPY } from '../designs/themes'
 import { useId, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import {ChevronDown, ChevronRight, ClipboardList, FlaskConical, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
-import {navigationContext} from './navigation'
+import {ChevronDown, FlaskConical, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
+import {Breadcrumbs} from './Breadcrumbs'
 import {GroupedNavigation} from './GroupedNavigation'
 import { useAuth } from '../auth'
 import { useRuntime } from '../demo/runtime'
@@ -21,7 +21,6 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
   const menuId = useId()
   const { user, logout, isAdmin } = useAuth()
   const location = useLocation()
-  const context = navigationContext(mode, location.pathname)
   return <div className="shell">
     {__PORTAL_ARCADE__ && <DoomEasterEgg/>}
     <aside id={menuId} className={`sidebar ${open ? 'sidebar-open' : ''}`} onKeyDown={event=>{if(event.key==='Escape')setOpen(false)}}>
@@ -37,7 +36,7 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
     {open && <button className="sidebar-shade" aria-label="Menühintergrund schließen" onClick={() => setOpen(false)} />}
     <div className={`main-wrap${active.loginBackground&&active.backgroundScope==='all'?' main-wrap-image':''}`}>
       {active.backgroundScope==='all'&&<LoginBackground image={active.loginBackground} blur={active.loginBackgroundBlur} dim={active.backgroundDim} milk={active.backgroundMilk} className="workspace-background"/>}
-      <header className="topbar"><button className="menu-button" aria-label="Hauptmenü öffnen" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(true)}><Menu/></button><nav className="breadcrumbs" aria-label="Seitenpfad"><ClipboardList size={16} aria-hidden="true"/><span>{mode==='admin'?'Administration':'Portal'}</span>{context.groups.map(group=><span className="breadcrumb-group" key={group.id}><ChevronRight size={12} aria-hidden="true"/>{group.label}</span>)}<ChevronRight size={12} aria-hidden="true"/><span aria-current="page">{context.label}</span></nav><div className="profile"><Link className="profile-identity" to="/portal/konto" aria-label="Mein Profil öffnen">{user&&<PersonAvatar person={user}/>}<div><strong>{user?.display_name}</strong><span>{user?.email}</span></div></Link><ChevronDown size={15}/><Button variant="ghost" onClick={() => void logout()}>Abmelden</Button></div></header>
+      <header className="topbar"><button className="menu-button" aria-label="Hauptmenü öffnen" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(true)}><Menu/></button><Breadcrumbs mode={mode} pathname={location.pathname}/><div className="profile"><Link className="profile-identity" to="/portal/konto" aria-label="Mein Profil öffnen">{user&&<PersonAvatar person={user}/>}<div><strong>{user?.display_name}</strong><span>{user?.email}</span></div></Link><ChevronDown size={15}/><Button variant="ghost" onClick={() => void logout()}>Abmelden</Button></div></header>
       <main className="content">{children}</main>
       <SiteFooter/>
     </div>

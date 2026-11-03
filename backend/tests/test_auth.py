@@ -1,6 +1,6 @@
 from app.database import SessionLocal
 import pytest
-from app.models import AuditEvent, LoginAttempt, User
+from app.models import AuditEvent, LoginAttempt, Role, User
 from sqlalchemy import select
 
 
@@ -91,3 +91,71 @@ def test_disabled_account_cannot_login_with_either_identifier(client, identifier
         user.email, user.username, user.is_active = "disabled@example.com", "disabled", False
         db.commit()
     assert client.post("/api/auth/login", json={"identifier": identifier, "password": "correct-horse-battery"}).status_code == 401
+
+
+@pytest.mark.parametrize("roles", [["viewer"], ["tenant_admin"], ["operator", "viewer"], ["system_admin"]])
+def test_admin_can_replace_existing_user_roles_and_audits_change(client, admin_headers, roles):
+    users = client.get("/api/admin/users").json()
+    target = next(user for user in users if user["email"] == "operator@example.com")
+    response = client.patch(f"/api/admin/users/{target['id']}", headers=admin_headers, json={"role_codes": roles})
+    assert response.status_code == 200, response.text
+    assert set(response.json()["roles"]) == set(roles)
+    assert response.json()["is_active"] == target["is_active"]
+    with SessionLocal() as db:
+        event = db.scalar(select(AuditEvent).where(AuditEvent.event_type == "user_updated"))
+        assert event.details["role_codes"] == roles
+    assert client.post("/api/auth/login", json={"identifier": target["email"], "password": "correct-horse-battery"}).status_code == 200
+    assert set(client.get("/api/auth/me").json()["roles"]) == set(roles)
+    assert client.get("/api/admin/users").status_code == (200 if "system_admin" in roles else 403)
+
+
+@pytest.mark.parametrize("payload,status", [({"role_codes": []}, 422), ({"role_codes": ["unknown"]}, 400)])
+def test_invalid_role_changes_leave_existing_roles_unchanged(client, admin_headers, payload, status):
+    target = next(user for user in client.get("/api/admin/users").json() if user["email"] == "operator@example.com")
+    assert client.patch(f"/api/admin/users/{target['id']}", headers=admin_headers, json=payload).status_code == status
+    saved = next(user for user in client.get("/api/admin/users").json() if user["id"] == target["id"])
+    assert saved["roles"] == ["operator"]
+
+
+def test_role_changes_require_admin_and_csrf(client, admin_headers):
+    own_id = client.get("/api/auth/me").json()["id"]
+    assert client.patch(f"/api/admin/users/{own_id}", json={"role_codes": ["viewer"]}).status_code == 403
+    logged = client.post("/api/auth/login", json={"identifier": "operator@example.com", "password": "correct-horse-battery"}).json()
+    headers = {"X-CSRF-Token": logged["csrf_token"]}
+    assert client.patch(f"/api/admin/users/{logged['user']['id']}", headers=headers, json={"role_codes": ["system_admin"]}).status_code == 403
+
+
+@pytest.mark.parametrize("inactive_backup", [False, True])
+def test_last_active_admin_cannot_remove_own_admin_role(client, admin_headers, inactive_backup):
+    if inactive_backup:
+        with SessionLocal() as db:
+            backup = db.scalar(select(User).where(User.email == "operator@example.com"))
+            backup.roles = [db.scalar(select(Role).where(Role.code == "system_admin"))]
+            backup.is_active = False
+            db.commit()
+    own_id = client.get("/api/auth/me").json()["id"]
+    response = client.patch(f"/api/admin/users/{own_id}", headers=admin_headers, json={"role_codes": ["viewer"]})
+    assert response.status_code == 400
+    assert "aktiver Systemadmin" in response.json()["detail"]
+    assert client.get("/api/admin/users").status_code == 200
+    assert client.get("/api/auth/me").json()["roles"] == ["system_admin"]
+
+
+def test_self_demotion_with_backup_admin_revokes_current_session_admin_access(client, admin_headers):
+    with SessionLocal() as db:
+        backup = db.scalar(select(User).where(User.email == "operator@example.com"))
+        backup.roles = [db.scalar(select(Role).where(Role.code == "system_admin"))]
+        db.commit()
+    own_id = client.get("/api/auth/me").json()["id"]
+    response = client.patch(f"/api/admin/users/{own_id}", headers=admin_headers, json={"role_codes": ["viewer"]})
+    assert response.status_code == 200, response.text
+    assert client.get("/api/auth/me").json()["roles"] == ["viewer"]
+    assert client.get("/api/admin/users").status_code == 403
+    assert client.patch(f"/api/admin/users/{own_id}", headers=admin_headers, json={"role_codes": ["system_admin"]}).status_code == 403
+
+
+def test_empty_role_selection_is_rejected_on_account_creation(client, admin_headers):
+    response = client.post("/api/admin/users", headers=admin_headers, json={
+        "email": "new@example.com", "display_name": "New User", "password": "correct-horse-battery", "role_codes": [],
+    })
+    assert response.status_code == 422

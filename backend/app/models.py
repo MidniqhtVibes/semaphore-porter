@@ -470,6 +470,27 @@ class RegistrySettings(Base, TimestampMixin):
     encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
 
 
+class ContainerSettings(Base, TimestampMixin):
+    __tablename__ = "container_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    encrypted_configuration: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class ContainerOperation(Base, TimestampMixin):
+    __tablename__ = "container_operations"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36))
+    agent_name: Mapped[str] = mapped_column(String(160))
+    connection_id: Mapped[str] = mapped_column(String(64))
+    container_id: Mapped[str] = mapped_column(String(64))
+    container_name: Mapped[str] = mapped_column(String(255))
+    action: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))
+    message: Mapped[str] = mapped_column(Text)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
 class RegistryProfile(Base, TimestampMixin):
     __tablename__ = "registry_profiles"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

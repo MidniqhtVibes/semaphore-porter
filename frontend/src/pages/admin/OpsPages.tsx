@@ -8,7 +8,7 @@ import DeploymentMonitor from '../../components/DeploymentMonitor'
 
 type Audit={id:string;occurred_at:string;actor_user_id?:string|null;event_type:string;target_type?:string;target_id?:string;details:Record<string,unknown>;success:boolean}
 export function AdminTasksPage(){
-  return <><PageHeader title="Überwachung" description="Live-Deploymentzustand, Restlaufzeiten und vom Portal gestartete Tasks."/><DeploymentMonitor/><PortalTaskRuns/></>
+  return <><PageHeader title="Deployment-Monitoring" description="Kurzlebige Testdeployments: Live-Zustand, Restlaufzeiten und vom Portal gestartete Tasks."/><DeploymentMonitor/><PortalTaskRuns/></>
 }
 function PortalTaskRuns(){
   const query=useQuery({queryKey:['admin-task-runs'],queryFn:()=>api<TaskRun[]>('/admin/task-runs'),refetchInterval:15_000})

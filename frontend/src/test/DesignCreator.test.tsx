@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { within } from '@testing-library/react'
 import { DesignCreator, createDraft } from '../designs/DesignCreator'
@@ -74,7 +74,7 @@ describe('Design-Creator',()=>{
       const file=new File(['image-bytes'],'firma.png',{type:'image/png'})
       fireEvent.change(screen.getByLabelText('Eigenes Logo'),{target:{files:[file]}})
       expect(await screen.findByRole('img',{name:'Logo-Vorschau'})).toHaveAttribute('src','data:image/png;base64,aW1hZ2UtYnl0ZXM=')
-      fireEvent.change(screen.getByLabelText('Hintergrundbild der Anmeldung'),{target:{files:[file]}})
+      fireEvent.change(screen.getByLabelText('Hintergrundbild'),{target:{files:[file]}})
       await screen.findByRole('button',{name:'Hintergrundbild entfernen'})
       expect(screen.getByTestId('design-live-preview').querySelector('.login-background')?.getAttribute('style')).toContain('data:image/png;base64,')
       expect(save).not.toHaveBeenCalled()
@@ -95,12 +95,16 @@ describe('Design-Creator',()=>{
       expect(screen.getByLabelText('Eigenes Logo')).toHaveAttribute('accept',expect.stringContaining('image/gif'))
       fireEvent.change(screen.getByLabelText('Eigenes Logo'),{target:{files:[file]}})
       expect(await screen.findByRole('img',{name:'Logo-Vorschau'})).toHaveAttribute('src',ANIMATED_GIF)
-      fireEvent.change(screen.getByLabelText('Hintergrundbild der Anmeldung'),{target:{files:[file]}})
+      fireEvent.change(screen.getByLabelText('Hintergrundbild'),{target:{files:[file]}})
       await screen.findByRole('button',{name:'Hintergrundbild entfernen'})
       fireEvent.change(screen.getByRole('slider',{name:'Hintergrund-Unschärfe'}),{target:{value:'12'}})
       const preview=screen.getByTestId('design-live-preview')
       expect(preview.querySelector('.login-background')).toHaveStyle({filter:'blur(12px)'})
       expect(preview.querySelector('.login-background')?.getAttribute('style')).toContain(ANIMATED_GIF)
+      fireEvent.change(screen.getByRole('slider',{name:'Hintergrund-Verdunkelung'}),{target:{value:'35'}})
+      fireEvent.change(screen.getByRole('slider',{name:'Hintergrund-Milchglas'}),{target:{value:'25'}})
+      expect(preview.querySelector('.workspace-background')?.getAttribute('style')).toContain('0.35')
+      fireEvent.change(screen.getByLabelText('Hintergrund anzeigen'),{target:{value:'login'}})
       expect(preview.querySelector<HTMLElement>('.preview-login')?.style.filter).toBe('')
       fireEvent.click(screen.getByRole('button',{name:'Speichern und aktivieren'}))
       expect(save).toHaveBeenCalledWith(expect.objectContaining({logo:ANIMATED_GIF,loginBackground:ANIMATED_GIF,loginBackgroundBlur:12}))

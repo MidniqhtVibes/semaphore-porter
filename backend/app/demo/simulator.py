@@ -17,7 +17,7 @@ from app.demo.seed import HOSTS, backup
 
 LOCK = threading.RLock()
 STATE: dict = {}
-SCENARIOS = {"normal", "task_failure", "task_http500", "vault_conflict", "vault_uncertain", "gitlab_conflict", "commit_uncertain", "monitor_stale", "monitor_degraded", "ttl_expired"}
+SCENARIOS = {"normal", "task_failure", "task_http500", "vault_conflict", "vault_uncertain", "gitlab_conflict", "commit_uncertain", "monitor_stale", "monitor_degraded", "ttl_expired", "container_uncertain"}
 
 
 def iso(epoch=None):
@@ -262,6 +262,9 @@ def handle_request(service,request):
             STATE["last_error"]="Externes Integrationsziel in der Demo blockiert. Nur vorbereitete Demo-Adressen verwenden."
             return httpx.Response(403,json={"demo":True,"error":"external destination blocked"})
         try:
+            if service=="container_agent":
+                from app.demo.container_agent import handle
+                return handle(request,STATE)
             data=json.loads(request.content) if request.content else {}
             status,body={"semaphore":semaphore,"vault":vault,"gitlab":gitlab}[service](request,request.url.path,data)
             if status==501:STATE["last_error"]="Dieser API-Aufruf ist im Simulator noch nicht unterstützt."

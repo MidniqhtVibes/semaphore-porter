@@ -246,9 +246,29 @@ def create_user(payload: UserCreate, request: Request, db: Db, admin: SystemAdmi
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: uuid.UUID, payload: UserUpdate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
+    if payload.role_codes is not None or payload.is_active is not None:
+        # Serialize role/status changes on PostgreSQL so concurrent removals
+        # cannot each count the other administrator as the remaining one.
+        db.scalar(select(Role).where(Role.code == "system_admin").with_for_update())
+        if not db.scalar(select(User.id).where(
+            User.id == admin.id, User.is_active.is_(True), User.roles.any(Role.code == "system_admin"),
+        )):
+            raise HTTPException(status_code=403, detail="Systemadministrator-Berechtigung erforderlich.")
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+    roles = None
+    if payload.role_codes is not None:
+        roles = list(db.scalars(select(Role).where(Role.code.in_(payload.role_codes))))
+        if len(roles) != len(set(payload.role_codes)):
+            raise HTTPException(status_code=400, detail="Unbekannte Rolle.")
+    if payload.role_codes is not None or payload.is_active is not None:
+        stays_active = user.is_active if payload.is_active is None else payload.is_active
+        stays_admin = "system_admin" in payload.role_codes if payload.role_codes is not None else any(role.code == "system_admin" for role in user.roles)
+        if not (stays_active and stays_admin) and not db.scalar(select(User.id).where(
+            User.id != user.id, User.is_active.is_(True), User.roles.any(Role.code == "system_admin"),
+        ).limit(1)):
+            raise HTTPException(status_code=400, detail="Mindestens ein aktiver Systemadmin muss erhalten bleiben.")
     if payload.username is not None:
         if db.scalar(select(User.id).where(func.lower(User.username) == payload.username, User.id != user.id)):
             raise HTTPException(status_code=409, detail="Dieser Benutzername ist bereits vergeben.")
@@ -258,10 +278,7 @@ def update_user(user_id: uuid.UUID, payload: UserUpdate, request: Request, db: D
         if user.id == admin.id and not payload.is_active:
             raise HTTPException(status_code=400, detail="Das eigene Administratorkonto kann hier nicht deaktiviert werden.")
         user.is_active = payload.is_active
-    if payload.role_codes is not None:
-        roles = list(db.scalars(select(Role).where(Role.code.in_(payload.role_codes))))
-        if len(roles) != len(set(payload.role_codes)):
-            raise HTTPException(status_code=400, detail="Unbekannte Rolle.")
+    if roles is not None:
         user.roles = roles
     if payload.username is not None:
         user.username = payload.username

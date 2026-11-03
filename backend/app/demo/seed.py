@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.config import get_settings
 
-HOSTS = {"semaphore": "semaphore.demo.invalid", "vault": "vault.demo.invalid", "gitlab": "gitlab.demo.invalid"}
+HOSTS = {"semaphore": "semaphore.demo.invalid", "vault": "vault.demo.invalid", "gitlab": "gitlab.demo.invalid", "container_agent":"container-agent.demo.invalid"}
 ACTORS = {"admin": "system_admin", "tenant_admin": "tenant_admin", "operator": "operator", "viewer": "viewer"}
 
 
@@ -60,12 +60,16 @@ def seed(db):
     from app.models import (Role, User, Group, GroupMembership, Tenant, TenantStatus, TenantMembership,
         SemaphoreProject, ProjectTemplate, SemaphoreSettings, VaultSettings, CredentialSettings,
         CredentialProfile, GitLabSettings, TaskTemplate, TaskPolicy, VariableRule, RuleType, TaskPermission,
-        Preset, PresetVersion, RegistrySettings, RegistryProfile, utcnow)
+        Preset, PresetVersion, RegistrySettings, RegistryProfile, ContainerSettings, utcnow)
     from app.bootstrap import ROLES, BUILTIN_PRESETS
     from app.security import encrypt_secret, hash_password
     from app.demo.simulator import reset_state, project_templates, private_key
     assert_demo(db)
     reset_state()
+    db.add(ContainerSettings(id=1,encrypted_configuration=encrypt_secret(json.dumps({"enabled":True,"revision":"demo-container-v1","agents":[{
+        "id":str(identifier("container-agent")),"name":"Demo · Dauerbetrieb","base_url":"https://"+HOSTS["container_agent"],
+        "token":"demo-container-agent-token-0000000000000000","ca_pem":"","active":True,"projects":[],"use_agent_scope":True,
+        "write_enabled":True,"allowed_actions":["start","stop","restart","pause","resume","remove"]}]}))))
     role_rows = {code: Role(id=rid, code=code, name=name, description=description) for rid, code, name, description in ROLES}
     db.add_all(role_rows.values())
     users = {}

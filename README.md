@@ -12,18 +12,21 @@ Semaporter verbindet Projektverwaltung, kontrollierte Task-Ausführung und zentr
 | --- | --- |
 | Projekte und Mandanten | Zentrale Verwaltung von Semaphore-Projekten, Mandanten und wiederverwendbaren Projektvorlagen |
 | Automatisierung | Freigegebene Tasks mit validierten Parametern, Live-Ausgaben und Ausführungshistorie |
-| Benutzer und Teams | Rollen, Gruppen, Personenprofile und gezielte Projekt- und Task-Freigaben |
+| Benutzer und Teams | Nachträglich bearbeitbare Portalrollen, Gruppen, Personenprofile und gezielte Projekt- und Task-Freigaben |
 | Programmpakete | Paketverwaltung mit Validierung, GitLab-Anbindung und versionierten Anwendungskatalogen |
 | Zugangsdaten | Vault-Integration sowie zentrale SSH- und Registry-Zugangsprofile |
 | Überwachung | Task-Status und optionale Deployment-Übersicht angebundener Zielhosts |
+| Container-Verwaltung | Optionaler eigener Docker-Agent für bestehende Container: Status, Logs, Messwerte und bestätigte Verwaltungsaktionen |
 | Nachvollziehbarkeit | Audit-Log für Verwaltungsaktionen und dokumentierte Task-Ausführungen |
-| Designstudio | Individuelle Farben, Logos und Texte mit Live-Vorschau sowie Design-Import und -Export |
+| Designstudio | Farben, Logos, Bilder/GIF-Hintergründe mit Verdunkelung, Milchglas und Unschärfe, Live-Vorschau sowie Import/Export |
 
 ## Integrationen
 
 **Semaphore UI** stellt die Automatisierungsumgebung bereit. Portalbenutzer benötigen für ihre freigegebenen Tasks keinen eigenen Semaphore-Login.
 
 **Vault** ergänzt die zentrale Verwaltung von Secrets und Zugangsprofilen. **GitLab** verbindet Programmpakete mit Repository, Review und CI. Beide Integrationen sind optional und werden über die Administration konfiguriert.
+
+Der [eigene Docker-Agent](agent/README.md) ist eine zusätzliche optionale Integration, unabhängig vom Deployment-Monitoring und ohne Portainer. Seine Images können gebaut werden, bevor der Dienst eingerichtet oder gestartet wird. Im normalen Portal ist die Container-Verwaltung standardmäßig ausgeschaltet. Einrichtung unter **Einstellungen → Verbindungen → Docker-Agenten**; Aktivierung und Schreibaktionen sind getrennte Freigaben. HTTPS ist erforderlich, gegenseitiges TLS mit Client-Zertifikat ist zusätzlich möglich. Konkrete Server-Compose und CI-Anpassungen werden separat abgestimmt.
 
 ## Installation
 

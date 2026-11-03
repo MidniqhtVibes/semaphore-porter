@@ -86,14 +86,14 @@ class UserCreate(UsernameFields, AccountLabels):
     email: EmailStr
     display_name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=512)
-    role_codes: list[str] = Field(default_factory=lambda: ["viewer"])
+    role_codes: list[str] = Field(default_factory=lambda: ["viewer"], min_length=1)
     must_change_password: bool = True
 
 
 class UserUpdate(UsernameFields, AccountLabelsUpdate):
     display_name: str | None = Field(default=None, min_length=2, max_length=160)
     is_active: bool | None = None
-    role_codes: list[str] | None = None
+    role_codes: list[str] | None = Field(default=None, min_length=1)
 
 
 class PasswordReset(BaseModel):

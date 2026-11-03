@@ -16,6 +16,8 @@ import { SemaphorePage } from './pages/admin/SemaphorePage'
 import { VaultPage } from './pages/admin/VaultPage'
 const CredentialsPage=lazy(()=>import('./pages/admin/CredentialsPage').then(module=>({default:module.CredentialsPage})))
 const RegistryProfilesPage=lazy(()=>import('./pages/admin/RegistryProfilesPage').then(module=>({default:module.RegistryProfilesPage})))
+const ContainersPage=lazy(()=>import('./pages/admin/ContainersPage'))
+const ContainerSetupPage=lazy(()=>import('./components/ContainerSetup').then(module=>({default:module.ContainerSetupPage})))
 const GitLabPage=lazy(()=>import('./pages/admin/GitLabPage').then(module=>({default:module.GitLabPage})))
 const ProgramPackagesPage=lazy(()=>import('./pages/admin/ProgramPackagesPage').then(module=>({default:module.ProgramPackagesPage})))
 const ProgramPackagePage=lazy(()=>import('./pages/admin/ProgramPackagePage').then(module=>({default:module.ProgramPackagePage})))
@@ -25,6 +27,7 @@ import { TenantDetailPage, TenantsPage } from './pages/admin/TenantsPage'
 import { TenantWizardPage } from './pages/admin/TenantWizardPage'
 import { ProjectsPage, ProjectEditorPage } from './pages/admin/ProjectsPage'
 import { UsersPage } from './pages/admin/UsersPage'
+import { NavigationPage } from './pages/NavigationPage'
 import { DesignsPage } from './pages/DesignsPage'
 import { LegalPage } from './pages/LegalPage'
 const DesignStudioPage=lazy(()=>import('./pages/DesignStudioPage'))
@@ -64,9 +67,12 @@ export function App(){const runtime=useRuntime();return <Routes>
   <Route element={<Protected admin/>}>
     <Route path="/admin/designs/studio" element={<StudioRoute/>}/>
     <Route path="/admin" element={<AdminShell/>}>
+    <Route path="bereiche/*" element={<NavigationPage mode="admin"/>}/>
     <Route path="vault" element={<VaultPage/>}/>
     <Route path="zugangsprofile" element={<DeferredPage><CredentialsPage/></DeferredPage>}/>
     <Route path="registries" element={<DeferredPage><RegistryProfilesPage/></DeferredPage>}/>
+    <Route path="container" element={<DeferredPage><ContainersPage/></DeferredPage>}/>
+    <Route path="docker-agenten" element={<DeferredPage><ContainerSetupPage/></DeferredPage>}/>
     <Route path="gitlab" element={<DeferredPage><GitLabPage/></DeferredPage>}/>
     <Route path="programmpakete" element={<DeferredPage><ProgramPackagesPage/></DeferredPage>}/>
     <Route path="programmpakete/:draftId" element={<DeferredPage><ProgramPackagePage/></DeferredPage>}/>
@@ -84,6 +90,7 @@ export function App(){const runtime=useRuntime();return <Routes>
     {DoomPage&&<Route path="/portal/iddqd" element={<ErrorBoundary><Suspense fallback={<div className="app-loading"><Loading/></div>}><DoomPage/></Suspense></ErrorBoundary>}/>}
     <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
     <Route path="/portal" element={<PortalShell/>}>
+    <Route path="bereiche/*" element={<NavigationPage mode="portal"/>}/>
     <Route path="designs" element={<DesignsPage/>}/>
     <Route path="personen" element={<DeferredPage><PeoplePage/></DeferredPage>}/>
     <Route path="personen/:personId" element={<DeferredPage><PersonPage/></DeferredPage>}/>
