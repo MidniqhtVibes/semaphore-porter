@@ -238,6 +238,117 @@ def test_inventory_parsing_checks_effective_hosts_users_and_dynamic_values():
     assert git_target("git@git.example:group/repo.git", "git") == git_target("ssh://git@git.example/group/repo.git", "git")
 
 
+@pytest.mark.parametrize("inventory_type,content", [
+    ("static", "\ufeff[docker_test]\r\ncayo ansible_host=10.0.0.1\r\n[docker_test:vars]\r\nansible_user = deploy\r\n"),
+    ("static-yaml", "all:\n  vars:\n    ansible_user: deploy\n  hosts:\n    cayo:\n      ansible_host: 10.0.0.1\n"),
+])
+def test_inventory_import_preview_checks_profile_targets_without_reading_secrets(client, admin_headers, inventory_type, content):
+    item = profile(client, admin_headers)
+    with respx.mock as mock:
+        response = client.post("/api/admin/credentials/inventory-preview", headers=admin_headers, json={
+            "profile_id": item["id"], "inventory_type": inventory_type, "content": content})
+        assert response.status_code == 200, response.text
+        assert response.json() == {"targets": ["10.0.0.1"], "login": "deploy"}
+        assert len(mock.calls) == 0
+    with SessionLocal() as db:
+        assert db.scalar(select(CreationJob)) is None
+        assert db.scalar(select(CredentialUse)) is None
+
+
+@pytest.mark.parametrize("content", [
+    "host ansible_host=10.0.0.99 ansible_user=deploy",
+    "[test]\nhost ansible_host=10.0.0.1\n[test:vars]\nansible_user = root",
+    "[test]\nhost ansible_host=10.0.0.1\n[test:vars]\nansible_host = 10.0.0.99",
+    "host ansible_host={{ target }}",
+    "[test]\nhost ansible_host=10.0.0.1 ansible_password=DO-NOT-ECHO",
+    "[test]\nhost ansible_host=10.0.0.1\n[test:vars]\nansible_ssh_pass = DO-NOT-ECHO",
+    "-----BEGIN OPENSSH PRIVATE KEY-----\nDO-NOT-ECHO\n-----END OPENSSH PRIVATE KEY-----",
+    "all:\n  hosts:\n    host:\n      ansible_host: 10.0.0.1\n      ansible_password: DO-NOT-ECHO",
+    "plugin: some.inventory.plugin",
+    "\x00",
+])
+def test_inventory_import_rejects_unapproved_or_secret_content(client, admin_headers, content):
+    item = profile(client, admin_headers)
+    response = client.post("/api/admin/credentials/inventory-preview", headers=admin_headers, json={
+        "profile_id": item["id"], "inventory_type": "static", "content": content})
+    assert response.status_code == 422, response.text
+    assert "DO-NOT-ECHO" not in response.text
+
+
+def test_inventory_import_requires_system_admin(client, operator_headers):
+    response = client.post("/api/admin/credentials/inventory-preview", headers=operator_headers, json={
+        "profile_id": str(uuid.uuid4()), "inventory_type": "static", "content": "10.0.0.1"})
+    assert response.status_code == 403
+
+
+def test_inventory_import_requires_active_host_profile(client, admin_headers):
+    item = profile(client, admin_headers)
+    payload = {"profile_id": item["id"], "inventory_type": "static", "content": "10.0.0.1"}
+    with SessionLocal() as db:
+        from app.models import CredentialProfile
+        row = db.get(CredentialProfile, uuid.UUID(item["id"]))
+        row.is_active = False
+        db.commit()
+    assert client.post("/api/admin/credentials/inventory-preview", headers=admin_headers, json=payload).status_code == 422
+
+
+def test_imported_file_inventory_provisions_as_static_copy_with_shared_key(client, admin_headers):
+    item = profile(client, admin_headers)
+    job_id = new_job(client, admin_headers, item["id"])
+    content = "[docker_test]\ncayo ansible_host=10.0.0.1 ansible_user=deploy\n"
+    with SessionLocal() as db:
+        job = db.get(CreationJob, uuid.UUID(job_id))
+        source = db.get(ProjectTemplate, job.project_template_id)
+        document = copy.deepcopy(source.backup_document)
+        document["inventories"][0].update(type="file", inventory="inventory/inventory.ini")
+        source.backup_document = document
+        draft = copy.deepcopy(job.draft_data)
+        db.commit()
+    with respx.mock as mock:
+        vault(mock)
+        restore, write, _ = remote(mock, item["id"])
+        # A path is never treated as a host or silently converted.
+        response = validate(client, admin_headers, job_id)
+        assert response.status_code == 422 and "statische Kopie" in response.text
+        assert restore.call_count == write.call_count == 0
+        response = client.post("/api/admin/credentials/inventory-preview", headers=admin_headers, json={
+            "profile_id": item["id"], "inventory_type": "static", "content": content})
+        assert response.status_code == 200, response.text
+        overrides = {name: copy.deepcopy(document.get(name, [])) for name in ("inventories", "repositories", "templates", "environments")}
+        overrides["inventories"][0].update(type="static", inventory=content)
+        draft["resource_overrides"] = overrides
+        assert client.put(f"/api/admin/creation-jobs/{job_id}", headers=admin_headers, json={"draft_data": draft}).status_code == 200
+        assert validate(client, admin_headers, job_id).status_code == 200
+        response = execute(client, admin_headers, job_id)
+        assert response.status_code == 200 and response.json()["status"] == "completed", response.text
+        restored = json.loads(restore.calls[0].request.content)
+        assert restored["inventories"][0]["type"] == "static"
+        assert restored["inventories"][0]["inventory"] == content
+        assert json.loads(write.calls[0].request.content)["ssh"]["private_key"] == PRIVATE
+    with SessionLocal() as db:
+        job = db.get(CreationJob, uuid.UUID(job_id))
+        assert db.get(ProjectTemplate, job.project_template_id).backup_document["inventories"][0] == document["inventories"][0]
+
+
+def test_preview_does_not_replace_final_tenant_scope_validation(client, admin_headers):
+    item = profile(client, admin_headers)
+    job_id = new_job(client, admin_headers, item["id"])
+    assert client.post("/api/admin/credentials/inventory-preview", headers=admin_headers, json={
+        "profile_id": item["id"], "inventory_type": "static", "content": "10.0.0.1"}).status_code == 200
+    with SessionLocal() as db:
+        job = db.get(CreationJob, uuid.UUID(job_id))
+        document = copy.deepcopy(db.get(ProjectTemplate, job.project_template_id).backup_document)
+        document["inventories"][0]["inventory"] = "10.0.0.99"
+        draft = copy.deepcopy(job.draft_data)
+    draft["resource_overrides"] = {name: document.get(name, []) for name in ("inventories", "repositories", "templates", "environments")}
+    assert client.put(f"/api/admin/creation-jobs/{job_id}", headers=admin_headers, json={"draft_data": draft}).status_code == 200
+    with respx.mock as mock:
+        vault(mock)
+        response = validate(client, admin_headers, job_id)
+        assert response.status_code == 422 and "nicht freigegebenes Ziel" in response.text
+        assert not any("semaphore.example" in str(call.request.url) for call in mock.calls)
+
+
 @pytest.mark.parametrize("extra_resource", [False, True])
 def test_copy_from_managed_project_reuses_placeholder_but_requires_all_references_to_be_bound(client, admin_headers, extra_resource):
     item = profile(client, admin_headers)

@@ -52,6 +52,13 @@ class SyncInput(BaseModel):
     profile_revision: str
 
 
+class InventoryPreviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile_id: uuid.UUID
+    inventory_type: Literal["static", "static-yaml"]
+    content: str = Field(min_length=1, max_length=500_000)
+
+
 def revision(profile: CredentialProfile) -> str:
     values = {**service.profile_snapshot(profile), "name": profile.name, "is_active": profile.is_active}
     return hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
@@ -103,6 +110,20 @@ async def test_connection(db: Db, admin: SystemAdmin):
 @router.get("/profiles")
 def profiles(db: Db, admin: SystemAdmin):
     return [public_profile(row) for row in db.scalars(select(CredentialProfile).order_by(CredentialProfile.name))]
+
+
+@router.post("/inventory-preview")
+def inventory_preview(payload: InventoryPreviewInput, db: Db, admin: SystemAdmin):
+    profile = db.get(CredentialProfile, payload.profile_id)
+    if profile is None or not profile.is_active or profile.purpose != "host":
+        raise HTTPException(422, "Ein aktives Host-SSH-Profil für dieses Inventory auswählen.")
+    try:
+        _, targets = service.static_inventory(payload.content, payload.inventory_type, profile.login)
+        if not set(targets).issubset(service.normalize_targets(profile.purpose, profile.allowed_targets)):
+            raise ValueError("Inventory enthält ein nicht freigegebenes Ziel. Die erlaubten Hosts im SSH-Profil prüfen.")
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"targets": targets, "login": profile.login}
 
 
 @router.post("/profiles", status_code=201)

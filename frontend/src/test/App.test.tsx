@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -303,6 +303,47 @@ describe('Portal-Flows', () => {
     expect(saved?.database_types).toEqual(['none','postgresql','mariadb','mysql'])
     expect(saved?.dataset_ids).toEqual(['none','public-v1','mariadb-smoke-v1'])
     expect(saved?.wizard_step).toBe(3)
+  })
+
+  it('übernimmt eine Datei-Hostliste im Wizard und speichert die statische Kopie samt SSH-Profil',async()=>{
+    window.history.replaceState({}, '', '/admin/tenant-erstellen')
+    const inventory={name:'Lokal',inventory:'inventory/inventory.ini',type:'file',ssh_key:'Cayo SSH'}
+    const resources={templates:[{name:'Check-Hosts'},{name:'Nicht freigegeben'}],environments:[{name:'Semaphore-Defaults'},{name:'Nicht gewählt'}],repositories:[{name:'Git'}],inventories:[inventory]}
+    const draft={project_name:'Test',tenant_slug:'test-a',runtime_scope_id:'scope-a',display_name:'Test',wizard_step:3,
+      task_template_names:['Check-Hosts'],environment_names:['Semaphore-Defaults'],ssh_bindings:[{profile_id:'host-profile',resource_kind:'inventories',resource_name:'Lokal'}]}
+    let saved:Record<string,unknown>|undefined
+    vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,options?:RequestInit)=>{
+      const url=String(input)
+      if(url.endsWith('/api/auth/me'))return json(admin)
+      if(url.endsWith('/api/auth/csrf'))return json({csrf_token:'csrf'})
+      if(url.endsWith('/project-templates'))return json([{id:'source',name:'Quelle',survey_catalog:{},task_templates:['Check-Hosts'],environments:['Semaphore-Defaults']}])
+      if(url.endsWith('/creation-jobs'))return json([{id:'job-static',project_template_id:'source',status:'draft',draft_data:draft}])
+      if(url.endsWith('/creation-jobs/job-static')){saved=JSON.parse(String(options?.body)).draft_data;return json({id:'job-static',project_template_id:'source',status:'draft',draft_data:saved})}
+      if(url.endsWith('/resources'))return json(resources)
+      if(url.endsWith('/credentials/profiles'))return json([{id:'host-profile',name:'CAYO',purpose:'host',is_active:true,vault_version:1}])
+      if(url.endsWith('/inventory-preview'))return json({targets:['10.0.0.1'],login:'deploy'})
+      return json([])
+    }))
+    renderApp();const user=userEvent.setup()
+    await user.click(await screen.findByRole('button',{name:'Fortsetzen'}))
+    await screen.findByRole('region',{name:'Datei-Inventory Lokal'})
+    const content='[docker_test]\ncayo ansible_host=10.0.0.1 ansible_user=deploy\n'
+    fireEvent.change(screen.getByLabelText('Inventory-Inhalt für Lokal'),{target:{value:content}})
+    await user.click(screen.getByRole('button',{name:'Hostliste prüfen'}))
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Als statisches Inventory übernehmen'})).toBeEnabled())
+    await user.click(screen.getByRole('button',{name:'Als statisches Inventory übernehmen'}))
+    expect(screen.queryByRole('region',{name:'Datei-Inventory Lokal'})).not.toBeInTheDocument()
+    expect(JSON.parse((screen.getByLabelText('Ressourcen der Projektkopie (JSON)') as HTMLTextAreaElement).value).inventories)
+      .toEqual([{...inventory,type:'static',inventory:content}])
+    await user.click(screen.getByRole('button',{name:/Speichern & weiter/}))
+    await waitFor(()=>expect(saved?.resource_overrides).toMatchObject({inventories:[{...inventory,type:'static',inventory:content}]}))
+    expect(saved?.ssh_bindings).toEqual(draft.ssh_bindings)
+    expect(saved?.task_template_names).toEqual(['Check-Hosts'])
+    expect(saved?.environment_names).toEqual(['Semaphore-Defaults'])
+    expect(resources.inventories[0].type).toBe('file')
+    await user.click(screen.getByRole('button',{name:'Zurück'}))
+    await screen.findByRole('heading',{name:'Task Templates und Ressourcen'})
+    expect(screen.queryByRole('region',{name:'Datei-Inventory Lokal'})).not.toBeInTheDocument()
   })
 
   it('beginnt nach einem Vorlagenwechsel einen neuen Creation Job', async()=>{

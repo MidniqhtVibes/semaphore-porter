@@ -121,6 +121,14 @@ Die Verbindungen werden in der Administration eingerichtet. Die Dienste müssen 
 
 Vault-Policies, AppRoles, Hostberechtigungen und Registry-Infrastruktur werden durch die jeweiligen Betreiber bereitgestellt. GitLab-Schreibzugriffe benötigen einen geschützten Basisbranch und gesondert freigeschalteten Schreibmodus. Für die Übernahme eines Katalogstandes ist eine erfolgreiche Pipeline für den aktuellen Commit des konfigurierten Basisbranches erforderlich. Repository und Pakete müssen zum unterstützten Paketvertrag passen.
 
+### Datei-Inventories mit SSH-Profilen
+
+Die automatische SSH-Zuordnung prüft konkrete Hosts und SSH-Benutzer in statischen INI-/YAML-Inventories. Ein Datei-Inventory wie `inventory/inventory.ini` enthält in der Semaphore-Vorlage nur den Pfad, nicht die Hostliste.
+
+Im Tenant-Assistenten unter **Schritt 4 → Ressourcen** zuerst das Host-SSH-Profil für das Inventory auswählen. Danach bei **Kopie vor dem Restore bearbeiten** die betreffende INI-/YAML-Datei hochladen oder ihren vollständigen Inhalt einfügen. **Hostliste prüfen** gleicht Benutzer und Ziele mit dem Profil ab. Mit **Als statisches Inventory übernehmen** wird nur die Projektkopie umgestellt; Repository, Quellprojekt und Datei bleiben bestehen. Die Tenant-Validierung und Schlüsselübertragung prüfen die Zuordnung anschließend erneut.
+
+Die Kopie folgt späteren Änderungen der Repository-Datei nicht automatisch. Änderungen an Hosts und Benutzern deshalb im Tenant-Inventory pflegen beziehungsweise erneut übernehmen. Passwörter und private Schlüssel gehören nicht in die Hostliste. Der Import führt keine Inventory-Skripte aus und baut keine SSH-Verbindung auf. Eine erfolgreiche Ausführung eines vorgesehenen Diagnose-Tasks prüft danach die tatsächlichen Zugriffe.
+
 ### Interne Zertifikate
 
 Für Vault und GitLab können `VAULT_CA_BUNDLE` und `GITLAB_CA_BUNDLE` auf eine vertrauenswürdige PEM-Datei **innerhalb des Backend-Containers** zeigen. Binden Sie diese über eine Compose-Override-Datei schreibgeschützt ein. Ein Host-Dateipfad allein stellt die Datei dem Container nicht bereit. Die TLS-Prüfung bleibt aktiv.

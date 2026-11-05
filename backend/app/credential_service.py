@@ -21,6 +21,7 @@ from app.models import CredentialProfile, CredentialSettings, CredentialUse, Cre
 from app.audit import record_audit
 from app.security import decrypt_secret, encrypt_secret
 from app.semaphore_client import SemaphoreClient
+from app.project_backup import is_secret_name
 from app.vault_client import VaultClient, VaultError, safe_path, safe_url
 
 
@@ -112,6 +113,8 @@ def normalize_targets(purpose: str, values: list[str]) -> list[str]:
 
 
 def inventory_targets(resource: dict, login: str) -> list[str]:
+    if resource.get("type") == "file":
+        raise ValueError("Datei-Inventories zuerst in Schritt 4 als statische Kopie übernehmen: INI-/YAML-Datei hochladen oder deren Inhalt einfügen. Ein Dateipfad allein enthält keine prüfbaren Zielhosts.")
     if resource.get("type", "static") not in {"static", "static-yaml"}:
         raise ValueError("Automatische SSH-Zuordnung unterstützt statische INI- oder YAML-Inventories. Dynamische Inventories manuell prüfen.")
     raw = resource.get("inventory") or ""
@@ -122,6 +125,8 @@ def inventory_targets(resource: dict, login: str) -> list[str]:
     def check_vars(values):
         if not isinstance(values, dict):
             return
+        if any(is_secret_name(str(name)) or str(name).lower() in {"ansible_pass", "ansible_ssh_pass", "ansible_become_pass"} for name in values):
+            raise ValueError("Inventory enthält Zugangsdaten. Passwörter und private Schlüssel getrennt in Vault beziehungsweise Semaphore hinterlegen.")
         for name in ("ansible_user", "ansible_ssh_user"):
             if name in values and str(values[name]) != login:
                 raise ValueError("SSH-Benutzer im Inventory und im Zugangsprofil stimmen nicht überein.")
@@ -169,7 +174,10 @@ def inventory_targets(resource: dict, login: str) -> list[str]:
             if not words:
                 continue
             if section.endswith(":vars"):
-                values = dict(word.split("=", 1) for word in words if "=" in word)
+                variable, separator, raw_value = line.partition("=")
+                if not separator or not variable.strip():
+                    raise ValueError("Ungültige INI-Gruppenvariable; name=value verwenden.")
+                values = {variable.strip(): " ".join(shlex.split(raw_value, comments=True))}
                 check_vars(values)
                 if "ansible_host" in values or "ansible_ssh_host" in values:
                     raise ValueError("Gruppenweite Host-Overrides bitte durch konkrete Host-Zuordnungen ersetzen.")
@@ -182,6 +190,24 @@ def inventory_targets(resource: dict, login: str) -> list[str]:
     if not targets:
         raise ValueError("Das Inventory enthält keine prüfbaren SSH-Zielhosts.")
     return sorted(set(targets))
+
+
+def static_inventory(content: str, inventory_type: str, login: str) -> tuple[str, list[str]]:
+    """Validate an explicit file-content import without reading or executing a path."""
+    content = content.removeprefix("\ufeff").replace("\r\n", "\n")
+    if not content.strip() or len(content.encode("utf-8")) > 500_000 or "\x00" in content:
+        raise ValueError("Eine nicht leere INI-/YAML-Hostliste mit maximal 500 KB erforderlich.")
+    if "PRIVATE KEY-----" in content or content.startswith("PuTTY-User-Key-File-"):
+        raise ValueError("Private Schlüssel gehören nicht in das Inventory. Bitte die INI-/YAML-Hostliste auswählen.")
+    try:
+        parsed = yaml.safe_load(content)
+    except yaml.YAMLError:
+        parsed = None
+    if inventory_type == "static-yaml" and not isinstance(parsed, dict):
+        raise ValueError("Für YAML eine YAML-Hostliste verwenden; für INI das Format INI auswählen.")
+    if inventory_type == "static" and isinstance(parsed, dict):
+        raise ValueError("Die Hostliste enthält YAML. Bitte das Format YAML auswählen.")
+    return content, inventory_targets({"type": inventory_type, "inventory": content}, login)
 
 
 def resource_targets(kind: str, resource: dict, login: str) -> list[str]:

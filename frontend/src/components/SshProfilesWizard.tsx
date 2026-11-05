@@ -9,7 +9,7 @@ export function SshProfilesWizard({templateId,overrides,bindings,onChange}:{temp
   const profiles=useQuery({queryKey:['ssh-profiles'],queryFn:()=>api<SshProfile[]>('/admin/credentials/profiles')})
   const resources=useQuery({queryKey:['template-resources',templateId],queryFn:()=>api<Resources>(`/admin/project-templates/${templateId}/resources`)})
   const source=overrides||resources.data
-  return <section aria-label="SSH-Zugangsprofile"><h3>Zentrale SSH-Zugangsprofile</h3><p>Vorhandene Schlüssel wiederverwenden: für jedes Inventory und SSH-Repository ein passendes Profil wählen. Neue Projekte erhalten eigene Key-Store-Einträge mit demselben privaten Schlüssel.</p>
+  return <section aria-label="SSH-Zugangsprofile"><h3>Zentrale SSH-Zugangsprofile</h3><p>Vorhandene Schlüssel wiederverwenden: für jedes Inventory und SSH-Repository ein passendes Profil wählen. Neue Projekte erhalten eigene Key-Store-Einträge mit demselben privaten Schlüssel. Datei-Inventories unten als statische Kopie übernehmen, damit Host und Benutzer geprüft werden können.</p>
     {(profiles.error||resources.error)&&<Notice type="error">{profiles.error?.message||resources.error?.message}</Notice>}
     {!profiles.isLoading&&!profiles.data?.length&&<Notice type="info">Noch keine Profile vorhanden. <Link to="/admin/zugangsprofile">Zugangsprofile konfigurieren</Link>. Ohne Auswahl werden SSH-Zugänge nach der Anlage manuell gesetzt.</Notice>}
     {(['inventories','repositories'] as const).map(kind=>(source?.[kind]||[]).map(resource=>{

@@ -8,6 +8,7 @@ import type { User } from '../../types'
 import { Link } from 'react-router-dom'
 import { VaultWizard } from '../../components/VaultWizard'
 import { SshProfilesWizard } from '../../components/SshProfilesWizard'
+import { StaticInventoryImport } from '../../components/StaticInventoryImport'
 import { RegistryProfilesWizard } from '../../components/RegistryProfiles'
 import type { RegistryBinding } from '../../registries'
 import type { SshBinding, SshPlan } from '../../credentials'
@@ -205,9 +206,17 @@ function WizardOptions({label,variable,options,selected,onChange}:{label:string;
 function WizardResourceEditor({templateId,draft,setDraft}:{templateId:string;draft:Draft;setDraft:(fn:(v:Draft)=>Draft)=>void}){
   const query=useQuery({queryKey:['template-resources',templateId],queryFn:()=>api<Resources>(`/admin/project-templates/${templateId}/resources`)})
   const [text,setText]=useState(''),[error,setError]=useState(''),[applied,setApplied]=useState(false)
-  useEffect(()=>{if(query.data)setText(JSON.stringify(draft.resource_overrides||query.data,null,2))},[query.data])
-  const apply=()=>{try{const value=JSON.parse(text) as Resources;for(const key of ['templates','environments','repositories','inventories'] as const){if(!Array.isArray(value[key])||value[key].some(x=>!x||typeof x!=='object'||!x.name))throw new Error(`${key}: Liste benannter Objekte erforderlich.`)}setDraft(v=>({...v,resource_overrides:value,task_template_names:value.templates.map(x=>String(x.name)),environment_names:value.environments.map(x=>String(x.name))}));setError('');setApplied(true)}catch(e){setError(e instanceof Error?e.message:'Ungültige Ressourcen.')}}
-  return <div><h3>Kopie vor dem Restore bearbeiten</h3><p>Variablengruppen, Repository/Branch, Inventories und Task-Zuordnungen können hier angepasst werden. Änderungen zuerst übernehmen und danach die Auswahl oben prüfen. Tenant und Scope werden aus Schritt 2 in Semaphore-Defaults geschrieben. Zugangsdaten im erstellten Projekt neu setzen.</p>{query.isLoading?<Loading/>:query.error?<Notice type="error">{query.error.message}</Notice>:<><Field label="Ressourcen der Projektkopie (JSON)"><textarea className="code-editor" rows={22} value={text} onChange={e=>{setText(e.target.value);setApplied(false)}}/></Field><Button variant="secondary" onClick={apply}>Ressourcen übernehmen</Button>{applied&&<Notice type="success">Ressourcen übernommen.</Notice>}</>}{error&&<Notice type="error">{error}</Notice>}</div>
+  useEffect(()=>{if(query.data)setText(JSON.stringify(draft.resource_overrides||query.data,null,2))},[query.data,draft.resource_overrides])
+  const parseResources=()=>{const value=JSON.parse(text) as Resources;for(const key of ['templates','environments','repositories','inventories'] as const){if(!Array.isArray(value[key])||value[key].some(x=>!x||typeof x!=='object'||!x.name))throw new Error(`${key}: Liste benannter Objekte erforderlich.`)}return value}
+  const applyResources=(value:Resources,inventoryOnly=false)=>{setText(JSON.stringify(value,null,2));setDraft(v=>({...v,resource_overrides:value,...(!inventoryOnly?{task_template_names:value.templates.map(x=>String(x.name)),environment_names:value.environments.map(x=>String(x.name))}:{})}));setError('');setApplied(true)}
+  const apply=()=>{try{applyResources(parseResources())}catch(e){setError(e instanceof Error?e.message:'Ungültige Ressourcen.')}}
+  let resources:Resources|undefined
+  try{resources=parseResources()}catch{/* Invalid JSON remains editable below. */}
+  return <div><h3>Kopie vor dem Restore bearbeiten</h3><p>Variablengruppen, Repository/Branch, Inventories und Task-Zuordnungen können hier angepasst werden. Änderungen zuerst übernehmen und danach die Auswahl oben prüfen. Tenant und Scope werden aus Schritt 2 in Semaphore-Defaults geschrieben. Zugangsdaten im erstellten Projekt neu setzen.</p>{query.isLoading?<Loading/>:query.error?<Notice type="error">{query.error.message}</Notice>:<>
+    {resources?.inventories.map((inventory,index)=>inventory.type==='file'&&<StaticInventoryImport key={`${index}:${String(inventory.name)}:${String(inventory.inventory)}`} inventory={inventory}
+      profileId={draft.ssh_bindings.find(binding=>binding.resource_kind==='inventories'&&binding.resource_name===inventory.name)?.profile_id}
+      onApply={value=>{try{const current=parseResources();applyResources({...current,inventories:current.inventories.map((item,i)=>i===index?value:item)},true)}catch(e){setError(e instanceof Error?e.message:'Ungültige Ressourcen.')}}}/>)}
+    <Field label="Ressourcen der Projektkopie (JSON)"><textarea className="code-editor" rows={22} value={text} onChange={e=>{setText(e.target.value);setApplied(false)}}/></Field><Button variant="secondary" onClick={apply}>Ressourcen übernehmen</Button>{applied&&<Notice type="success">Ressourcen übernommen. Die SSH-Zuordnungen werden bei der Tenant-Validierung erneut geprüft.</Notice>}</>}{error&&<Notice type="error">{error}</Notice>}</div>
 }
 
 function WizardTitle({number,title,text}:{number:number;title:string;text:string}){return <div className="wizard-title"><span>Schritt {number} von 8</span><h2>{title}</h2><p>{text}</p></div>}
