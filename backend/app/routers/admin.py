@@ -33,6 +33,7 @@ from app.models import (
     TaskRunStatus,
     TaskTemplate,
     Tenant,
+    TenantDeletion,
     TenantMembership,
     TenantStatus,
     User,
@@ -664,7 +665,7 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
         raise HTTPException(502, str(exc)) from exc
     except (BackupValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    errors, warnings = validate_backup(prepared)
+    errors, warnings = validate_backup(prepared, managed_key_names={item["key_name"] for item in job.credential_plan or []})
     for group in source.backup_document.get("environments", []):
         if is_defaults(str(group.get("name", ""))):
             old = json_object(group.get("json"))
@@ -798,11 +799,12 @@ async def _execute_creation_job(
             raise HTTPException(status_code=409, detail="Das Zielprojekt existiert bereits; Restore wird nicht erneut gesendet.")
         job.status = CreationStatus.RESTORING
         job.restore_started_at = utcnow()
+        job.semaphore_response = {"_semaporter_base_url": db.get(SemaphoreSettings, 1).base_url.rstrip("/")}
         job.last_error = None
         db.commit()  # Zustand muss vor dem externen POST dauerhaft sein.
         try:
             response = await client.restore_project(job.prepared_backup)
-            job.semaphore_response = response
+            job.semaphore_response = {**(job.semaphore_response or {}), **response}
             remote_id = response.get("id") or response.get("project_id")
             if isinstance(remote_id, int):
                 job.semaphore_project_id = remote_id
@@ -1006,8 +1008,6 @@ def _default_policy_rules(survey: list[dict[str, Any]], draft: dict[str, Any]) -
             rules.append(rule)
     if "send_deployment_mail" in fields:
         rules.append({"variable_name": "send_deployment_mail", "title": str(fields["send_deployment_mail"].get("title") or "Deployment-Mail senden"), "rule_type": "boolean", "default_value": False, "is_required": False})
-    if "mail_user" in fields:
-        rules.append({"variable_name": "mail_user", "title": str(fields["mail_user"].get("title") or "Mail-Empfänger"), "rule_type": "string", "regex_pattern": r"^$|^[^\s@]+@[^\s@]+\.[^\s@]+$", "max_length": 254, "default_value": "", "is_required": False})
     return rules
 
 
@@ -1041,9 +1041,12 @@ def get_tenant(tenant_id: uuid.UUID, db: Db, admin: SystemAdmin) -> dict[str, An
 
 @router.patch("/tenants/{tenant_id}")
 def update_tenant(tenant_id: uuid.UUID, payload: TenantUpdate, request: Request, db: Db, admin: SystemAdmin) -> dict[str, Any]:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).with_for_update())
     if tenant is None or tenant.status == TenantStatus.DELETED:
         raise HTTPException(status_code=404, detail="Tenant nicht gefunden.")
+    deletion = db.get(TenantDeletion, tenant_id)
+    if deletion and ((deletion.progress or {}).get("started") or deletion.execution_started_at):
+        raise HTTPException(409, "Tenant wird bereinigt. Zuerst die Bereinigung abschließen.")
     changes = payload.model_dump(exclude_none=True)
     for key, value in changes.items():
         if key == "status":
@@ -1067,20 +1070,7 @@ def delete_tenant(tenant_id: uuid.UUID, request: Request, db: Db, admin: SystemA
         raise HTTPException(status_code=404, detail="Tenant nicht gefunden.")
     if confirm != tenant.tenant_slug:
         raise HTTPException(status_code=400, detail="Bestätigung muss exakt der Tenant-ID entsprechen.")
-    tenant.status = TenantStatus.DELETED
-    tenant.deleted_at = utcnow()
-    tenant.configuration_complete = False
-    record_audit(
-        db,
-        "tenant_deleted",
-        actor=admin,
-        request=request,
-        target_type="tenant",
-        target_id=tenant.id,
-        details={"remote_project_preserved": True, "semaphore_project_id": tenant.semaphore_project.semaphore_project_id if tenant.semaphore_project else None},
-    )
-    db.commit()
-    return {"message": "Portal-Tenant wurde entfernt; das Semaphore-Projekt blieb erhalten."}
+    raise HTTPException(409, "Bitte die Löschvorschau in der Tenant-Detailansicht verwenden. Die alte Portal-Teillöschung ist deaktiviert.")
 
 
 @router.post("/tenants/{tenant_id}/memberships", status_code=201)

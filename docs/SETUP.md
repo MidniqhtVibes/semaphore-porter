@@ -77,7 +77,7 @@ docker compose pull
 docker compose up -d --wait
 ```
 
-Ein Reverse-Proxy auf dem Host erreicht das Frontend standardmäßig unter `http://127.0.0.1:8080`. Die Adresse ist über `PORTAL_BIND_ADDRESS` und `PORTAL_PUBLIC_PORT` konfigurierbar. Der Proxy muss den ursprünglichen `Host` einschließlich eines gegebenenfalls verwendeten Ports sowie `X-Forwarded-Proto: https` weiterreichen. Für Live-Ausgaben sind Streaming ohne Proxy-Buffering und ausreichend lange Timeouts erforderlich.
+Ein Reverse-Proxy auf dem Host erreicht das Frontend standardmäßig unter `http://127.0.0.1:8080`. Die Adresse ist über `PORTAL_BIND_ADDRESS` und `PORTAL_PUBLIC_PORT` konfigurierbar. Der Proxy muss den ursprünglichen `Host` einschließlich eines gegebenenfalls verwendeten Ports sowie `X-Forwarded-Proto: https` weiterreichen. Die Live-Taskansicht verwendet kurze, regelmäßig wiederholte API-Anfragen. Für zusätzliche Clients des SSE-Endpunkts sind Streaming ohne Proxy-Buffering und ausreichend lange Timeouts erforderlich.
 
 Für einen Proxy in einem eigenen Container richten Sie eine gemeinsame Netzwerkverbindung mit einem eindeutigen Frontend-Alias ein. `127.0.0.1` bezeichnet dort den Proxy-Container. Lassen Sie die internen Anwendungs- und Datenbanknetze getrennt und beschränken Sie den direkten Frontend-Zugriff auf den vorgesehenen Proxy.
 
@@ -211,3 +211,64 @@ docker compose --profile tls up -d --wait
 | Externe Verbindung schlägt fehl | DNS, Netzwerkzugang, Zugangsdaten und Zertifikatsvertrauen im Backend-Container |
 
 [Zur Projektübersicht](../README.md)
+
+## Task-Berichte, Live-Ausgabe und Tenant-Bereinigung
+
+### Mailbericht
+
+Bei einem Task mit `send_deployment_mail` setzt das Backend beim ausgewählten Mailbericht `mail_user` auf die Login-E-Mail der startenden Person. Alte feste Empfänger aus einer kopierten Policy und vom Browser mitgesendete Empfänger werden dabei ignoriert. Die Adresse ist im Startformular sichtbar, aber nicht bearbeitbar. Eine ungültige Konto-Adresse verhindert den Start mit Mailbericht.
+
+Der bestehende Semaphore-/Ansible-Stack übernimmt weiterhin den eigentlichen Versand. SMTP und Mail-Playbook müssen dort eingerichtet sein; Semaporter führt keinen zusätzlichen Maildienst ein. Diese Regel gilt auch für bestehende Tenants und deren alte Policies.
+
+### Live-Ausgabe
+
+Die Task-Detailansicht liest Status und vollständige Ausgabe alle zwei Sekunden, solange der Task wartet, läuft oder sein Zustand unbekannt ist. Vorübergehende Verbindungsfehler werden erneut versucht. Eine leere Semaphore-Antwort `null` bedeutet zunächst „noch keine Ausgabe“. Abgelaufene Sitzungen oder entzogene Zugriffe beenden die Anzeige. Auch der vorhandene SSE-Endpunkt behandelt leere Ausgaben und vorübergehende Fehler, die Oberfläche benötigt für ihre Live-Anzeige aber kein dauerhaftes Proxy-Streaming mehr.
+
+### Tenant entfernen
+
+Als Systemadmin **Administration → Tenants → Tenant öffnen → Löschvorschau öffnen** wählen.
+
+1. Temporäre Deployments regulär auslaufen lassen. Dauerhafte Deployments auf allen betroffenen Zielservern bewusst beenden. Die Bereinigung stoppt keine Container und startet keine Cleanup-Playbooks.
+2. Bekannte Hostmeldungen dürfen keine laufenden Deployments mehr enthalten. Temporäre Einträge blockieren auch nach ihrem Ablaufzeitpunkt, bis die Hostmeldung die tatsächlich erfolgte Bereinigung bestätigt. Bei deaktivierter Überwachung die Zielserver selbst prüfen. Aktive Semaphore-Tasks ebenfalls abschließen lassen.
+3. Die Vorschau prüfen: Portal-Zugriffe, Task-Freigaben und Ausführungen; das durch einen Erstellungsvorgang belegte Semaphore-Projekt; exakt die durch Vault-Anlagebelege nachgewiesenen Secret-Pfade.
+4. Die Prüfung der Deployments bestätigen und die Tenant-Kennung exakt eingeben. Erst **Tenant endgültig entfernen** führt externe Löschungen aus.
+
+Semaphore entfernt mit dem Projekt seine projektgebundenen Variablengruppen, Schlüssel, Inventories, Repositories und Task-Historie. Vault entfernt an den aufgeführten KV-v2-Pfaden alle Versionen und Metadaten dauerhaft. Semaporter entfernt danach Tenant, Mitgliedschaften, Freigaben, Policies, Ausführungen, Erstellungsvorgänge, SSH-Verwendungsbelege und tenantbezogene Audit-Ereignisse. Aus den vorhandenen Host-Snapshots werden die zugehörigen Einträge entfernt; die Host-Quelle bleibt bestehen.
+
+Gemeinsame Konten, Gruppen, SSH-/Registry-Profile, globale Vorlagen und GitLab-Projekte/Images bleiben erhalten. Ein extern zugeordnetes Semaphore-Projekt ohne Semaporter-Anlagebeleg wird ausdrücklich in der Vorschau als erhalten angezeigt. Nicht belegte Vault-Pfade werden weder gesucht noch pauschal unter einem gemeinsamen Wurzelpfad gelöscht. Vorhandene Serverdateien, Datenträger, Backups oder externe Zugriffslogs werden nicht bereinigt. Die manuelle Stilllegung von Deployments gehört zum vorherigen Betriebsschritt.
+
+Ein geänderter Vault-Pfad, fehlender Anlagebeleg, ein inzwischen neu angelegtes Secret oder eine unklare frühere Anlage verhindert die automatische Löschung. Auf global verwendete Profile verweisende Secret-Pfade werden ebenfalls geschützt. Während der Bereinigung diese Tenant-Secrets nicht parallel bearbeiten: Vault bietet für das Löschen der Metadaten keinen CAS-Abgleich. Für alte Erstellungsvorgänge wird die öffentliche Vault-Verbindung aus den gespeicherten Semaphore-Defaults verwendet; zukünftige Vorgänge speichern diese Zuordnung zusätzlich direkt im Anlageplan.
+
+### Zusätzliche Vault-Berechtigung
+
+Für die Einrichtung der Schreib-AppRole besteht bereits ein Betreiberzugang zu Vault. In der Vault-GUI unter **Policies → ACL Policies** die Policy der Semaporter-Schreibrolle um die folgenden Rechte ergänzen. Mount `kv` und Wurzel `semaphore/tenants` an die tatsächliche Semaporter-Konfiguration anpassen. Bei einer bereits vorhandenen Regel für denselben Pfad `delete` zu ihren Fähigkeiten hinzufügen; bestehende Regeln für Anlage und Metadatenprüfung beibehalten.
+
+```hcl
+# Nur die Tenant-Secrets, keine zentralen SSH-/Registry-Profile.
+path "kv/metadata/semaphore/tenants/*" {
+  capabilities = ["read", "delete"]
+}
+
+# Vor der ersten externen Löschung werden die Rechte geprüft.
+path "sys/capabilities-self" {
+  capabilities = ["update"]
+}
+```
+
+Die Policy gehört zur **Semaporter-Schreibrolle**, nicht zur Semaphore-Leserolle. Der bereits verwendete Auth-Mount bleibt bestehen, beispielsweise `auth/semaphore-ansible/role/<SCHREIBROLLENNAME>`. Über die Vault-GUI-Konsole lässt sich die Zuordnung ohne Ausgabe von Zugangsdaten kontrollieren:
+
+```text
+read auth/semaphore-ansible/role/<SCHREIBROLLENNAME>
+```
+
+Unter `token_policies` muss die angepasste Policy enthalten sein. Keine neue Role-ID oder Secret-ID ist nötig, wenn lediglich die bereits zugeordnete Policy ergänzt wird. Semaporter meldet sich für einen Löschversuch neu an. Die Lese-AppRole benötigt keine Löschrechte.
+
+Ohne ausreichende Rechte erfolgt keine externe Löschung. Die Fähigkeit wird für die konkreten geplanten Pfade geprüft. Die Policy selbst kann enger gefasst werden, wenn nur bestimmte Tenant-Pfade entfernt werden dürfen. Technische Referenz: [Vault KV-v2: Metadaten und alle Versionen löschen](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#delete-metadata-and-all-versions).
+
+### Fehler und Fortsetzung
+
+Sobald die Ausführung beginnt, wird der Tenant deaktiviert. Neue Portal-Tasks sind dann gesperrt. Bei einem Fehler die Detailansicht erneut öffnen, die Löschvorschau prüfen und **Bereinigung fortsetzen** wählen. Bereits erledigte Schritte werden gespeichert. Ein Timeout gilt nicht als Nachweis, dass nichts gelöscht wurde; ein weiterer Versuch prüft den tatsächlichen Zustand erneut. Wieder angelegte Objekte werden nicht nochmals automatisch entfernt.
+
+Vor dem ersten externen Löschversuch lässt sich ein begonnener Vorgang mit **Bereinigung verwerfen** zurücknehmen. Ein bereits deaktivierter Tenant wird dabei nicht automatisch aktiviert; das ist eine bewusste Aktion unter **Bearbeiten**. Nach einem externen Löschversuch ist die Fortsetzung erforderlich. Parallel gestartete Ausführungen sind gesperrt; eine nach einem Backend-Abbruch verwaiste Sperre läuft nach 15 Minuten aus.
+
+Der erfolgreiche Abschluss entfernt auch den internen Löschvorgang selbst. Es bleibt entsprechend der gewählten Vorgabe kein tenantbezogenes Löschprotokoll in der Anwendung zurück.

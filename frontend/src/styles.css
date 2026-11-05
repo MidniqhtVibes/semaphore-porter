@@ -518,7 +518,8 @@ tbody tr:hover { background: var(--surface-alt); }
 .modal { width: min(760px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); box-shadow: var(--shadow); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .modal-head h2 { margin: 0; font-size: 20px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.tenant-cleanup-resources code { overflow-wrap: anywhere; }
 .danger-zone { margin-top: 24px; padding: 16px; border: 1px solid var(--danger-border); border-radius: var(--radius); background: var(--danger-soft); }
 .danger-zone h3 { display: flex; align-items: center; gap: 8px; color: var(--danger); }
 .danger-zone p { font-size: 12px; }
@@ -815,8 +816,39 @@ tbody tr:hover { background: var(--surface-alt); }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 /* Vault provisioning follows the active design tokens. */
-.vault-object { border-top: 1px solid var(--border); margin-top: 1.2rem; padding-top: 1rem; }
-.vault-object code { overflow-wrap: anywhere; }
+.vault-wizard { margin-top: 24px; }
+.vault-section-heading { display: flex; align-items: flex-start; gap: 12px; }
+.vault-section-heading > svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+.vault-section-heading h3 { margin: 0 0 5px; }
+.vault-section-heading p { margin: 0; font-size: 13px; }
+.vault-object { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-top: 20px; padding: 22px; }
+.vault-object-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.vault-object-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.vault-object-title > div { min-width: 0; }
+.vault-object-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); }
+.vault-object-kind { color: var(--muted); font-size: 11px; }
+.vault-object-title h4 { margin: 3px 0 0; font-size: 17px; overflow-wrap: anywhere; }
+.vault-object-path { display: grid; gap: 5px; margin-bottom: 20px; padding: 12px 14px; border: 1px solid var(--border-soft); border-radius: var(--radius); background: var(--surface-alt); }
+.vault-object-path > span { font-size: 11px; color: var(--muted); }
+.vault-object code { overflow-wrap: anywhere; white-space: normal; font-size: 12px; }
+.vault-registry-source { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 0 0 18px; }
+.vault-registry-source > div { display: grid; gap: 5px; min-width: 0; }
+.vault-registry-source strong { font-size: 13px; }
+.vault-registry-source span:not(.badge) { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.vault-secret-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.vault-secret-field { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px; background: var(--surface-alt); }
+.vault-secret-heading { display: grid; gap: 4px; margin-bottom: 12px; }
+.vault-secret-heading strong { font-size: 14px; }
+.vault-secret-heading code { color: var(--muted); font-size: 11px; }
+.vault-secret-description { font-size: 12px; margin: 0 0 14px; }
+.vault-secret-field .field { margin-bottom: 14px; }
+.vault-secret-field .field:last-child { margin-bottom: 0; }
+.vault-field-note { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+.vault-object-resolution { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+@media (max-width: 900px) {
+  .vault-secret-grid { grid-template-columns: minmax(0, 1fr); }
+  .vault-object { padding: 16px; }
+}
 
 /* Design studio */
 .design-creator { --studio-height: clamp(550px, calc(100dvh - 220px), 820px); padding: 0; margin-bottom: 28px; overflow: clip; scroll-margin-top: 80px; }

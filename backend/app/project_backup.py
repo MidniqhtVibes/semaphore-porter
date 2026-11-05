@@ -231,7 +231,7 @@ def prepare_backup(source: dict[str, Any], draft: dict[str, Any]) -> dict[str, A
     return result
 
 
-def validate_backup(document: dict[str, Any]) -> tuple[list[str], list[str]]:
+def validate_backup(document: dict[str, Any], *, managed_key_names: set[str] | None = None) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     try:
@@ -293,9 +293,25 @@ def validate_backup(document: dict[str, Any]) -> tuple[list[str], list[str]]:
             if ref and str(ref).lower() not in envs:
                 errors.append(f"Task {task_name}: Variablengruppe '{ref}' fehlt.")
 
+    references: set[str] = set()
+    def collect_references(value):
+        if isinstance(value, str):
+            references.add(value.casefold())
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect_references(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect_references(item)
+    for section, value in document.items():
+        if section != "keys":
+            collect_references(value)
+    managed = {name.casefold() for name in managed_key_names or set()}
     for key in document.get("keys", []):
         if isinstance(key, dict) and key.get("type") not in {None, "none"}:
-            warnings.append(f"Key '{key.get('name', '?')}': geheime Inhalte nach dem Restore prüfen.")
+            name = str(key.get("name", "?"))
+            if name.casefold() in references and name.casefold() not in managed:
+                warnings.append(f"Zugang „{name}“: Zugangsdaten nach der Erstellung im Semaphore-Projekt hinterlegen, bevor du Tasks startest.")
     if document.get("schedules"):
         warnings.append("Zeitpläne sind enthalten und müssen geprüft werden.")
     if document.get("integrations"):

@@ -123,6 +123,7 @@ def test_creation_installs_shared_key_without_persisting_material(client, admin_
         assert response.status_code == 200, response.text
         assert PRIVATE not in response.text
         assert response.json()["credential_plan"][0]["profile"]["vault_version"] == 1
+        assert not any("Semaporter-host-" in warning for warning in response.json()["validation_result"]["warnings"])
         response = execute(client, admin_headers, job_id)
         assert response.status_code == 200 and response.json()["status"] == "completed", response.text
         assert PRIVATE not in response.text

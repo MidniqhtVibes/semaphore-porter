@@ -36,7 +36,7 @@ def safe_url(value: str) -> str:
 
 
 class VaultClient:
-    """KV v2 create-only client. No redirects, automatic retries or secret reads."""
+    """KV v2 client: CAS-only creation and explicit tenant metadata cleanup."""
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.base = safe_url(config["base_url"]) + "/v1/"
@@ -67,6 +67,8 @@ class VaultClient:
             raise VaultError(f"Vault-Anfrage fehlgeschlagen (HTTP {response.status_code}).",
                 uncertain=writing and (response.status_code >= 500 or response.status_code < 400 or response.status_code == 408),
                 conflict=writing and response.status_code in {400, 409, 412})
+        if response.status_code == 204:
+            return None
         try:
             return response.json()
         except ValueError as exc:
@@ -90,6 +92,22 @@ class VaultClient:
         if not isinstance(data, dict) or type(data.get("current_version")) is not int or data["current_version"] < 1:
             raise VaultError("Vault-Metadaten konnten nicht zuverlässig geprüft werden.")
         return data
+
+    async def require_delete_access(self, paths: list[str]) -> None:
+        if not paths:
+            return
+        targets = [f"{safe_path(self.config['kv_mount'])}/metadata/{safe_path(path)}" for path in paths]
+        response = await self._request("POST", "sys/capabilities-self", {"paths": targets})
+        data = response.get("data", response) if isinstance(response, dict) else {}
+        if not isinstance(data, dict):
+            raise VaultError("Vault-Löschrechte konnten nicht geprüft werden.")
+        for target in targets:
+            capabilities = data.get(target, data.get("capabilities") if len(targets) == 1 else None)
+            if not isinstance(capabilities, list) or not {"root", "delete"}.intersection(capabilities):
+                raise VaultError("Vault-Zugang benötigt delete auf den tenantbezogenen metadata-Pfaden. Die vorhandene Schreibrolle allein erlaubt möglicherweise nur die Anlage.")
+
+    async def delete_metadata(self, path: str) -> None:
+        await self._request("DELETE", f"{safe_path(self.config['kv_mount'])}/metadata/{safe_path(path)}", absence_ok=True, writing=True)
 
     async def create(self, path: str, values: dict[str, str]) -> dict[str, Any]:
         result = await self._request("POST", f"{safe_path(self.config['kv_mount'])}/data/{safe_path(path)}",

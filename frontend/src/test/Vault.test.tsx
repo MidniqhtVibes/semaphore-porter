@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,12 +18,34 @@ const json=(value:unknown,status=200)=>Promise.resolve(new Response(JSON.stringi
 beforeEach(()=>{vi.restoreAllMocks();localStorage.clear()})
 
 describe('Vault-Onboarding',()=>{
+  it('gruppiert Anwendung und Datenbank und benennt geheime Werte verständlich',()=>{
+    const cryptoSecret={...plan.objects[0].fields[1],key:'crypto_secret',input_id:'application:azubiorga.crypto_secret',generate:'password' as const,min_length:1,hex:false,even_length:false}
+    const displayPlan:VaultPlan={...plan,objects:[
+      {...plan.objects[0],fields:[plan.objects[0].fields[0],cryptoSecret,plan.objects[0].fields[1]]},
+      {id:'postgresql',kind:'provider',path:'semaphore/tenants/test-a/providers/postgresql-v1',fields:[
+        {...cryptoSecret,key:'postgres_password',input_id:'provider:postgresql.postgres_password',min_length:10,max_length:256},
+      ]},
+    ],registries:[{id:'registry-a',name:'Interne Registry',application_id:'azubiorga',host:'registry.example',username:'reader',source:'stored'}]}
+    render(<VaultWizard plan={displayPlan} inputs={{}} onChange={()=>{}} saved={false} progress={{objects:{'semaphore/tenants/test-a/providers/postgresql-v1':{state:'created'}}}} jobId="job-a" onResolved={async()=>{}} disabled={false}/>)
+    expect(screen.getByRole('heading',{name:'Zugangsdaten für Vault'})).toBeVisible()
+    const application=screen.getByRole('article',{name:'Vault-Zugangsdaten für AzubiOrga'})
+    const database=screen.getByRole('article',{name:'Vault-Zugangsdaten für PostgreSQL'})
+    expect(within(application).getByText('Registry-Zugang')).toBeVisible()
+    expect(within(application).getByText('Interne Registry · registry.example')).toBeVisible()
+    expect(within(application).getAllByRole('combobox')).toHaveLength(2)
+    expect(within(application).getByText('crypto_secret')).toBeVisible()
+    expect(within(application).getByLabelText(/^AzubiOrga: Anwendungsschlüssel1/)).toHaveAttribute('type','password')
+    expect(within(database).getByLabelText(/^PostgreSQL: Datenbankpasswort10/)).toHaveAttribute('type','password')
+    expect(within(database).getByText('Angelegt')).toBeVisible()
+    expect(screen.getAllByRole('option',{name:'Vorhandenen Wert verwenden'})).toHaveLength(3)
+  })
+
   it('verlangt die bewusste Wahl einer Generierung und hält manuelle Werte aus dem Browser-Speicher',async()=>{
     let current:VaultInputs={}
     function Harness(){const [inputs,setInputs]=useState<VaultInputs>({});current=inputs;return <VaultWizard plan={plan} inputs={inputs} onChange={setInputs} saved={false} jobId="job-a" onResolved={async()=>{}} disabled={false}/>}
     render(<Harness/>);const user=userEvent.setup()
     expect(screen.getByRole('combobox')).toHaveValue('manual')
-    const input=screen.getByLabelText(/^azubiorga: crypto_saltHex/)
+    const input=screen.getByLabelText(/^AzubiOrga: Crypto-SaltHex/)
     expect(input).toHaveAttribute('type','password')
     await user.type(input,'0123456789abcdef')
     expect(current['application:azubiorga.crypto_salt']).toEqual({mode:'manual',value:'0123456789abcdef'})
@@ -95,10 +117,10 @@ describe('Vault-Onboarding',()=>{
     render(<QueryClientProvider client={client}><MemoryRouter><TenantWizardPage/></MemoryRouter></QueryClientProvider>)
     const user=userEvent.setup()
     await user.click(await screen.findByRole('button',{name:'Fortsetzen'}))
-    await user.type(screen.getByLabelText(/^azubiorga: crypto_saltHex/),'0123456789abcdef')
+    await user.type(screen.getByLabelText(/^AzubiOrga: Crypto-SaltHex/),'0123456789abcdef')
     await user.click(screen.getByRole('button',{name:'Zurück'}))
     await user.click(screen.getByRole('button',{name:'Speichern & weiter'}))
-    expect(await screen.findByLabelText(/^azubiorga: crypto_saltHex/)).toHaveValue('0123456789abcdef')
+    expect(await screen.findByLabelText(/^AzubiOrga: Crypto-SaltHex/)).toHaveValue('0123456789abcdef')
     expect(JSON.stringify(saved)).not.toContain('0123456789abcdef')
     await user.click(screen.getByRole('button',{name:'Projekt verbindlich erstellen'}))
     await screen.findByRole('heading',{name:'Tenant-Projekt wurde registriert'})

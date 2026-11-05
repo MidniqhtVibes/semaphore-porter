@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.database import SessionLocal
 from app.routers import admin, auth, portal, projects, vault, gitlab, credentials, monitoring, demo, profiles, registries, containers
+from app.routers import tenant_cleanup
 from app.security import session_cookie_name, get_session, verify_csrf
 
 
@@ -95,13 +96,14 @@ app.include_router(demo.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(registries.router, prefix="/api")
 app.include_router(containers.router, prefix="/api")
+app.include_router(tenant_cleanup.router, prefix="/api")
 
 if settings.demo_enabled:
     from app.demo.application import DemoApplication
     demo_app = FastAPI(title="Semaporter Demo", docs_url=None, openapi_url=None)
     demo_app.add_exception_handler(RequestValidationError, validation_error)
     demo_app.middleware("http")(security_middleware)
-    for module in (auth, admin, portal, projects, vault, gitlab, credentials, monitoring, demo, profiles, registries, containers):
+    for module in (auth, admin, portal, projects, vault, gitlab, credentials, monitoring, demo, profiles, registries, containers, tenant_cleanup):
         demo_app.include_router(module.router, prefix="/api")
     demo_app.get("/api/health")(health)
     app.mount("/api/demo-instance", DemoApplication(demo_app, settings))

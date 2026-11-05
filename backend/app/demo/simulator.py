@@ -178,10 +178,18 @@ def vault(request,path,data):
         return 200,{"auth":{"client_token":"demo-vault-writer" if data["role_id"]=="demo-writer" else "demo-vault-reader"}}
     token=request.headers.get("x-vault-token")
     if token not in {"demo-vault-writer","demo-vault-reader"}:return 403,{}
+    if path=="/v1/sys/capabilities-self" and request.method=="POST":
+        return 200,{"data":{target:["read","delete"] if token=="demo-vault-writer" else ["read"] for target in data.get("paths",[])}}
     parts=path.strip("/").split("/",3)
     if len(parts)!=4 or parts[:2]!=["v1","kv"] or parts[2] not in {"metadata","data"}:return 404,{}
     kind,key=parts[2:]
     versions=STATE["vault"].get(key)
+    if kind=="metadata" and request.method=="DELETE":
+        if token!="demo-vault-writer":return 403,{}
+        STATE["vault"].pop(key,None)
+        for name in list(STATE["vault_created"]):
+            if name.startswith(key+"/"):del STATE["vault_created"][name]
+        return 204,None
     if kind=="metadata" and request.method=="GET":
         if not versions and STATE["scenario"]=="vault_conflict" and key.startswith("semaphore/"):
             STATE["vault"][key]={"1":{"demo":"bereits vorhanden"}};versions=STATE["vault"][key]

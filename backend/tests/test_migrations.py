@@ -7,6 +7,28 @@ from alembic.operations import Operations
 import sqlalchemy as sa
 
 
+def test_tenant_cleanup_migration_is_additive_and_reversible():
+    path = Path(__file__).parents[1] / "alembic/versions/20261105_0012_tenant_deletion.py"
+    spec = importlib.util.spec_from_file_location("cleanup_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = sa.create_engine("sqlite://")
+    old = sa.Table("tenants", sa.MetaData(), sa.Column("id", sa.Uuid(), primary_key=True))
+    old.metadata.create_all(engine)
+    tenant_id = uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(old.insert().values(id=tenant_id))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        table = sa.Table("tenant_deletions", sa.MetaData(), autoload_with=connection)
+        connection.execute(table.insert().values(tenant_id=tenant_id.hex, plan={}, progress={}, revision="a"*64))
+        assert connection.execute(sa.select(old.c.id)).scalar_one() == tenant_id
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert "tenant_deletions" not in sa.inspect(connection).get_table_names()
+        assert connection.execute(sa.select(old.c.id)).scalar_one() == tenant_id
+
+
 def test_monitoring_migration_is_additive_and_reversible():
     path = Path(__file__).parents[1] / "alembic/versions/20261029_0007_monitoring.py"
     spec = importlib.util.spec_from_file_location("monitoring_migration", path)

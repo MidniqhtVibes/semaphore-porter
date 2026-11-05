@@ -15,6 +15,25 @@ from app.vault_client import safe_path, safe_url
 from test_creation_jobs import seed_source
 
 
+def test_tenant_cleanup_requires_scoped_metadata_delete_capability_and_handles_204():
+    import asyncio
+    from app.vault_client import VaultClient, VaultError
+    client = VaultClient(CONFIG)
+    client.token = "test-token"
+    with respx.mock as mock:
+        capabilities = mock.post("https://vault.example/v1/sys/capabilities-self").respond(200,
+            json={"data": {"kv/metadata/semaphore/tenants/new-a/azubiorga": ["read", "create"]}})
+        deletion = mock.delete("https://vault.example/v1/kv/metadata/semaphore/tenants/new-a/azubiorga").respond(204)
+        with pytest.raises(VaultError, match="delete"):
+            asyncio.run(client.require_delete_access(["semaphore/tenants/new-a/azubiorga"]))
+        assert not deletion.called
+        capabilities.respond(200, json={"data": {"kv/metadata/semaphore/tenants/new-a/azubiorga": ["read", "delete"]}})
+        asyncio.run(client.require_delete_access(["semaphore/tenants/new-a/azubiorga"]))
+        asyncio.run(client.delete_metadata("semaphore/tenants/new-a/azubiorga"))
+        assert deletion.call_count == 1
+        assert json.loads(capabilities.calls[-1].request.content)["paths"] == ["kv/metadata/semaphore/tenants/new-a/azubiorga"]
+
+
 CONFIG = {
     "enabled": True, "base_url": "https://vault.example", "kv_mount": "kv", "tenant_root": "semaphore/tenants",
     "namespace": "company", "writer_auth_mount": "porter", "reader_auth_mount": "semaphore-ansible",

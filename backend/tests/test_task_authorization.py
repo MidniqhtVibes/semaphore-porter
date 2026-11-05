@@ -1,6 +1,8 @@
 import json
 
 import httpx
+import pytest
+import uuid
 import respx
 from sqlalchemy import select
 
@@ -10,6 +12,61 @@ from app.models import (
     TaskRun, TaskTemplate, Tenant, TenantMembership, TenantStatus, User, VariableRule,
 )
 from app.security import encrypt_secret
+
+
+@pytest.mark.parametrize("mail,expected", [(True, "operator@example.com"), (False, None)])
+def test_mail_report_uses_authenticated_starter_not_copied_policy_or_request(client, operator_headers, mail, expected):
+    tenant_id, task_id = seed_task()
+    with SessionLocal() as db:
+        task = db.get(TaskTemplate, uuid.UUID(task_id))
+        task.policy.variable_rules.extend([
+            VariableRule(variable_name="send_deployment_mail", title="Mailbericht", rule_type=RuleType.BOOLEAN, default_value=False),
+            VariableRule(variable_name="mail_user", title="Alter Empfänger", rule_type=RuleType.FIXED, fixed_value="old@example.com"),
+        ])
+        db.commit()
+    form = client.get(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/form").json()
+    assert form["mail_recipient"] == "operator@example.com"
+    assert "mail_user" not in [field["name"] for field in form["fields"]]
+    with respx.mock as mock:
+        start = mock.post("https://semaphore.example/api/project/7/tasks").respond(201, json={"id": 92, "status": "waiting"})
+        response = client.post(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/runs", headers=operator_headers,
+            json={"variables": {"send_deployment_mail": mail, "mail_user": "attacker@example.com"}})
+        assert response.status_code == 201, response.text
+        variables = json.loads(json.loads(start.calls[0].request.content)["environment"])
+        assert variables.get("mail_user") == expected
+
+
+def test_live_output_accepts_semaphore_null_before_first_line_and_updates(client, operator_headers):
+    tenant_id, task_id = seed_task()
+    with respx.mock as mock:
+        mock.post("https://semaphore.example/api/project/7/tasks").respond(201, json={"id": 93, "status": "waiting"})
+        run_id = client.post(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/runs", headers=operator_headers, json={"variables": {}}).json()["id"]
+        state = mock.get("https://semaphore.example/api/project/7/tasks/93").respond(200, json={"id": 93, "status": "running"})
+        output = mock.get("https://semaphore.example/api/project/7/tasks/93/output").respond(200, content="null")
+        response = client.get(f"/api/portal/runs/{run_id}")
+        assert response.status_code == 200 and response.json()["output"] == []
+        state.respond(200, json={"id": 93, "status": "success"})
+        output.respond(200, json=[{"output": "PLAY RECAP", "time": "2026-11-05T10:00:00Z"}])
+        response = client.get(f"/api/portal/runs/{run_id}")
+        assert response.json()["status"] == "success"
+        assert response.json()["output"][0]["output"] == "PLAY RECAP"
+
+
+def test_event_feed_recovers_after_transient_failure(client, operator_headers, monkeypatch):
+    from app.routers import portal
+    monkeypatch.setattr(portal, "STREAM_POLL_INTERVAL_SECONDS", 0)
+    tenant_id, task_id = seed_task()
+    with respx.mock as mock:
+        mock.post("https://semaphore.example/api/project/7/tasks").respond(201, json={"id": 94, "status": "waiting"})
+        run_id = client.post(f"/api/portal/tenants/{tenant_id}/tasks/{task_id}/runs", headers=operator_headers, json={"variables": {}}).json()["id"]
+        mock.get("https://semaphore.example/api/project/7/tasks/94").mock(side_effect=[
+            httpx.Response(502), httpx.Response(200, json={"id": 94, "status": "running"}),
+            httpx.Response(200, json={"id": 94, "status": "success"})])
+        mock.get("https://semaphore.example/api/project/7/tasks/94/output").mock(side_effect=[
+            httpx.Response(200, content="null"), httpx.Response(200, json=[{"output": "Abgeschlossen", "time": "2026-11-05T10:00:00Z"}])])
+        response = client.get(f"/api/portal/runs/{run_id}/events")
+        assert "event: warning" in response.text and "event: complete" in response.text
+        assert response.text.count("event: update") == 2 and "Abgeschlossen" in response.text
 
 
 def seed_task():

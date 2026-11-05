@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { TenantDeletionModal } from '../../components/TenantDeletionModal'
 import { Boxes, CheckCircle2, Download, ExternalLink, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { api, apiUrl } from '../../api'
 import { Badge, Button, Card, Empty, Field, Loading, Modal, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'
@@ -22,11 +23,13 @@ type Group = { id: string; name: string; user_ids: string[] }
 
 export function TenantDetailPage() {
   const { tenantId } = useParams()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const query = useQuery({ queryKey: ['admin-tenant', tenantId], queryFn: () => api<TenantDetail>(`/admin/tenants/${tenantId}`), enabled: Boolean(tenantId) })
   const users = useQuery({ queryKey: ['admin-users'], queryFn: () => api<User[]>('/admin/users') })
   const groups = useQuery({ queryKey: ['admin-groups'], queryFn: () => api<Group[]>('/admin/groups') })
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [memberOpen, setMemberOpen] = useState(false)
   const [policyTask, setPolicyTask] = useState<TaskTemplate | null>(null)
   const [message, setMessage] = useState('')
@@ -46,6 +49,8 @@ export function TenantDetailPage() {
       <Card><div className="card-heading"><div><h2>Zugeordnete Benutzer & Gruppen</h2><p>Direkte und gruppenbasierte Tenant-Zugriffe</p></div><Button variant="secondary" onClick={() => setMemberOpen(true)}><Plus size={16}/>Zuweisen</Button></div>{tenant.memberships.length ? <div className="compact-list">{tenant.memberships.map(item => <div key={item.id}><div><strong>{item.principal_name}</strong><span>{item.user_id ? 'Benutzer' : 'Gruppe'}</span></div><Badge>{item.role_code}</Badge></div>)}</div> : <p className="muted">Noch keine Zugriffe vergeben.</p>}</Card>
     </div>
     <Card><div className="card-heading"><div><h2>Freigegebene Task Templates</h2><p>Eine aktive Policy ist Voraussetzung für die Benutzerfreigabe.</p></div></div>{tenant.task_templates.length ? <div className="table-wrap"><table><thead><tr><th>Task</th><th>Semaphore-ID</th><th>Survey-Felder</th><th>Freigabe</th><th/></tr></thead><tbody>{tenant.task_templates.map(task => <tr key={task.id}><td><strong>{task.name}</strong><span className="subtle">{task.description}</span></td><td>#{task.semaphore_template_id}</td><td>{task.survey_schema?.length || 0}</td><td>{task.has_policy ? <Badge tone={task.is_enabled ? 'success' : 'warning'}>{task.is_enabled ? 'Aktiv' : 'Inaktiv'}</Badge> : <Badge tone="neutral">Keine Policy</Badge>}</td><td><Button variant="ghost" onClick={() => setPolicyTask(task)}>Policy bearbeiten</Button></td></tr>)}</tbody></table></div> : <Empty title="Keine Task Templates" text="Synchronisieren Sie die Task Templates mit Semaphore."/>}</Card>
+    <Card className="danger-zone"><h2>Tenant entfernen</h2><p>Vorschau für die Bereinigung eigener Semaphore- und Vault-Ressourcen einschließlich Tenant-Verlauf. Deployments müssen vorher beendet sein.</p><Button variant="danger" onClick={() => setDeleteOpen(true)}><Trash2 size={16}/>Löschvorschau öffnen</Button></Card>
+    {deleteOpen && <TenantDeletionModal tenantId={tenant.id} onClose={() => {setDeleteOpen(false); refresh()}} onDeleted={() => {qc.clear(); navigate('/admin/tenants')}}/>}
     {editOpen && <EditTenantModal tenant={tenant} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh() }}/>} 
     {memberOpen && <MembershipModal tenant={tenant} users={users.data || []} groups={groups.data || []} onClose={() => setMemberOpen(false)} onSaved={() => { setMemberOpen(false); refresh() }}/>} 
     {policyTask && <PolicyModal task={policyTask} onClose={() => setPolicyTask(null)} onSaved={() => { setPolicyTask(null); refresh() }}/>} 
@@ -56,9 +61,7 @@ function EditTenantModal({ tenant, onClose, onSaved }: { tenant: TenantDetail; o
   const [name, setName] = useState(tenant.display_name), [description, setDescription] = useState(tenant.description), [status, setStatus] = useState(tenant.status)
   const [error, setError] = useState('')
   const mutation = useMutation({ mutationFn: () => api(`/admin/tenants/${tenant.id}`, { method: 'PATCH', body: JSON.stringify({ display_name: name, description, status }), headers: {'Content-Type':'application/json'} }), onSuccess: onSaved, onError: (e: Error) => setError(e.message) })
-  const [confirm, setConfirm] = useState('')
-  const remove = useMutation({ mutationFn: () => api(`/admin/tenants/${tenant.id}?confirm=${encodeURIComponent(confirm)}`, { method: 'DELETE' }), onSuccess: () => window.location.assign('/admin/tenants'), onError: (e: Error) => setError(e.message) })
-  return <Modal title="Tenant bearbeiten" onClose={onClose}>{error && <Notice type="error">{error}</Notice>}<div className="form-grid"><Field label="Anzeigename"><input value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Status"><select value={status} onChange={e=>setStatus(e.target.value as Tenant['status'])}><option value="draft">Entwurf</option><option value="active">Aktiv</option><option value="inactive">Deaktiviert</option></select></Field><Field label="Beschreibung"><textarea rows={4} value={description} onChange={e=>setDescription(e.target.value)}/></Field></div><div className="modal-actions"><Button variant="secondary" onClick={onClose}>Abbrechen</Button><Button loading={mutation.isPending} onClick={()=>mutation.mutate()}>Speichern</Button></div><div className="danger-zone"><h3><Trash2 size={17}/>Portal-Tenant entfernen</h3><p>Das Semaphore-Projekt bleibt ausdrücklich erhalten. Zur Bestätigung <strong>{tenant.tenant_slug}</strong> eingeben.</p><div className="button-row"><input value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder={tenant.tenant_slug}/><Button variant="danger" disabled={confirm!==tenant.tenant_slug} loading={remove.isPending} onClick={()=>remove.mutate()}>Tenant entfernen</Button></div></div></Modal>
+  return <Modal title="Tenant bearbeiten" onClose={onClose}>{error && <Notice type="error">{error}</Notice>}<div className="form-grid"><Field label="Anzeigename"><input value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Status"><select value={status} onChange={e=>setStatus(e.target.value as Tenant['status'])}><option value="draft">Entwurf</option><option value="active">Aktiv</option><option value="inactive">Deaktiviert</option></select></Field><Field label="Beschreibung"><textarea rows={4} value={description} onChange={e=>setDescription(e.target.value)}/></Field></div><div className="modal-actions"><Button variant="secondary" onClick={onClose}>Abbrechen</Button><Button loading={mutation.isPending} onClick={()=>mutation.mutate()}>Speichern</Button></div></Modal>
 }
 
 function MembershipModal({ tenant, users, groups, onClose, onSaved }: { tenant: TenantDetail; users: User[]; groups: Group[]; onClose:()=>void; onSaved:()=>void }) {

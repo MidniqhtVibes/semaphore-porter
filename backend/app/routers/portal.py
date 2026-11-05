@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from datetime import timezone
 from typing import Any
@@ -37,6 +38,7 @@ from app.services import semaphore_client_from_db
 
 
 router = APIRouter(prefix="/portal", tags=["Benutzerportal"])
+STREAM_POLL_INTERVAL_SECONDS = 2
 
 
 def _tenant_ids_for_user(db: Db, user: User) -> list[uuid.UUID]:
@@ -258,9 +260,11 @@ def task_form(tenant_id: uuid.UUID, template_id: uuid.UUID, db: Db, user: Curren
         raise HTTPException(status_code=404, detail="Task nicht gefunden.")
     if template.policy is None or not template.policy.is_active:
         raise HTTPException(status_code=409, detail="Für diesen Task ist keine aktive Policy vorhanden.")
+    report_task = any(rule.variable_name == "send_deployment_mail" for rule in template.policy.variable_rules)
     return {
         "task": {"id": str(template.id), "name": template.name, "description": template.description},
-        "fields": build_form_schema(template.policy.variable_rules, template.survey_schema),
+        "fields": build_form_schema([rule for rule in template.policy.variable_rules if not report_task or rule.variable_name != "mail_user"], template.survey_schema),
+        "mail_recipient": user.email,
         "can_start": "start" in task_actions(db, user, template.id),
     }
 
@@ -274,7 +278,7 @@ async def start_task(
     db: Db,
     user: CurrentUser,
 ) -> dict[str, Any]:
-    tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).options(selectinload(Tenant.semaphore_project)))
+    tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).with_for_update().options(selectinload(Tenant.semaphore_project)))
     template = db.scalar(
         select(TaskTemplate)
         .where(TaskTemplate.id == template_id, TaskTemplate.tenant_id == tenant_id, TaskTemplate.is_enabled.is_(True))
@@ -293,11 +297,17 @@ async def start_task(
     if template.policy is None or not template.policy.is_active:
         raise HTTPException(status_code=409, detail="Für diesen Task ist keine aktive Policy vorhanden.")
     try:
-        variables = enforce_policy(template.policy.variable_rules, payload.variables)
+        # The report recipient is an authenticated account attribute, never a
+        # user-controlled parameter or a copied fixed/default policy value.
+        report_task = any(rule.variable_name == "send_deployment_mail" for rule in template.policy.variable_rules)
+        submitted = {name: value for name, value in payload.variables.items() if not report_task or name != "mail_user"}
+        variables = enforce_policy([rule for rule in template.policy.variable_rules if not report_task or rule.variable_name != "mail_user"], submitted)
         if TENANT_VARIABLES.intersection(variables):
             raise HTTPException(409, "Veraltete Tenant-/Scope-Policy: Semaphore-Defaults konfigurieren und Policy aktualisieren.")
-        if variables.get("send_deployment_mail") is True and not variables.get("mail_user"):
-            raise HTTPException(422, "Für eine Deployment-Mail ist eine Empfängeradresse erforderlich.")
+        if variables.get("send_deployment_mail") is True:
+            if len(user.email) > 254 or re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", user.email) is None:
+                raise HTTPException(422, "Für den Mailbericht benötigt dein Konto eine gültige E-Mail-Adresse mit maximal 254 Zeichen.")
+            variables["mail_user"] = user.email
     except PolicyViolation as exc:
         raise HTTPException(status_code=422, detail={"message": str(exc), "fields": exc.errors}) from exc
     try:
@@ -406,7 +416,10 @@ def run_events(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUser) -
 
     async def stream():
         last_lines = 0
+        yield ": connected\nretry: 3000\n\n"
         for _ in range(900):  # maximal 30 Minuten pro Verbindung
+            if await request.is_disconnected():
+                return
             async with demo_database_turn():
                 with SessionLocal() as poll_db:
                     poll_session = get_session(poll_db, session_cookie)
@@ -421,6 +434,8 @@ def run_events(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUser) -
                         output = await semaphore_client_from_db(poll_db).get_task_output(
                             run.tenant.semaphore_project.semaphore_project_id, run.semaphore_task_id
                         )
+                        if len(output) < last_lines:
+                            last_lines = 0
                         new_lines = output[last_lines:]
                         last_lines = len(output)
                         data = {
@@ -432,10 +447,15 @@ def run_events(run_id: uuid.UUID, request: Request, db: Db, user: CurrentUser) -
                         if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED}:
                             yield "event: complete\ndata: {}\n\n"
                             return
-                    except (HTTPException, SemaphoreError, RuntimeError) as exc:
-                        yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
-                        return
-            await asyncio.sleep(2)
+                    except HTTPException as exc:
+                        if exc.status_code >= 500:
+                            yield f"event: warning\ndata: {json.dumps({'message': str(exc.detail)}, ensure_ascii=False)}\n\n"
+                        else:
+                            yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+                            return
+                    except (SemaphoreError, RuntimeError) as exc:
+                        yield f"event: warning\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+            await asyncio.sleep(STREAM_POLL_INTERVAL_SECONDS)
 
     return StreamingResponse(
         stream(),

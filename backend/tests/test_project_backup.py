@@ -30,6 +30,31 @@ SOURCE = {
 }
 
 
+def test_key_warnings_only_cover_used_credentials_without_a_provisioning_plan():
+    source = deepcopy(SOURCE)
+    source["keys"] = [
+        {"name": "Cayo SSH", "type": "ssh"},
+        {"name": "Gitlab SSH", "type": "ssh"},
+        {"name": "Semaporter-host-managed", "type": "ssh"},
+        {"name": "Semaporter-git-managed", "type": "ssh"},
+        {"name": "Sudo", "type": "login_password"},
+        {"name": "Playbook-Vault", "type": "login_password"},
+    ]
+    source["repositories"][0]["ssh_key"] = "Semaporter-git-managed"
+    source["inventories"][0].update(ssh_key="Semaporter-host-managed", become_key="Sudo")
+    source["templates"][0]["vaults"] = [{"vault_key": "Playbook-Vault"}]
+    _, warnings = validate_backup(source, managed_key_names={"Semaporter-host-managed", "Semaporter-git-managed"})
+    credential_warnings = [warning for warning in warnings if warning.startswith("Zugang ")]
+    assert len(credential_warnings) == 2
+    assert any("Sudo" in warning for warning in credential_warnings)
+    assert any("Playbook-Vault" in warning for warning in credential_warnings)
+    assert not any("Cayo SSH" in warning or "Gitlab SSH" in warning or "managed" in warning for warning in warnings)
+    # A name prefix alone never proves that a key will be provisioned.
+    _, warnings = validate_backup(source)
+    assert any("Semaporter-host-managed" in warning for warning in warnings)
+    assert any("Semaporter-git-managed" in warning for warning in warnings)
+
+
 def test_preparation_keeps_source_immutable_and_removes_automatic_triggers():
     original = deepcopy(SOURCE)
     result = prepare_backup(

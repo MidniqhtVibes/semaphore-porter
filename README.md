@@ -10,8 +10,8 @@ Semaporter verbindet Projektverwaltung, kontrollierte Task-Ausführung und zentr
 
 | Bereich | Umfang |
 | --- | --- |
-| Projekte und Mandanten | Zentrale Verwaltung von Semaphore-Projekten, Mandanten und wiederverwendbaren Projektvorlagen |
-| Automatisierung | Freigegebene Tasks mit validierten Parametern, Live-Ausgaben und Ausführungshistorie |
+| Projekte und Mandanten | Verwaltung, Vorlagen und bestätigte Bereinigung tenantbezogener Ressourcen in Semaporter, Semaphore und Vault |
+| Automatisierung | Freigegebene Tasks mit validierten Parametern, Live-Ausgaben, Ausführungshistorie und persönlichem Mail-Empfänger |
 | Benutzer und Teams | Nachträglich bearbeitbare Portalrollen, Gruppen, Personenprofile und gezielte Projekt- und Task-Freigaben |
 | Programmpakete | Paketverwaltung mit Validierung, GitLab-Anbindung und versionierten Anwendungskatalogen |
 | Zugangsdaten | Vault-Integration sowie zentrale SSH- und Registry-Zugangsprofile |
@@ -25,6 +25,8 @@ Semaporter verbindet Projektverwaltung, kontrollierte Task-Ausführung und zentr
 **Semaphore UI** stellt die Automatisierungsumgebung bereit. Portalbenutzer benötigen für ihre freigegebenen Tasks keinen eigenen Semaphore-Login.
 
 **Vault** ergänzt die zentrale Verwaltung von Secrets und Zugangsprofilen. **GitLab** verbindet Programmpakete mit Repository, Review und CI. Beide Integrationen sind optional und werden über die Administration konfiguriert.
+
+Die [Anleitung zu Task-Berichten und Tenant-Bereinigung](docs/SETUP.md#task-berichte-live-ausgabe-und-tenant-bereinigung) beschreibt Löschumfang, Deployment-Prüfung, Wiederaufnahme und die zusätzlichen begrenzten Vault-Löschrechte.
 
 Der [eigene Docker-Agent](agent/README.md) ist eine zusätzliche optionale Integration, unabhängig vom Deployment-Monitoring und ohne Portainer. Seine Images können gebaut werden, bevor der Dienst eingerichtet oder gestartet wird. Im normalen Portal ist die Container-Verwaltung standardmäßig ausgeschaltet. Einrichtung unter **Einstellungen → Verbindungen → Docker-Agenten**; Aktivierung und Schreibaktionen sind getrennte Freigaben. HTTPS ist erforderlich, gegenseitiges TLS mit Client-Zertifikat ist zusätzlich möglich. Konkrete Server-Compose und CI-Anpassungen werden separat abgestimmt.
 

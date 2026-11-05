@@ -199,6 +199,9 @@ class SemaphoreClient:
 
     async def get_task_output(self, project_id: int, task_id: int) -> list[dict[str, Any]]:
         payload = await self._request("GET", f"project/{project_id}/tasks/{task_id}/output")
+        # Semaphore returns a nil slice (JSON null) before the first log line.
+        if payload is None:
+            return []
         if not isinstance(payload, list):
             raise SemaphoreError("Semaphore-Taskausgabe ist keine Liste.")
         return [line for line in payload if isinstance(line, dict)]
@@ -208,6 +211,18 @@ class SemaphoreClient:
         if not isinstance(payload, list):
             raise SemaphoreError("Semaphore-Taskhistorie ist keine Liste.")
         return [task for task in payload if isinstance(task, dict)]
+
+    async def list_project_tasks(self, project_id: int) -> list[dict[str, Any]]:
+        payload = await self._request("GET", f"project/{project_id}/tasks")
+        if payload is None:
+            return []
+        if not isinstance(payload, list) or any(not isinstance(item, dict) for item in payload):
+            raise SemaphoreError("Semaphore lieferte keine prüfbare Taskliste.")
+        # This API caps its response at 1000. Never infer that older tasks are
+        # finished from a potentially truncated list.
+        if len(payload) >= 1000:
+            raise SemaphoreError("Taskliste erreicht das API-Limit. Vor der Löschung den vollständigen Taskzustand in Semaphore prüfen und die Historie dort bereinigen.")
+        return payload
 
     async def stop_task(self, project_id: int, task_id: int) -> None:
         await self._request("POST", f"project/{project_id}/tasks/{task_id}/stop", payload={"force": False}, expect_json=False)

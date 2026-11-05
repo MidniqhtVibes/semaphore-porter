@@ -189,6 +189,16 @@ class TenantMembership(Base, TimestampMixin):
     group: Mapped[Group | None] = relationship()
 
 
+class TenantDeletion(Base, TimestampMixin):
+    __tablename__ = "tenant_deletions"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True)
+    plan: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    progress: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    revision: Mapped[str] = mapped_column(String(64))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SemaphoreProject(Base, TimestampMixin):
     __tablename__ = "semaphore_projects"
 

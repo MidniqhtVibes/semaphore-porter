@@ -143,7 +143,8 @@ def prepare_plan(db: Session, draft: dict[str, Any], prepared: dict[str, Any]) -
                 raise ValueError("Vault-Konfiguration darf nicht über Task-Surveys überschrieben werden.")
         task["environments"] = [g for g in task.get("environments", []) if str(g).casefold() != "vault-access"] + [group["name"]]
     return {"catalog_revision": catalog.source_revision, "config_revision": config_revision(config),
-        "kv_mount": config["kv_mount"], "objects": objects}
+        "kv_mount": config["kv_mount"], "objects": objects,
+        "connection": {key: config.get(key, "") for key in ("base_url", "namespace", "kv_mount")}}
 
 
 def make_payload(config: dict[str, Any], plan: dict[str, Any], inputs: dict[str, VaultFieldInput], registry_values: dict[str, str] | None = None) -> dict[str, Any]:
