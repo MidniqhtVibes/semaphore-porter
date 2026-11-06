@@ -157,6 +157,10 @@ class Tenant(Base, TimestampMixin):
     application_ids: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     database_types: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     dataset_ids: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
+    approval_config: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}", nullable=False)
+    project_artwork: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}", nullable=False)
+    project_logo_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    project_logo_mime: Mapped[str | None] = mapped_column(String(40))
     status: Mapped[TenantStatus] = mapped_column(
         Enum(TenantStatus, name="tenant_status", native_enum=False), default=TenantStatus.DRAFT, index=True
     )
@@ -259,11 +263,33 @@ class TaskPolicy(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(180))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    cost_class: Mapped[str | None] = mapped_column(String(10))
+    effort_class: Mapped[str | None] = mapped_column(String(10))
 
     task_template: Mapped[TaskTemplate] = relationship(back_populates="policy")
     variable_rules: Mapped[list[VariableRule]] = relationship(
         back_populates="policy", cascade="all, delete-orphan", order_by="VariableRule.position"
     )
+
+
+class TaskApproval(Base, TimestampMixin):
+    __tablename__ = "task_approvals"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    task_template_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task_templates.id", ondelete="CASCADE"), index=True)
+    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    encrypted_variables: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    context_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    decision_note: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    notification_status: Mapped[str] = mapped_column(String(20), default="disabled", nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("task_runs.id", ondelete="SET NULL"))
 
 
 class VariableRule(Base, TimestampMixin):

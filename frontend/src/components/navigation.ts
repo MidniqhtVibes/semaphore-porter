@@ -17,6 +17,7 @@ export const ADMIN_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/admin/tenants', 'Tenants', Boxes],
     ['/admin/projekte', 'Semaphore-Projekte', ServerCog],
     ['/admin/tasks', 'Deployment-Monitoring', Activity],
+    ['/admin/genehmigungen', 'Task-Genehmigungen', ShieldCheck],
     ['/admin/container', 'Container-Verwaltung', Boxes],
   ] },
   { id: 'catalog', label: 'Katalog', icon: PackageOpen, items: [
@@ -55,6 +56,7 @@ export const PORTAL_NAV_GROUPS: readonly NavigationGroup[] = [
     ['/portal', 'Dashboard', Gauge],
     ['/portal/projekte', 'Meine Projekte', Boxes],
     ['/portal/laufende-tasks', 'Laufende Tasks', Activity],
+    ['/portal/genehmigungen', 'Task-Genehmigungen', ShieldCheck],
     ['/portal/historie', 'Task-Historie', FileClock],
   ] },
   { id: 'personal', label: 'Persönlich', icon: CircleUserRound, items: [

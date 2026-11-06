@@ -216,6 +216,8 @@ class VariableRuleInput(BaseModel):
 class TaskPolicyInput(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     is_active: bool = True
+    cost_class: Literal["low", "medium", "high"] | None = None
+    effort_class: Literal["low", "medium", "high"] | None = None
     rules: list[VariableRuleInput]
 
     @field_validator("rules")
@@ -275,6 +277,21 @@ class CredentialBindingInput(BaseModel):
     resource_name: str = Field(min_length=1, max_length=255)
 
 
+class ApprovalConfigInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    approver_id: uuid.UUID | None = None
+    threshold: Literal["low", "medium", "high"] = "high"
+    notify_by_email: bool = False
+    revision: str | None = Field(default=None, max_length=64)
+
+
+class TaskClassificationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cost_class: Literal["low", "medium", "high"]
+    effort_class: Literal["low", "medium", "high"]
+
+
 class CreationDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project_name: str = Field(default="", max_length=255)
@@ -302,6 +319,8 @@ class CreationDraft(BaseModel):
     provision_vault: bool = False
     registry_profiles: dict[str, uuid.UUID | Literal["legacy"]] = Field(default_factory=dict, max_length=200)
     ssh_bindings: list[CredentialBindingInput] = Field(default_factory=list, max_length=100)
+    approval_config: ApprovalConfigInput = Field(default_factory=ApprovalConfigInput)
+    task_classifications: dict[str, TaskClassificationInput] = Field(default_factory=dict, max_length=200)
 
 
 class CreationJobUpdate(BaseModel):

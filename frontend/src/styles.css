@@ -701,6 +701,31 @@ tbody tr:hover { background: var(--surface-alt); }
 .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .project-card { display: flex; min-height: 245px; flex-direction: column; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); transition: border-color 120ms ease; }
 .project-card:hover { border-color: var(--accent); }
+.project-card { position: relative; isolation: isolate; overflow: hidden; }
+.project-card > :not(.project-artwork) { position: relative; z-index: 1; }
+.project-artwork { position: absolute; inset: 8px -12px 8px 35%; z-index: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 12px; padding: 12px 0; color: var(--text); opacity: .17; pointer-events: none; user-select: none; mask-image: linear-gradient(to right, transparent 0%, #0002 25%, #0009 62%, #000 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, #0002 25%, #0009 62%, #000 100%); }
+.project-artwork-mark { display: block; width: 100%; flex: 1; min-height: 0; max-height: 205px; background: currentColor; mask-position: right center; mask-repeat: no-repeat; mask-size: contain; -webkit-mask-position: right center; -webkit-mask-repeat: no-repeat; -webkit-mask-size: contain; }
+.project-artwork-image { display: block; width: 100%; height: 100%; object-fit: contain; object-position: right center; }
+.project-artwork-doxis { mask-image: url('/branding/projects/doxis.svg'); -webkit-mask-image: url('/branding/projects/doxis.svg'); }
+.project-artwork-postgresql { mask-image: url('/branding/projects/postgresql.svg'); -webkit-mask-image: url('/branding/projects/postgresql.svg'); }
+.project-artwork-wordpress { mask-image: url('/branding/projects/wordpress.png'); -webkit-mask-image: url('/branding/projects/wordpress.png'); }
+.project-artwork-preview { min-height: 170px; }
+.project-logo-options { margin: 16px 0; }
+.project-artwork-2 .project-artwork-mark { max-height: 110px; }
+.project-artwork-3 .project-artwork-mark { max-height: 70px; }
+:root[data-theme-mode="light"] .project-artwork { opacity: .13; }
+.approval-list { display: grid; gap: 18px; }
+.approval-request { display: grid; gap: 16px; min-width: 0; }
+.approval-request .card-heading, .approval-request p { margin: 0; }
+.approval-request .button-row { flex-wrap: wrap; gap: 10px; }
+.approval-request .badge-row { flex-wrap: wrap; gap: 8px; }
+.approval-request details, .approval-request pre { min-width: 0; overflow-wrap: anywhere; }
+.approval-reason { white-space: pre-wrap; }
+.approval-configuration { display: grid; gap: 16px; margin: 16px 0; }
+.wizard-approval { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+.approval-task-classification { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+.approval-task-classification > strong { display: block; margin-bottom: 12px; }
+.task-approval-request:empty { display: none; }
 .project-card-top { display: flex; align-items: center; justify-content: space-between; }
 .project-glyph { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--border-soft); border-radius: var(--radius); color: var(--muted); background: var(--surface-alt); }
 .project-card h2 { margin: 20px 0 6px; color: var(--accent); }

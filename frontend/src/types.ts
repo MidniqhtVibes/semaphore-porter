@@ -37,12 +37,18 @@ export type Tenant = {
   application_ids?: string[]
   database_types?: string[]
   dataset_ids?: string[]
+  approval_config?: ApprovalConfig
+  project_artwork?: ProjectArtworkConfig
   status: 'draft' | 'active' | 'inactive' | 'deleted'
   configuration_complete?: boolean
   semaphore_project?: { id: number; name: string; last_verified_at?: string | null; last_error?: string | null } | null
   task_templates?: TaskTemplate[]
   memberships?: Array<Record<string, unknown>>
 }
+
+export type ApprovalClass = 'low'|'medium'|'high'
+export type ApprovalConfig = {enabled:boolean; approver_id:string|null; threshold:ApprovalClass; notify_by_email:boolean; revision?:string|null}
+export type ProjectArtworkConfig = {mode?:'auto'|'selected'|'custom'|'none';marks?:string[];image_version?:string}
 
 export type TaskTemplate = {
   id: string

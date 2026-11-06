@@ -4,7 +4,8 @@ import { Check, ChevronLeft, ChevronRight, CircleCheck, Database, FileCheck2, La
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { Button, Card, Field, Loading, Notice, PageHeader } from '../../components/ui'
-import type { User } from '../../types'
+import type { ApprovalClass, ApprovalConfig, User } from '../../types'
+import { ApprovalFields, ClassificationSelect, defaultApprovalConfig } from '../../components/ApprovalConfiguration'
 import { Link } from 'react-router-dom'
 import { VaultWizard } from '../../components/VaultWizard'
 import { SshProfilesWizard } from '../../components/SshProfilesWizard'
@@ -30,6 +31,8 @@ type Draft = {
   provision_vault:boolean
   registry_profiles:RegistryBinding
   ssh_bindings:SshBinding[]
+  approval_config:ApprovalConfig
+  task_classifications:Record<string,{cost_class:ApprovalClass;effort_class:ApprovalClass}>
 }
 const steps = [
   ['Vorlage','Projektquelle auswählen',Layers3],['Tenant','Stammdaten festlegen',Settings2],
@@ -46,6 +49,8 @@ const initial:Draft = {
   provision_vault:false,
   registry_profiles:{},
   ssh_bindings:[],
+  approval_config:defaultApprovalConfig,
+  task_classifications:{},
 }
 const editable = (job:CreationJob|null) => !job || !job.vault_values_saved&&!job.credential_progress&&['draft','validated','failed'].includes(job.status)
 
@@ -166,7 +171,7 @@ export function TenantWizardPage() {
       {step===2&&<><WizardApplication draft={draft} setDraft={setDraft} template={selected}/>{draft.provision_vault&&<Notice type="info">Freigegebene Kombinationen im Vault-Katalog: {Object.entries(catalog.data?.applications||{}).map(([id,app])=>`${id}: ${Object.keys(app.database_types).join(', ')}`).join(' · ')||'Katalog wird geladen.'}</Notice>}</>}
       {step===3&&<><WizardResources draft={draft} setDraft={setDraft} template={draft.resource_overrides?{...selected!,task_templates:draft.resource_overrides.templates.map(x=>String(x.name)),environments:draft.resource_overrides.environments.map(x=>String(x.name))}:selected}/><SshProfilesWizard templateId={templateId} overrides={draft.resource_overrides} bindings={draft.ssh_bindings} onChange={ssh_bindings=>setDraft(value=>({...value,ssh_bindings}))}/><WizardResourceEditor key={templateId} templateId={templateId} draft={draft} setDraft={setDraft}/></>}
       {step===4&&<><WizardPresets draft={draft} setDraft={setDraft} presets={presets.data||[]}/><h3>Vault-Anlage</h3><label className="toggle-row"><input type="checkbox" disabled={!vault.data?.enabled&&!draft.provision_vault} checked={draft.provision_vault} onChange={e=>setDraft(v=>({...v,provision_vault:e.target.checked,registry_profiles:e.target.checked?v.registry_profiles:{}}))}/><span>Benötigte Vault-Objekte anlegen und den Semaphore-Lesezugang hinterlegen</span></label>{!vault.data?.enabled&&<Notice type="info">Vault ist noch nicht aktiviert. <Link to="/admin/vault">Vault konfigurieren</Link></Notice>}{vault.error&&<Notice type="error">{vault.error.message}</Notice>}{draft.provision_vault&&<RegistryProfilesWizard applications={draft.application_ids} bindings={draft.registry_profiles} onChange={registry_profiles=>setDraft(value=>({...value,registry_profiles}))} legacy={vault.data?.registry_configured} templateId={templateId} overrides={draft.resource_overrides}/>}</>}
-      {step===5&&<WizardAccess draft={draft} setDraft={setDraft} users={users.data||[]} groups={groups.data||[]}/>}
+      {step===5&&<><WizardAccess draft={draft} setDraft={setDraft} users={users.data||[]} groups={groups.data||[]}/><WizardApproval draft={draft} setDraft={setDraft} users={users.data||[]}/></>}
       {step===6&&<><WizardValidation job={job} draft={draft}/>{job?.vault_plan&&<VaultWizard plan={job.vault_plan} inputs={vaultInputs} onChange={setVaultInputs} saved={Boolean(job.vault_values_saved)} progress={job.vault_progress} jobId={job.id} disabled={locked} onResolved={async()=>setJob(await api<CreationJob>(`/admin/creation-jobs/${job.id}`))}/>} {job&&['verification_required','restoring','semaphore_created'].includes(job.status)&&<Notice type="info">Der Vorgang wird anhand des Projektnamens geprüft und fortgesetzt.<label><input type="checkbox" checked={retry} onChange={e=>setRetry(e.target.checked)}/> Falls das Projekt nachweislich fehlt, erneuten Restore ausdrücklich erlauben.</label></Notice>}</>}
       {step===7&&<WizardResult job={job} onOpen={()=>job?.tenant_id&&navigate(`/admin/tenants/${job.tenant_id}`)}/>}
       <div className="wizard-footer">
@@ -220,6 +225,19 @@ function WizardResourceEditor({templateId,draft,setDraft}:{templateId:string;dra
 }
 
 function WizardTitle({number,title,text}:{number:number;title:string;text:string}){return <div className="wizard-title"><span>Schritt {number} von 8</span><h2>{title}</h2><p>{text}</p></div>}
+
+function WizardApproval({draft,setDraft,users}: {draft:Draft;setDraft:(fn:(value:Draft)=>Draft)=>void;users:User[]}) {
+  const config=draft.approval_config||defaultApprovalConfig
+  const classify=(name:string,key:'cost_class'|'effort_class',value:ApprovalClass)=>setDraft(current=>({...current,
+    task_classifications:{...current.task_classifications,[name]:{...(current.task_classifications?.[name]||{cost_class:'low',effort_class:'low'}),[key]:value}}}))
+  return <section className="wizard-approval"><h3>Optionaler Genehmigungsworkflow</h3>
+    <ApprovalFields users={users} value={config} onChange={approval_config=>setDraft(current=>({...current,approval_config}))}/>
+    {config.enabled&&<><h4>Kosten und Aufwand der freigegebenen Tasks</h4><p className="muted">Die höhere Einstufung löst ab der gewählten Grenze eine Genehmigung aus. Diese Angaben sind keine automatische Kostenberechnung.</p>
+      {draft.task_template_names.map(name=><div className="approval-task-classification" key={name}><strong>{name}</strong><div className="form-grid columns-2">
+        <ClassificationSelect label="Kostenklasse" value={draft.task_classifications?.[name]?.cost_class||''} onChange={value=>classify(name,'cost_class',value)}/>
+        <ClassificationSelect label="Aufwandsklasse" value={draft.task_classifications?.[name]?.effort_class||''} onChange={value=>classify(name,'effort_class',value)}/></div></div>)}</>}
+  </section>
+}
 function WizardTemplate({templates,selected,onSelect}:{templates:Template[];selected:string;onSelect:(id:string)=>void}){return <><WizardTitle number={1} title="Projektvorlage auswählen" text="Das Originalprojekt bleibt unverändert; gearbeitet wird auf einer Kopie des Backups."/><div className="choice-grid">{templates.map(item=><button key={item.id} className={`choice-card ${selected===item.id?'selected':''}`} onClick={()=>onSelect(item.id)}><Layers3/><div><strong>{item.name}</strong><span>{item.description||`${item.task_templates.length} Task Templates`}</span></div>{selected===item.id&&<CircleCheck/>}</button>)}</div>{!templates.length&&<Notice type="info">Legen Sie zuerst unter „Projektvorlagen“ eine Vorlage an.</Notice>}</>}
 function WizardTenant({draft,setDraft}:{draft:Draft;setDraft:(fn:(v:Draft)=>Draft)=>void}){const set=(key:keyof Draft,value:unknown)=>setDraft(v=>({...v,[key]:value}));return <><WizardTitle number={2} title="Tenant konfigurieren" text="Technische Kennung und Anzeigename werden getrennt geführt."/><div className="form-grid columns-2"><Field label="Semaphore-Projektname"><input value={draft.project_name} onChange={e=>set('project_name',e.target.value)}/></Field><Field label="Technische Tenant-ID" help="2–31 Zeichen: a-z, 0-9 und Bindestrich"><input value={draft.tenant_slug} onChange={e=>set('tenant_slug',e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}/></Field><Field label="Runtime-Scope (runtime_scope_id)" help="Gemeinsam mit tenant_slug fest in Semaphore-Defaults gespeichert."><input value={draft.runtime_scope_id} onChange={e=>set('runtime_scope_id',e.target.value)}/></Field><Field label="Anzeigename"><input value={draft.display_name} onChange={e=>set('display_name',e.target.value)}/></Field><Field label="Beschreibung"><input value={draft.description} onChange={e=>set('description',e.target.value)}/></Field></div></>}
 function WizardResources({draft,setDraft,template}:{draft:Draft;setDraft:(fn:(v:Draft)=>Draft)=>void;template?:Template}){const toggle=(key:'task_template_names'|'environment_names',name:string)=>setDraft(v=>({...v,[key]:v[key].includes(name)?v[key].filter(x=>x!==name):[...v[key],name]}));return <><WizardTitle number={4} title="Task Templates und Ressourcen" text="Nicht ausgewählte Inhalte werden nur aus der neuen Kopie entfernt."/><h3>Task Templates</h3><div className="check-grid">{template?.task_templates.map(name=><label key={name}><input type="checkbox" checked={draft.task_template_names.includes(name)} onChange={()=>toggle('task_template_names',name)}/><span>{name}</span></label>)}</div><h3>Variablengruppen</h3><div className="check-grid">{template?.environments.map(name=><label key={name}><input type="checkbox" checked={draft.environment_names.includes(name)} onChange={()=>toggle('environment_names',name)}/><span>{name}</span></label>)}</div><Notice type="info">Zeitpläne und Webhooks werden im Zielprojekt grundsätzlich nicht übernommen.</Notice></>}

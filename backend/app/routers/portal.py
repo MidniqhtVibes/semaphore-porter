@@ -9,16 +9,18 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import selectinload
 
 from app.audit import record_audit, sanitize
+from app import approval_service
 from app.database import SessionLocal, demo_database_turn
 from app.dependencies import CurrentUser, Db
 from app.models import (
     GroupMembership,
     RuleType,
     TaskPolicy,
+    TaskApproval,
     TaskRun,
     TaskRunStatus,
     TaskTemplate,
@@ -62,6 +64,8 @@ def _tenant_payload(tenant: Tenant) -> dict[str, Any]:
         "description": tenant.description,
         "application_id": tenant.application_id,
         "application_ids": tenant.application_ids or ([tenant.application_id] if tenant.application_id else []),
+        "database_types": tenant.database_types or [],
+        "project_artwork": tenant.project_artwork or {},
         "status": tenant.status.value,
     }
 
@@ -261,23 +265,25 @@ def task_form(tenant_id: uuid.UUID, template_id: uuid.UUID, db: Db, user: Curren
     if template.policy is None or not template.policy.is_active:
         raise HTTPException(status_code=409, detail="Für diesen Task ist keine aktive Policy vorhanden.")
     report_task = any(rule.variable_name == "send_deployment_mail" for rule in template.policy.variable_rules)
+    approval_required = approval_service.required(tenant, template)
     return {
         "task": {"id": str(template.id), "name": template.name, "description": template.description},
         "fields": build_form_schema([rule for rule in template.policy.variable_rules if not report_task or rule.variable_name != "mail_user"], template.survey_schema),
         "mail_recipient": user.email,
         "can_start": "start" in task_actions(db, user, template.id),
+        "approval_required": approval_required,
+        "cost_class": template.policy.cost_class,
+        "effort_class": template.policy.effort_class,
     }
 
 
-@router.post("/tenants/{tenant_id}/tasks/{template_id}/runs", status_code=201)
-async def start_task(
+def prepare_task_start(
     tenant_id: uuid.UUID,
     template_id: uuid.UUID,
     payload: TaskStartRequest,
-    request: Request,
     db: Db,
     user: CurrentUser,
-) -> dict[str, Any]:
+):
     tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).with_for_update().options(selectinload(Tenant.semaphore_project)))
     template = db.scalar(
         select(TaskTemplate)
@@ -285,7 +291,8 @@ async def start_task(
         .options(selectinload(TaskTemplate.policy).selectinload(TaskPolicy.variable_rules))
     )
     if (
-        tenant is None
+        not user.is_active
+        or tenant is None
         or tenant.status != TenantStatus.ACTIVE
         or not tenant.configuration_complete
         or tenant.semaphore_project is None
@@ -310,6 +317,40 @@ async def start_task(
             variables["mail_user"] = user.email
     except PolicyViolation as exc:
         raise HTTPException(status_code=422, detail={"message": str(exc), "fields": exc.errors}) from exc
+    return tenant, template, variables
+
+
+@router.post("/tenants/{tenant_id}/tasks/{template_id}/runs", status_code=201)
+async def start_task(tenant_id: uuid.UUID, template_id: uuid.UUID, payload: TaskStartRequest,
+                     request: Request, db: Db, user: CurrentUser) -> dict[str, Any]:
+    return await execute_task_start(tenant_id, template_id, payload, request, db, user)
+
+
+async def execute_task_start(tenant_id, template_id, payload, request, db, user, approval=None):
+    tenant, template, variables = prepare_task_start(tenant_id, template_id, payload, db, user)
+    needed = approval_service.required(tenant, template)
+    if approval is None and needed:
+        raise HTTPException(409, "Dieser Task benötigt zuerst eine Genehmigung. Genehmigung anfordern.")
+    if approval is not None:
+        if (approval.requester_id != user.id or approval_service.visible_status(approval) != "approved"
+                or approval.tenant_id != tenant.id or approval.task_template_id != template.id):
+            raise HTTPException(409, "Diese Freigabe ist nicht für einen weiteren Start verfügbar.")
+        approver = db.get(User, approval.approver_id)
+        if not approver or not approver.is_active or not needed or approval.context_digest != approval_service.context_digest(db, tenant, template, variables):
+            raise HTTPException(409, "Konfiguration, Empfänger oder Parameter wurden geändert. Neue Genehmigung anfordern.")
+        # Durable single-use claim BEFORE the external request. A timeout or
+        # process crash must never return the same approval to 'approved'.
+        claimed = db.execute(update(TaskApproval).where(TaskApproval.id == approval.id,
+            TaskApproval.status == "approved").values(status="executing", execution_started_at=utcnow()))
+        if claimed.rowcount != 1:
+            raise HTTPException(409, "Die Freigabe wird bereits verwendet.")
+        db.commit()
+        db.expire_all()
+        tenant, template, variables = prepare_task_start(tenant_id, template_id, payload, db, user)
+        if approval.context_digest != approval_service.context_digest(db, tenant, template, variables):
+            approval.status = "cancelled"
+            db.commit()
+            raise HTTPException(409, "Konfiguration wurde während des Starts geändert. Neue Genehmigung erforderlich.")
     try:
         remote = await semaphore_client_from_db(db).start_task(
             tenant.semaphore_project.semaphore_project_id,
@@ -317,6 +358,8 @@ async def start_task(
             variables,
         )
     except (SemaphoreError, RuntimeError) as exc:
+        if approval is not None:
+            approval.status = "uncertain"
         record_audit(
             db,
             "task_start_failed",
@@ -346,6 +389,8 @@ async def start_task(
     )
     db.add(run)
     db.flush()
+    if approval is not None:
+        approval.status, approval.run_id = "executed", run.id
     record_audit(
         db,
         "task_started",

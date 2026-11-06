@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     vault_ca_bundle: str | None = None
     gitlab_request_timeout_seconds: float = Field(default=30, ge=2, le=120)
     gitlab_ca_bundle: str | None = None
+    approval_smtp_host: str | None = None
+    approval_smtp_port: int = Field(default=587, ge=1, le=65535)
+    approval_smtp_username: str | None = None
+    approval_smtp_password: SecretStr | None = None
+    approval_smtp_from: str | None = None
+    approval_smtp_security: str = "starttls"
+    approval_portal_url: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -51,6 +58,8 @@ class Settings(BaseSettings):
             values = {**values, "portal_secret_key": secrets.token_urlsafe(48), "portal_fernet_key": Fernet.generate_key().decode(),
                 "portal_bootstrap_admin_email": None, "portal_bootstrap_admin_password": None,
                 "vault_ca_bundle": None, "gitlab_ca_bundle": None}
+            values.update(approval_smtp_host=None, approval_smtp_username=None, approval_smtp_password=None,
+                          approval_smtp_from=None, approval_portal_url=None)
         return values
 
     @field_validator("portal_allowed_hosts", mode="after")

@@ -7,6 +7,33 @@ from alembic.operations import Operations
 import sqlalchemy as sa
 
 
+def test_approval_and_artwork_migration_preserves_existing_tenants_and_policies():
+    path = Path(__file__).parents[1] / "alembic/versions/20261106_0013_task_approvals.py"
+    spec = importlib.util.spec_from_file_location("approval_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    tenants = sa.Table("tenants", metadata, sa.Column("id", sa.Uuid(), primary_key=True))
+    policies = sa.Table("task_policies", metadata, sa.Column("id", sa.Uuid(), primary_key=True))
+    for name in ("users", "task_templates", "task_runs"):
+        sa.Table(name, metadata, sa.Column("id", sa.Uuid(), primary_key=True))
+    metadata.create_all(engine)
+    tenant_id, policy_id = uuid.uuid4(), uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(tenants.insert().values(id=tenant_id))
+        connection.execute(policies.insert().values(id=policy_id))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        current = sa.Table("tenants", sa.MetaData(), autoload_with=connection)
+        row = connection.execute(sa.select(current)).mappings().one()
+        assert row['approval_config']=={} and row['project_artwork']=={} and row['project_logo_data'] is None
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert 'task_approvals' not in sa.inspect(connection).get_table_names()
+        assert connection.execute(sa.select(tenants.c.id)).scalar_one()==tenant_id
+
+
 def test_tenant_cleanup_migration_is_additive_and_reversible():
     path = Path(__file__).parents[1] / "alembic/versions/20261105_0012_tenant_deletion.py"
     spec = importlib.util.spec_from_file_location("cleanup_migration", path)

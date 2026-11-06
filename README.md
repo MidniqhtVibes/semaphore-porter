@@ -13,6 +13,8 @@ Semaporter verbindet Projektverwaltung, kontrollierte Task-Ausführung und zentr
 | Projekte und Mandanten | Verwaltung, Vorlagen und bestätigte Bereinigung tenantbezogener Ressourcen in Semaporter, Semaphore und Vault |
 | Automatisierung | Freigegebene Tasks mit validierten Parametern, Live-Ausgaben, Ausführungshistorie und persönlichem Mail-Empfänger |
 | Benutzer und Teams | Nachträglich bearbeitbare Portalrollen, Gruppen, Personenprofile und gezielte Projekt- und Task-Freigaben |
+| Genehmigungen | Optionaler Workflow pro Tenant ab Kosten-/Aufwandsklasse, mit zugeordnetem Vorgesetzten und einmaligen Freigaben für festgelegte Task-Parameter |
+| Projektlogos | Wählbare Produktlogos oder eigene Bilder/GIFs mit ausblendender Darstellung auf Projektkacheln |
 | Programmpakete | Paketverwaltung mit Validierung, GitLab-Anbindung und versionierten Anwendungskatalogen |
 | Zugangsdaten | Vault-Integration sowie zentrale SSH- und Registry-Zugangsprofile |
 | Überwachung | Task-Status und optionale Deployment-Übersicht angebundener Zielhosts |

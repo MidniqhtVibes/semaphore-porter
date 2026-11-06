@@ -272,3 +272,46 @@ Sobald die Ausführung beginnt, wird der Tenant deaktiviert. Neue Portal-Tasks s
 Vor dem ersten externen Löschversuch lässt sich ein begonnener Vorgang mit **Bereinigung verwerfen** zurücknehmen. Ein bereits deaktivierter Tenant wird dabei nicht automatisch aktiviert; das ist eine bewusste Aktion unter **Bearbeiten**. Nach einem externen Löschversuch ist die Fortsetzung erforderlich. Parallel gestartete Ausführungen sind gesperrt; eine nach einem Backend-Abbruch verwaiste Sperre läuft nach 15 Minuten aus.
 
 Der erfolgreiche Abschluss entfernt auch den internen Löschvorgang selbst. Es bleibt entsprechend der gewählten Vorgabe kein tenantbezogenes Löschprotokoll in der Anwendung zurück.
+
+## Projektlogos und optionale Task-Genehmigungen
+
+### Projektlogos
+
+Unter **Arbeitsbereich → Tenants → Tenant öffnen → Projektlogo** zwischen automatischer Zuordnung, mitgelieferten Logos, eigenem Upload und keiner Darstellung wählen. Mitgeliefert sind Doxis, PostgreSQL und WordPress; mehrere dieser Logos können kombiniert werden. Eigene PNG-, JPEG-, WebP- und GIF-Dateien sind bis 5 MB und 1024 × 1024 Pixel möglich. Animationen und transparente Hintergründe bleiben erhalten. Hochgeladene SVGs sind nicht erlaubt. Die Logos erscheinen rechts auf den Projektkacheln unter **Meine Projekte** und blenden zur Mitte aus.
+
+Uploads werden in der vorhandenen Portal-Datenbank gespeichert und nur angemeldeten, berechtigten Benutzern ausgeliefert. Sie gehören zur Datenbanksicherung und werden bei vollständiger Tenant-Löschung mit entfernt. Die Projektlisten enthalten keine Bilddaten. Mitgelieferte Logos liegen lokal im Frontend; ihre Quellen stehen in `frontend/public/branding/projects/SOURCES.md`.
+
+### Genehmigungsworkflow
+
+Der Workflow ist für bestehende Tenants standardmäßig ausgeschaltet. Im **Tenant-Ersteller → Berechtigungen** optional aktivieren, einen aktiven Portalbenutzer als Vorgesetzten auswählen und die Grenze **niedrig**, **mittel** oder **hoch** festlegen. Pro freigegebenem Task Kosten und Aufwand administrativ einstufen. Die höhere der beiden Klassen löst ab einschließlich der Grenze eine Genehmigung aus. Die Einstufung ist eine organisatorische Vorgabe, keine Messung oder automatische Euro-/Stundenberechnung.
+
+Bestehende Tenants lassen sich unter **Tenantdetails → Genehmigungsworkflow** umstellen; ihre Task-Klassen werden unter **Policy bearbeiten** gepflegt. Bei aktivierter Genehmigung sind nicht eingestufte Tasks bis zur Einstufung gesperrt. Unterhalb der Grenze bleibt der normale Taskstart möglich.
+
+1. Der Antragsteller füllt das Taskformular aus und wählt **Genehmigung anfordern** mit einer Begründung. Es wird noch kein Semaphore-Task gestartet.
+2. Der zugeordnete Vorgesetzte entscheidet unter **Arbeitsbereich → Task-Genehmigungen**. Dafür reicht das ausgewählte aktive Portal-Konto; die Zuordnung vergibt keine allgemeinen Tenant-/Task-Rechte. Selbstfreigaben und Entscheidungen anderer Administratoren anstelle des zugeordneten Vorgesetzten sind gesperrt.
+3. Nach Zustimmung startet ausschließlich der Antragsteller unter **Task-Genehmigungen** mit **Genehmigten Task einmalig starten**. Die Parameter sind festgelegt und die Freigabe ist einmalig. Anfragen gelten insgesamt 24 Stunden ab Erstellung.
+4. Aktueller Benutzerstatus, Tenant-/Taskrechte, aktive Policy, Vorgesetzter, Klassifizierung, Semaphore-Zuordnung und Parameter werden erneut geprüft. Änderungen der Konfiguration oder des Mailbericht-Empfängers verlangen eine neue Anfrage. Antragsteller können offene/genehmigte Anfragen zurückziehen.
+
+Die Sperre gilt für Taskstarts **über Semaporter**, einschließlich direkter Aufrufe seiner Start-API und Systemadmins. Direkte Starts in Semaphore unterliegen weiterhin dessen eigener Berechtigungsverwaltung. Der Workflow benötigt keine weiteren Container, Ports oder Hintergrunddienste.
+
+Genehmigungsparameter werden verschlüsselt gespeichert. Die Oberfläche zeigt weder Fixed-/Hidden-Werte noch erkannte Secrets. Audit-Ereignisse protokollieren Antrag und Entscheidung ohne Variablenwerte. Bei vollständiger Tenant-Bereinigung werden Anfragen, Bilddaten und tenantbezogene Genehmigungsereignisse ebenfalls entfernt.
+
+Ein unklarer Semaphore-Startversuch verbraucht die Freigabe vorsorglich. Nicht blind erneut beantragen: Semaphore auf einen tatsächlich angelegten Task prüfen. Ein Systemadmin kann eine unklare Anfrage frühestens nach 15 Minuten und ausdrücklicher Bestätigung der manuellen Prüfung schließen. Dies startet oder stoppt keinen Task und stellt die Freigabe nicht wieder her. Solche ungeklärten Starts blockieren die Tenant-Bereinigung bis zum Abgleich.
+
+### Optionale Mail-Hinweise
+
+Die Entscheidung erfolgt immer angemeldet in Semaporter. Ohne SMTP funktionieren Antrag und Genehmigung vollständig in der Weboberfläche. Ein optionaler Hinweis an den Vorgesetzten sowie eine Entscheidungsnachricht an den Antragsteller können im Tenant eingeschaltet werden, sobald der Backend-Mailversand eingerichtet ist.
+
+Folgende Werte gehören ausschließlich zur tatsächlichen Backend-Umgebung; eine unreferenzierte Zeile in einer Compose-`.env` reicht nicht. Konkrete Server-/Compose-Dateien werden weiterhin separat im Chat abgestimmt:
+
+| Variable | Bedeutung |
+| --- | --- |
+| `APPROVAL_SMTP_HOST` | Freigegebener SMTP-Server |
+| `APPROVAL_SMTP_PORT` | Port, Standard 587 |
+| `APPROVAL_SMTP_SECURITY` | `starttls` (Standard) oder `tls`; keine unverschlüsselte Übertragung |
+| `APPROVAL_SMTP_FROM` | Erlaubte Absenderadresse |
+| `APPROVAL_SMTP_USERNAME` | Optionaler SMTP-Benutzer |
+| `APPROVAL_SMTP_PASSWORD` | Optionales SMTP-Passwort; als Geheimnis behandeln |
+| `APPROVAL_PORTAL_URL` | HTTPS-Basisadresse des Portals für Links |
+
+Die Nachrichten enthalten keine Task-Parameter, Schlüssel oder Genehmigungstokens. Ein Mailfehler lässt die Anfrage in Semaporter bestehen und wird dort angezeigt. Es gibt keine automatische Mail-Wiederholung. Die Demo übernimmt keine produktiven SMTP-Einstellungen und versendet keine echten Mails.

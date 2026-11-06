@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.database import SessionLocal
 from app.routers import admin, auth, portal, projects, vault, gitlab, credentials, monitoring, demo, profiles, registries, containers
-from app.routers import tenant_cleanup
+from app.routers import tenant_cleanup, approvals, project_artwork
 from app.security import session_cookie_name, get_session, verify_csrf
 
 
@@ -97,6 +97,8 @@ app.include_router(profiles.router, prefix="/api")
 app.include_router(registries.router, prefix="/api")
 app.include_router(containers.router, prefix="/api")
 app.include_router(tenant_cleanup.router, prefix="/api")
+app.include_router(approvals.router, prefix="/api")
+app.include_router(project_artwork.router, prefix="/api")
 
 if settings.demo_enabled:
     from app.demo.application import DemoApplication

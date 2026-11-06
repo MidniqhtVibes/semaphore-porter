@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app.audit import record_audit
+from app import approval_service
 from app.dependencies import Db, SystemAdmin
 from app.config import get_settings
 from app.models import (
@@ -102,6 +103,8 @@ def tenant_json(tenant: Tenant, *, detail: bool = False) -> dict[str, Any]:
         "application_ids": tenant.application_ids or ([tenant.application_id] if tenant.application_id else []),
         "database_types": tenant.database_types,
         "dataset_ids": tenant.dataset_ids,
+        "approval_config": tenant.approval_config or {},
+        "project_artwork": tenant.project_artwork or {},
         "status": tenant.status.value,
         "configuration_complete": tenant.configuration_complete,
         "created_at": tenant.created_at,
@@ -641,6 +644,7 @@ async def validate_creation_job(job_id: uuid.UUID, db: Db, admin: SystemAdmin) -
     enriched_draft["preset_values"] = preset_values
     try:
         prepared = prepare_backup(source.backup_document, enriched_draft)
+        approval_service.validate_creation(db, job.draft_data, prepared)
         from app.models import CatalogActivation, CatalogSnapshot
         active_catalog = db.get(CatalogActivation, 1)
         if source.catalog_snapshot_id:
@@ -735,6 +739,7 @@ async def _execute_creation_job(
             raise HTTPException(409, "Der Restore läuft noch. Bitte vor einer Wiederaufnahme warten.")
     if not job.prepared_backup or not job.validation_result or job.validation_result.get("errors"):
         raise HTTPException(status_code=409, detail="Der Erstellungsvorgang wurde nicht erfolgreich validiert.")
+    approval_service.validate_creation(db, job.draft_data, job.prepared_backup)
     client = semaphore_client_from_db(db)
     project_name = str(job.prepared_backup["meta"]["name"])
 
@@ -863,6 +868,7 @@ async def _execute_creation_job(
             tenant_slug=str(draft["tenant_slug"]),
             display_name=str(draft.get("display_name") or draft["tenant_slug"]),
             description=str(draft.get("description") or ""),
+            approval_config={**(draft.get("approval_config") or {}), "revision": uuid.uuid4().hex},
             application_id=next(iter(selections["application_ids"]), None),
             **selections,
             status=TenantStatus.DRAFT,
@@ -913,6 +919,9 @@ async def _execute_creation_job(
                         VariableRule(position=index, **{**rule_data, "rule_type": RuleType(rule_data["rule_type"])})
                     )
                 policy.is_active = True
+                classification = (job.draft_data.get("task_classifications") or {}).get(item.name, {})
+                policy.cost_class = classification.get("cost_class")
+                policy.effort_class = classification.get("effort_class")
                 item.policy = policy
                 item.is_enabled = True
 
@@ -1185,6 +1194,8 @@ def policy_json(policy: TaskPolicy | None) -> dict[str, Any] | None:
         "id": str(policy.id),
         "name": policy.name,
         "version": policy.version,
+        "cost_class": policy.cost_class,
+        "effort_class": policy.effort_class,
         "is_active": policy.is_active,
         "rules": [
             {
@@ -1224,6 +1235,7 @@ def save_policy(template_id: uuid.UUID, payload: TaskPolicyInput, request: Reque
     template = db.scalar(select(TaskTemplate).where(TaskTemplate.id == template_id).options(selectinload(TaskTemplate.policy).selectinload(TaskPolicy.variable_rules)))
     if template is None:
         raise HTTPException(status_code=404, detail="Task Template nicht gefunden.")
+    db.scalar(select(Tenant).where(Tenant.id == template.tenant_id).with_for_update())
     survey_names = {item.get("name") for item in template.survey_schema if isinstance(item, dict)}
     unknown = [rule.variable_name for rule in payload.rules if rule.variable_name not in survey_names]
     if unknown:
@@ -1235,6 +1247,7 @@ def save_policy(template_id: uuid.UUID, payload: TaskPolicyInput, request: Reque
         db.flush()
     policy.name = payload.name
     policy.is_active = payload.is_active
+    policy.cost_class, policy.effort_class = payload.cost_class, payload.effort_class
     for data in payload.rules:
         policy.variable_rules.append(VariableRule(**data.model_dump()))
     template.policy = policy

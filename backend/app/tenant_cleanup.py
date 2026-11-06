@@ -109,6 +109,7 @@ async def prepare(db, tenant):
             "job_ids": [str(job.id) for job in jobs], "slugs": sorted(slugs), "vault": [],
             "semaphore": None, "blockers": creation_blockers(jobs),
             "preserved": ["Gemeinsame Benutzer und Gruppen", "Zentrale SSH- und Registry-Profile", "GitLab-Quellprojekte und Images"]}
+    plan["blockers"].extend(approval_blockers(db, tenant.id))
     if project:
         owned = any(job.semaphore_project_id == project.semaphore_project_id for job in jobs)
         plan["semaphore"] = {"id": project.semaphore_project_id, "name": project.name, "owned": owned,
@@ -172,6 +173,7 @@ async def preflight(db, tenant, row):
     if {str(job.id) for job in jobs} != set(plan["job_ids"]):
         raise ValueError("Anlagebelege wurden seit der Vorschau geändert. Neue Löschvorschau erstellen.")
     blockers = plan.get("blockers", []) + creation_blockers(jobs) + deployment_blockers(db, set(plan["slugs"]))
+    blockers.extend(approval_blockers(db, tenant.id))
     if blockers:
         raise ValueError(" ".join(blockers))
     project = plan.get("semaphore")
@@ -236,6 +238,7 @@ async def preflight(db, tenant, row):
 
 
 def remove_local(db, tenant, row):
+    from app.models import TaskApproval
     tenant_id, plan = tenant.id, row.plan
     task_ids = list(db.scalars(select(TaskTemplate.id).where(TaskTemplate.tenant_id == tenant_id)))
     run_ids = list(db.scalars(select(TaskRun.id).where(TaskRun.tenant_id == tenant_id)))
@@ -243,7 +246,8 @@ def remove_local(db, tenant, row):
     jobs = list(db.scalars(select(CreationJob).where(CreationJob.tenant_id == tenant_id)))
     job_ids = [job.id for job in jobs]
     uses = list(db.scalars(select(CredentialUse).where(CredentialUse.creation_job_id.in_(job_ids))))
-    ids = {str(value) for value in [tenant_id, *task_ids, *run_ids, *policy_ids, *job_ids, *(use.id for use in uses)]}
+    approval_ids = list(db.scalars(select(TaskApproval.id).where(TaskApproval.tenant_id == tenant_id)))
+    ids = {str(value) for value in [tenant_id, *task_ids, *run_ids, *policy_ids, *job_ids, *approval_ids, *(use.id for use in uses)]}
     def mentions(value):
         if isinstance(value, str):
             return value in ids
@@ -266,6 +270,7 @@ def remove_local(db, tenant, row):
             source.snapshot = value
     # Delete RESTRICT dependents explicitly; global accounts/profiles stay intact.
     for model, condition in (
+        (TaskApproval, TaskApproval.tenant_id == tenant_id),
         (TaskRun, TaskRun.tenant_id == tenant_id),
         (TaskPermission, TaskPermission.task_template_id.in_(task_ids)),
         (VariableRule, VariableRule.policy_id.in_(policy_ids)),
@@ -281,6 +286,13 @@ def remove_local(db, tenant, row):
     db.execute(delete(TenantDeletion).where(TenantDeletion.tenant_id == tenant_id))
     db.execute(delete(Tenant).where(Tenant.id == tenant_id).execution_options(synchronize_session=False))
     db.commit()
+
+
+def approval_blockers(db, tenant_id):
+    from app.models import TaskApproval
+    exists = db.scalar(select(TaskApproval.id).where(TaskApproval.tenant_id == tenant_id,
+        TaskApproval.status.in_(["executing", "uncertain"])).limit(1))
+    return ["Unklaren genehmigten Taskstart zuerst unter Task-Genehmigungen mit Semaphore abgleichen."] if exists else []
 
 
 async def execute(db, tenant, row):

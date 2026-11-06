@@ -9,6 +9,7 @@ const PeoplePage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:
 const PersonPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.PersonPage})))
 const TeamPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.TeamPage})))
 const DemoPage=lazy(()=>import('./demo/DemoPage'))
+const ApprovalsPage=lazy(()=>import('./pages/ApprovalsPage'))
 import { AdminDashboardPage } from './pages/admin/DashboardPage'
 import { ApplicationsPage, PresetsPage, ProjectTemplatesPage } from './pages/admin/CatalogPages'
 import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPages'
@@ -73,6 +74,7 @@ export function App(){const runtime=useRuntime();return <Routes>
     <Route path="registries" element={<DeferredPage><RegistryProfilesPage/></DeferredPage>}/>
     <Route path="container" element={<DeferredPage><ContainersPage/></DeferredPage>}/>
     <Route path="docker-agenten" element={<DeferredPage><ContainerSetupPage/></DeferredPage>}/>
+    <Route path="genehmigungen" element={<DeferredPage><ApprovalsPage/></DeferredPage>}/>
     <Route path="gitlab" element={<DeferredPage><GitLabPage/></DeferredPage>}/>
     <Route path="programmpakete" element={<DeferredPage><ProgramPackagesPage/></DeferredPage>}/>
     <Route path="programmpakete/:draftId" element={<DeferredPage><ProgramPackagePage/></DeferredPage>}/>
@@ -91,6 +93,7 @@ export function App(){const runtime=useRuntime();return <Routes>
     <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
     <Route path="/portal" element={<PortalShell/>}>
     <Route path="bereiche/*" element={<NavigationPage mode="portal"/>}/>
+    <Route path="genehmigungen" element={<DeferredPage><ApprovalsPage/></DeferredPage>}/>
     <Route path="designs" element={<DesignsPage/>}/>
     <Route path="personen" element={<DeferredPage><PeoplePage/></DeferredPage>}/>
     <Route path="personen/:personId" element={<DeferredPage><PersonPage/></DeferredPage>}/>
