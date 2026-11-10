@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowRight, Boxes, CheckCircle2, KeyRound, Play, Square } from 'lucide-react'
+import { ArrowRight, Boxes, CheckCircle2, KeyRound, Play, RefreshCw, Square } from 'lucide-react'
 import { api, ApiError } from '../../api'
 import { useAuth } from '../../auth'
 import { Badge, Button, Card, Empty, Field, Loading, Notice, PageHeader, StatusBadge, formatDate } from '../../components/ui'
 import type { TaskRun, TaskTemplate, Tenant } from '../../types'
 import { ProjectArtwork } from '../../components/ProjectArtwork'
+import { TaskOutput } from '../../components/TaskOutput'
 import { classLabels } from '../../components/ApprovalConfiguration'
 import type { ApprovalClass } from '../../types'
 const OwnProfile=lazy(()=>import('../ProfilesPage').then(module=>({default:module.OwnProfile})))
@@ -56,10 +57,15 @@ function DynamicField({field,value,error,onChange}:{field:FormField;value:unknow
 function ShieldSummary(){return <div className="shield-summary"><CheckCircle2/><div><strong>Sichere Ausführung</strong><span>Nicht freigegebene Variablen werden abgelehnt.</span></div></div>}
 
 export function RunsPage({runningOnly=false}:{runningOnly?:boolean}){
-  const query=useQuery({queryKey:['portal-runs'],queryFn:()=>api<TaskRun[]>('/portal/runs'),refetchInterval:runningOnly?10_000:30_000})
+  const query=useQuery({queryKey:['portal-runs',runningOnly?'active':'history'],queryFn:()=>api<TaskRun[]>(runningOnly?'/portal/runs?active_only=true':'/portal/runs',{cache:'no-store'}),refetchInterval:runningOnly?5_000:30_000})
   if(query.isLoading)return <Loading/>
-  const rows=(query.data||[]).filter(run=>!runningOnly||['queued','running'].includes(run.status))
-  return <><PageHeader title={runningOnly?'Laufende Tasks':'Task-Historie'} description={runningOnly?'Aktive Semaphore-Ausführungen und deren aktueller Zustand.':'Alle für Sie sichtbaren Portal-Ausführungen.'}/>{rows.length?<Card><RunsTable rows={rows}/></Card>:<Empty title={runningOnly?'Keine laufenden Tasks':'Keine Task-Historie'} text={runningOnly?'Derzeit laufen keine freigegebenen Tasks.':'Gestartete Tasks erscheinen hier.'}/>}</>
+  const rows=(query.data||[]).filter(run=>!runningOnly||['queued','running','unknown'].includes(run.status))
+  const unknown=rows.filter(run=>run.status==='unknown').length
+  return <><PageHeader title={runningOnly?'Laufende Tasks':'Task-Historie'} description={runningOnly?'Über Semaporter gestartete Ausführungen: laufend, wartend oder mit noch unbestätigtem Status. Aktualisierung alle fünf Sekunden.':'Alle für Sie sichtbaren Portal-Ausführungen.'}
+    actions={<Button variant="secondary" loading={query.isFetching} onClick={()=>void query.refetch()}><RefreshCw size={15}/>Aktualisieren</Button>}/>
+    {query.isError&&<Notice type="error">Taskliste konnte nicht aktualisiert werden: {query.error.message} Ein vorhandener angezeigter Stand kann veraltet sein.</Notice>}
+    {runningOnly&&unknown>0&&<Notice>{unknown} {unknown===1?'Ausführung hat':'Ausführungen haben'} einen unbestätigten Status. Diese Einträge bleiben bis zur erfolgreichen Prüfung sichtbar und werden nicht als laufend bestätigt.</Notice>}
+    {rows.length?<Card><RunsTable rows={rows}/></Card>:!query.isError&&<Empty title={runningOnly?'Keine laufenden Tasks':'Keine Task-Historie'} text={runningOnly?'Derzeit laufen oder warten keine freigegebenen Portal-Tasks.':'Gestartete Tasks erscheinen hier.'}/>}</>
 }
 
 function RunsTable({rows}:{rows:TaskRun[]}){return <div className="table-wrap"><table><thead><tr><th>Task</th><th>Tenant</th><th>Benutzer</th><th>Status</th><th>Start</th><th>Laufzeit</th><th/></tr></thead><tbody>{rows.map(run=><tr key={run.id}><td><strong>{run.task_template}</strong><span className="subtle">Semaphore #{run.semaphore_task_id}</span></td><td>{run.tenant}</td><td>{run.started_by}</td><td><StatusBadge status={run.status}/>{run.sync_error&&<span className="subtle">{run.sync_error}</span>}</td><td>{formatDate(run.started_at)}</td><td>{run.duration_seconds==null?'–':`${run.duration_seconds}s`}</td><td><Link className="row-link" to={`/portal/runs/${run.id}`}>Öffnen <ArrowRight size={14}/></Link></td></tr>)}</tbody></table></div>}
@@ -75,7 +81,7 @@ export function RunDetailPage(){
   if(query.isLoading)return <Loading/>
   if(!query.data||denied(query.error))return <Notice type="error">{query.error?.message||'Task nicht gefunden.'}</Notice>
   const run=query.data,lines=run.output,live=['queued','running','unknown'].includes(run.status)
-  return <><PageHeader title={run.task_template} description={`${run.tenant} · Semaphore Task #${run.semaphore_task_id}`} actions={run.can_stop&&['running','queued'].includes(run.status)?<Button variant="danger" loading={stop.isPending} onClick={()=>stop.mutate()}><Square size={15}/>Abbrechen</Button>:undefined}/><div className="run-meta"><Card><span>Status</span><StatusBadge status={run.status}/></Card><Card><span>Gestartet</span><strong>{formatDate(run.started_at)}</strong></Card><Card><span>Ausgeführt von</span><strong>{run.started_by}</strong></Card><Card><span>Laufzeit</span><strong>{run.duration_seconds||0}s</strong></Card></div>{stop.error&&<Notice type="error">{stop.error.message}</Notice>}{query.error&&<Notice type="info">Aktualisierung unterbrochen: {query.error.message} Die Anzeige versucht es automatisch erneut.</Notice>}<Card className="terminal-card"><div className="terminal-head"><div><span/><span/><span/></div><strong>Task-Ausgabe</strong><Badge tone={live?'warning':'neutral'}>{live?'LIVE':'LOG'}</Badge></div>{live&&<p className="account-note">Status und Ausgabe werden alle zwei Sekunden aktualisiert.</p>}<div className="terminal">{lines.length?lines.map((line,index)=><div key={`${line.time}-${index}`}><time>{new Date(line.time).toLocaleTimeString('de-DE')}</time><code>{line.output}</code></div>):<span className="terminal-empty">Warte auf Ausgabe …</span>}</div></Card></>
+  return <><PageHeader title={run.task_template} description={`${run.tenant} · Semaphore Task #${run.semaphore_task_id}`} actions={run.can_stop&&['running','queued'].includes(run.status)?<Button variant="danger" loading={stop.isPending} onClick={()=>stop.mutate()}><Square size={15}/>Abbrechen</Button>:undefined}/><div className="run-meta"><Card><span>Status</span><StatusBadge status={run.status}/></Card><Card><span>Gestartet</span><strong>{formatDate(run.started_at)}</strong></Card><Card><span>Ausgeführt von</span><strong>{run.started_by}</strong></Card><Card><span>Laufzeit</span><strong>{run.duration_seconds==null?'–':`${run.duration_seconds}s`}</strong></Card></div>{stop.error&&<Notice type="error">{stop.error.message}</Notice>}{query.error&&<Notice type="info">Aktualisierung unterbrochen: {query.error.message} Die Anzeige versucht es automatisch erneut.</Notice>}<TaskOutput runId={run.id} lines={lines} live={live}/></>
 }
 
 export function AccountPage(){

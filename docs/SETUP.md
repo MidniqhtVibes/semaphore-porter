@@ -218,11 +218,19 @@ docker compose --profile tls up -d --wait
 
 Bei einem Task mit `send_deployment_mail` setzt das Backend beim ausgewählten Mailbericht `mail_user` auf die Login-E-Mail der startenden Person. Alte feste Empfänger aus einer kopierten Policy und vom Browser mitgesendete Empfänger werden dabei ignoriert. Die Adresse ist im Startformular sichtbar, aber nicht bearbeitbar. Eine ungültige Konto-Adresse verhindert den Start mit Mailbericht.
 
+Die Empfängerzuordnung steuert den Mailversand. Die Erreichbarkeit der verlinkten Testanwendung hängt zusätzlich von deren Laufzeit, veröffentlichter Adresse, Port und den Netz-/Proxyregeln der aufrufenden Person ab. Der Ansible-Stack erzeugt den Link aus seiner Deployment-Konfiguration. Bei einer Ablehnung durch den Firmenproxy den konkreten Link während der Laufzeit von den betroffenen Arbeitsplätzen prüfen und den Zugriffsweg mit den Netzwerkverantwortlichen abstimmen.
+
 Der bestehende Semaphore-/Ansible-Stack übernimmt weiterhin den eigentlichen Versand. SMTP und Mail-Playbook müssen dort eingerichtet sein; Semaporter führt keinen zusätzlichen Maildienst ein. Diese Regel gilt auch für bestehende Tenants und deren alte Policies.
 
 ### Live-Ausgabe
 
 Die Task-Detailansicht liest Status und vollständige Ausgabe alle zwei Sekunden, solange der Task wartet, läuft oder sein Zustand unbekannt ist. Vorübergehende Verbindungsfehler werden erneut versucht. Eine leere Semaphore-Antwort `null` bedeutet zunächst „noch keine Ausgabe“. Abgelaufene Sitzungen oder entzogene Zugriffe beenden die Anzeige. Auch der vorhandene SSE-Endpunkt behandelt leere Ausgaben und vorübergehende Fehler, die Oberfläche benötigt für ihre Live-Anzeige aber kein dauerhaftes Proxy-Streaming mehr.
+
+Die Task-Ausgabe scrollt beim Öffnen und bei neuen Zeilen automatisch nach unten. Manuelles Hochscrollen pausiert das Folgen. Mit **Zum neuesten Eintrag** oder durch manuelles Scrollen bis zum Ende wird es wieder aktiviert. Dabei bewegt sich nur der Ausgabebereich.
+
+**Laufende Tasks** fragt alle für das angemeldete Konto sichtbaren, über Semaporter gestarteten Ausführungen alle fünf Sekunden ab. Die Begrenzung der Historie auf die letzten 200 sichtbaren Ausführungen gilt für diese aktive Ansicht nicht. Abgeschlossene Tasks wechseln nach dem Statusabgleich in die Historie. Nicht bestätigte Zustände bleiben als **Status unbekannt** sichtbar; ein Abruffehler wird ausdrücklich angezeigt. Über **Aktualisieren** lässt sich die Liste erneut laden. Laufzeiten verwenden die von Semaphore gelieferten Start-/Endzeiten; reine Wartezeit und unbekannte Zustände erhalten keine scheinbare Ausführungslaufzeit.
+
+Diese Taskliste benötigt den optionalen Host-Collector nicht. Ein abgeschlossener Ansible-Task kann ein weiterhin laufendes Docker-Deployment hinterlassen; dessen Lebensdauer und TTL gehören ins **Deployment-Monitoring**.
 
 ### Tenant entfernen
 

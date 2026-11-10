@@ -4,10 +4,10 @@ import asyncio
 import json
 import re
 import uuid
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import selectinload
@@ -21,6 +21,7 @@ from app.models import (
     RuleType,
     TaskPolicy,
     TaskApproval,
+    TaskPermission,
     TaskRun,
     TaskRunStatus,
     TaskTemplate,
@@ -41,6 +42,8 @@ from app.services import semaphore_client_from_db
 
 router = APIRouter(prefix="/portal", tags=["Benutzerportal"])
 STREAM_POLL_INTERVAL_SECONDS = 2
+RUN_REFRESH_INTERVAL_SECONDS = 5
+ACTIVE_RUN_STATUSES = (TaskRunStatus.QUEUED, TaskRunStatus.RUNNING, TaskRunStatus.UNKNOWN)
 
 
 def _tenant_ids_for_user(db: Db, user: User) -> list[uuid.UUID]:
@@ -77,6 +80,9 @@ def _run_payload(run: TaskRun) -> dict[str, Any]:
         started = run.started_at if run.started_at.tzinfo else run.started_at.replace(tzinfo=timezone.utc)
         finished = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
         duration = max(0, int((finished - started).total_seconds()))
+    if run.status == TaskRunStatus.UNKNOWN or (run.status == TaskRunStatus.QUEUED
+            and not _remote_time((run.remote_snapshot or {}).get("start"))):
+        duration = None
     return {
         "id": str(run.id),
         "tenant_id": str(run.tenant_id),
@@ -109,6 +115,37 @@ def _map_status(value: Any) -> TaskRunStatus:
     return TaskRunStatus.UNKNOWN
 
 
+def _remote_time(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.year < 1970:
+        return None
+    return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _apply_remote_state(run: TaskRun, remote: dict[str, Any]) -> None:
+    run.remote_snapshot = sanitize(remote)
+    run.status = _map_status(remote.get("status"))
+    run.last_synced_at = utcnow()
+    run.sync_error = None
+    started, ended = _remote_time(remote.get("start")), _remote_time(remote.get("end"))
+    if started:
+        run.started_at = started
+    if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED}:
+        if ended:
+            run.finished_at = ended
+        elif run.finished_at is None:
+            run.finished_at = utcnow()
+    else:
+        run.finished_at = None
+    if run.status == TaskRunStatus.UNKNOWN:
+        run.sync_error = "Semaphore meldet einen nicht bestätigten Taskstatus."
+
+
 async def _sync_run(db: Db, run: TaskRun) -> dict[str, Any]:
     if run.tenant.semaphore_project is None:
         raise HTTPException(status_code=409, detail="Tenant besitzt kein registriertes Semaphore-Projekt.")
@@ -117,11 +154,7 @@ async def _sync_run(db: Db, run: TaskRun) -> dict[str, Any]:
         remote = await semaphore_client_from_db(db).get_task(project_id, run.semaphore_task_id)
     except (SemaphoreError, RuntimeError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    run.remote_snapshot = sanitize(remote)
-    run.status = _map_status(remote.get("status"))
-    run.last_synced_at = utcnow()
-    if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED} and run.finished_at is None:
-        run.finished_at = utcnow()
+    _apply_remote_state(run, remote)
     db.commit()
     return remote
 
@@ -133,13 +166,17 @@ async def refresh_runs(db: Db, runs: list[TaskRun]) -> None:
         synced = run.last_synced_at
         if synced and synced.tzinfo is None:
             synced = synced.replace(tzinfo=timezone.utc)
-        if run.status in {TaskRunStatus.QUEUED, TaskRunStatus.RUNNING, TaskRunStatus.UNKNOWN} and (not synced or (utcnow()-synced).total_seconds() >= 10):
+        elapsed = (utcnow()-synced).total_seconds() if synced else None
+        if run.status in ACTIVE_RUN_STATUSES and (elapsed is None or elapsed < 0 or elapsed >= RUN_REFRESH_INTERVAL_SECONDS):
             active.append((run, run.tenant.semaphore_project))
     if not active:
         return
     try:
         client = semaphore_client_from_db(db)
     except RuntimeError:
+        for run, _ in active:
+            run.status, run.sync_error = TaskRunStatus.UNKNOWN, "Semaphore-Verbindung ist nicht konfiguriert."
+        db.commit()
         return
     gate = asyncio.Semaphore(6)
     async def fetch(run, project):
@@ -153,13 +190,10 @@ async def refresh_runs(db: Db, runs: list[TaskRun]) -> None:
     results = await asyncio.gather(*(fetch(run, project) for run, project in active))
     for (run, _), remote in zip(active, results):
         if remote is None:
+            run.status = TaskRunStatus.UNKNOWN
             run.sync_error = "Semaphore-Status konnte nicht aktualisiert werden."
             continue
-        run.status = _map_status(remote.get("status"))
-        run.remote_snapshot = sanitize(remote)
-        run.last_synced_at = utcnow()
-        if run.status in {TaskRunStatus.SUCCESS, TaskRunStatus.FAILED, TaskRunStatus.STOPPED} and run.finished_at is None:
-            run.finished_at = utcnow()
+        _apply_remote_state(run, remote)
     db.commit()
 
 
@@ -410,17 +444,31 @@ async def execute_task_start(tenant_id, template_id, payload, request, db, user,
 
 
 @router.get("/runs")
-async def list_runs(db: Db, user: CurrentUser) -> list[dict[str, Any]]:
+async def list_runs(db: Db, user: CurrentUser, response: Response, active_only: bool = Query(default=False)) -> list[dict[str, Any]]:
+    response.headers["Cache-Control"] = "no-store"
     tenant_ids = _tenant_ids_for_user(db, user)
-    rows = db.scalars(
+    query = (
         select(TaskRun)
         .where(TaskRun.tenant_id.in_(tenant_ids))
-        .options(selectinload(TaskRun.tenant), selectinload(TaskRun.task_template), selectinload(TaskRun.started_by))
+        .options(selectinload(TaskRun.tenant).selectinload(Tenant.semaphore_project),
+                 selectinload(TaskRun.task_template), selectinload(TaskRun.started_by))
         .order_by(TaskRun.started_at.desc())
-        .limit(200)
-    ).all()
-    visible = [run for run in rows if can_access_tenant(db, user, run.tenant) and "view" in task_actions(db, user, run.task_template_id)]
+    )
+    if not user_has_role(user, "system_admin"):
+        groups = select(GroupMembership.group_id).where(GroupMembership.user_id == user.id)
+        permitted = select(TaskPermission.task_template_id).where(TaskPermission.can_view.is_(True),
+            or_(TaskPermission.user_id == user.id, TaskPermission.group_id.in_(groups)))
+        query = query.where(TaskRun.task_template_id.in_(permitted))
+    if active_only:
+        # Apply the active filter in SQL, before any history limit. An old task
+        # may still be running even after hundreds of newer completed runs.
+        query = query.where(TaskRun.status.in_(ACTIVE_RUN_STATUSES))
+    else:
+        query = query.limit(200)
+    visible = list(db.scalars(query))
     await refresh_runs(db, visible)
+    if active_only:
+        visible = [run for run in visible if run.status in ACTIVE_RUN_STATUSES]
     return [_run_payload(run) for run in visible]
 
 

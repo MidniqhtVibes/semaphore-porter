@@ -45,7 +45,8 @@ describe('Gruppiertes Hauptmenü', () => {
     const navigation = within(screen.getByRole('navigation', { name: 'Hauptmenü' }))
     expect(navigation.getByRole('button', { name: 'Arbeitsbereich' })).toHaveAttribute('aria-expanded', 'true')
     expect(navigation.getByRole('button', { name: 'Persönlich' })).toHaveAttribute('aria-expanded', 'true')
-    expect(navigation.getAllByRole('link')).toHaveLength(7)
+    expect(navigation.getAllByRole('link')).toHaveLength(8)
+    expect(navigation.getByRole('link', { name: 'Task-Genehmigungen' })).toHaveAttribute('href', '/portal/genehmigungen')
     expect(navigation.getByRole('link', { name: 'Mein Profil' })).toBeVisible()
     expect(navigation.queryByRole('link', { name: 'Vault' })).not.toBeInTheDocument()
   })
@@ -87,7 +88,8 @@ describe('Gruppiertes Hauptmenü', () => {
     expect(screen.queryAllByRole('link')).toHaveLength(0)
     first.unmount()
     render(menu('portal', '/portal/projekte'))
-    expect(screen.getAllByRole('link')).toHaveLength(7)
+    expect(screen.getAllByRole('link')).toHaveLength(8)
+    expect(screen.getByRole('link', { name: 'Task-Genehmigungen' })).toBeVisible()
   })
 
   it('bedient Zweige und sichtbare Einträge über Pfeiltasten sowie Anfang und Ende', () => {
