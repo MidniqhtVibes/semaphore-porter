@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { HelpButton } from './HelpProvider'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
@@ -45,7 +46,7 @@ export function RegistryProfilesWizard({applications,bindings,onChange,legacy,te
   const needed=applications.filter(id=>catalog.data?.applications[id]?.fields?.some(field=>field.source==='registry'))
   const groups=overrides?.environments||resources.data?.environments||[]
   const hints=[...new Set(groups.flatMap(group=>['json','env'].flatMap(key=>{try{const value=typeof group[key]==='string'?JSON.parse(group[key]):group[key];return value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value):[]}catch{return[]}})))]
-  return <section className="registry-wizard" aria-label="Registry-Zugänge für neue Tenants"><h3>Registry-Zugänge je Anwendung</h3><p>Bestehendes Profil auswählen oder einen neuen Zugang anlegen. Host, Benutzer und Passwort werden bei bestätigter Tenant-Erstellung in dessen Vault-Objekt gespeichert.</p>
+  return <section className="registry-wizard" aria-label="Registry-Zugänge für neue Tenants"><h3 className="help-section-title">Registry-Zugänge je Anwendung<HelpButton context="registry" label="Hilfe zu Registry-Zugängen öffnen"/></h3><p>Bestehendes Profil auswählen oder einen neuen Zugang anlegen. Host, Benutzer und Passwort werden bei bestätigter Tenant-Erstellung in dessen Vault-Objekt gespeichert.</p>
     {(profiles.error||catalog.error||resources.error)&&<Notice type="error">{profiles.error?.message||catalog.error?.message||resources.error?.message}</Notice>}
     {profiles.isLoading||catalog.isLoading?<Loading/>:needed.map(id=><div className="registry-choice" key={id}><Field label={`${catalog.data?.applications[id]?.display_name||id}: Registry-Zugang`}><select value={bindings[id]||(legacy?.[id]?'legacy':'')} onChange={event=>{const next={...bindings};if(event.target.value)next[id]=event.target.value;else delete next[id];onChange(next)}}><option value="">Bitte Profil wählen oder neuen Zugang anlegen</option>{legacy?.[id]&&<option value="legacy">Bisheriger Zugang aus Vault-Einstellungen</option>}{profiles.data?.filter(profile=>profile.application_id===id&&(profile.is_active||bindings[id]===profile.id)).map(profile=><option key={profile.id} value={profile.id} disabled={!profile.is_active}>{profile.name} · {profile.host} · {profile.username}{!profile.is_active?' · gesperrt':''}</option>)}</select></Field><Button variant="secondary" onClick={()=>setNewFor(id)}>Neuen Zugang anlegen</Button></div>)}
     {catalog.data&&needed.length===0&&<p className="subtle">Für die Auswahl ist kein Registry-Secret im Katalog vorgesehen.</p>}

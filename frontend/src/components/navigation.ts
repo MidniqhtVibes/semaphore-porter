@@ -1,4 +1,4 @@
-import {Activity, AppWindow, Boxes, CircleUserRound, FileClock, Gauge, LayoutDashboard, ListChecks, PackageOpen, ScrollText, ServerCog, Settings2, ShieldCheck, Users, Palette, GitBranch, GitMerge, FlaskConical, Download, type LucideIcon} from 'lucide-react'
+import {Activity, AppWindow, BookOpen, Boxes, CircleUserRound, FileClock, Gauge, LayoutDashboard, ListChecks, PackageOpen, ScrollText, ServerCog, Settings2, ShieldCheck, Users, Palette, GitBranch, GitMerge, FlaskConical, Download, type LucideIcon} from 'lucide-react'
 
 export type NavigationMode = 'admin' | 'portal'
 
@@ -87,6 +87,11 @@ export function navigationGroupContext(mode: NavigationMode, ids: readonly strin
 }
 
 export function navigationContext(mode: NavigationMode, pathname: string) {
+  const helpPath=`/${mode}/hilfe`
+  if(pathname===helpPath||pathname.startsWith(helpPath+'/')){
+    const group:NavigationGroup={id:'help',label:'Hilfe & Dokumentation',icon:BookOpen,items:[]}
+    return {group,groups:[] as NavigationGroup[],label:group.label,path:helpPath,category:false}
+  }
   const categoryPrefix=`/${mode}/bereiche/`
   if(pathname.startsWith(categoryPrefix)){
     const path=navigationGroupContext(mode,pathname.slice(categoryPrefix.length).split('/'))
@@ -120,7 +125,7 @@ export function navigationBreadcrumbs(mode: NavigationMode, pathname: string) {
       :pathname.startsWith('/admin/tenants/')?'Tenantdetails'
       :pathname.startsWith('/admin/programmpakete/')?'Programmpaket'
       :/^\/portal\/projekte\/[^/]+\/tasks\//.test(pathname)?'Task starten'
-      :pathname.startsWith('/portal/runs/')?'Taskdetails':pathname.includes('/projekte/')?'Projektdetails':'Details'
+      :pathname.includes('/hilfe/')?'Artikel':pathname.startsWith('/portal/runs/')?'Taskdetails':pathname.includes('/projekte/')?'Projektdetails':'Details'
     if(detail==='Task starten'){
       crumbs.push({label:'Projekt',path:pathname.split('/').slice(0,4).join('/')})
     }

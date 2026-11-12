@@ -21,6 +21,7 @@ Semaporter verbindet Projektverwaltung, kontrollierte Task-Ausführung und zentr
 | Container-Verwaltung | Optionaler eigener Docker-Agent für bestehende Container: Status, Logs, Messwerte und bestätigte Verwaltungsaktionen |
 | Nachvollziehbarkeit | Audit-Log für Verwaltungsaktionen und dokumentierte Task-Ausführungen |
 | Designstudio | Farben, Logos, Bilder/GIF-Hintergründe mit Verdunkelung, Milchglas und Unschärfe, Live-Vorschau sowie Import/Export |
+| Hilfe & Dokumentation | Geschützte Anleitungen mit Suche, Themenbereichen und kontextbezogener Kurzhilfe direkt an Formularen |
 
 ## Integrationen
 
@@ -74,6 +75,8 @@ docker compose --profile tls logs --tail=100 backend frontend gateway
 ```
 
 Die API-Dokumentation ist unter `/api/docs` erreichbar. Weitere Hinweise zu [Updates, Sicherungen und Diagnose](docs/SETUP.md#betrieb) enthält die Setup-Anleitung.
+
+Die integrierte **Hilfe & Dokumentation** ist nach Anmeldung unten in der Sidebar erreichbar. Anwender erhalten allgemeine Anleitungen; technische Administrationsartikel werden ausschließlich Systemadmins ausgeliefert. Fragezeichen öffnen eine Kurzhilfe neben der aktuellen Seite, ohne Formulareingaben zu verändern. Die vollständige Anleitung öffnet in einem neuen Tab. Artikel werden als Markdown unter `backend/app/help_content/` gepflegt und zusammen mit dem Backend ausgeliefert; zusätzliche Dienste oder Ports sind nicht erforderlich.
 
 <!-- Optionales Easter Egg, standardmäßig nicht enthalten:
 docker build --build-arg PORTAL_BUILD_IDDQD=1 -t semaporter-local-frontend:dev ./frontend

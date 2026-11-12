@@ -14,6 +14,7 @@ import { RegistryProfilesWizard } from '../../components/RegistryProfiles'
 import type { RegistryBinding } from '../../registries'
 import type { SshBinding, SshPlan } from '../../credentials'
 import type { VaultCatalog, VaultConfig, VaultInputs, VaultPlan, VaultProgress } from '../../vault'
+import { ErrorHelp, HelpButton, usePageHelp } from '../../components/HelpProvider'
 
 type Template = {id:string;name:string;description:string;survey_catalog:Record<string,unknown[]>;task_templates:string[];environments:string[]}
 type Preset = {id:string;name:string;category:string;description:string}
@@ -57,6 +58,7 @@ const editable = (job:CreationJob|null) => !job || !job.vault_values_saved&&!job
 export function TenantWizardPage() {
   const navigate=useNavigate(), [params]=useSearchParams()
   const [step,setStep]=useState(0), [furthestStep,setFurthestStep]=useState(0)
+  usePageHelp(`wizard-${step}`)
   const [draft,setDraftState]=useState<Draft>(initial), [job,setJob]=useState<CreationJob|null>(null)
   const [templateId,setTemplateId]=useState(''), [error,setError]=useState('')
   const [busy,setBusy]=useState(false), [retry,setRetry]=useState(false)
@@ -149,7 +151,7 @@ export function TenantWizardPage() {
     return field.source==='registry'||choice?.mode==='generate'||Boolean(choice?.value)
   }))
   return <>
-    <PageHeader title="Tenant erstellen" description="Geführter, speicherbarer 8-Schritt-Prozess mit sicherer Importvorschau."/>
+    <PageHeader title="Tenant erstellen" description="Geführter, speicherbarer 8-Schritt-Prozess mit sicherer Importvorschau." actions={<HelpButton context={`wizard-${step}`} label={`Hilfe zu Schritt ${step+1} öffnen`}/>}/>
     {step===0&&Boolean(jobs.data?.length)&&<Card><h2>Gespeicherten Vorgang fortsetzen</h2><div className="compact-list">
       {jobs.data?.filter(value=>value.status!=='completed').map(value=><div key={value.id}><span>{value.draft_data.project_name||'Entwurf'} · {value.status}</span><Button variant="secondary" onClick={()=>resume(value)}>Fortsetzen</Button></div>)}
     </div></Card>}
@@ -165,7 +167,7 @@ export function TenantWizardPage() {
         </button>
       })}
     </aside><Card className="wizard-content">
-      {error&&<Notice type="error">{error}</Notice>}{job?.last_error&&<Notice type="error">{job.last_error}</Notice>}
+      {error&&<><Notice type="error">{error}</Notice><ErrorHelp message={error}/></>}{job?.last_error&&<><Notice type="error">{job.last_error}</Notice><ErrorHelp message={job.last_error}/></>}
       {step===0&&<WizardTemplate templates={templates.data||[]} selected={templateId} onSelect={chooseTemplate}/>}
       {step===1&&<WizardTenant draft={draft} setDraft={setDraft}/>}
       {step===2&&<><WizardApplication draft={draft} setDraft={setDraft} template={selected}/>{draft.provision_vault&&<Notice type="info">Freigegebene Kombinationen im Vault-Katalog: {Object.entries(catalog.data?.applications||{}).map(([id,app])=>`${id}: ${Object.keys(app.database_types).join(', ')}`).join(' · ')||'Katalog wird geladen.'}</Notice>}</>}

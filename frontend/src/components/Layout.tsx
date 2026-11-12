@@ -2,7 +2,7 @@ import { useTheme } from '../designs/ThemeProvider'
 import { DEFAULT_COPY } from '../designs/themes'
 import { useId, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import {ChevronDown, FlaskConical, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
+import {BookOpen, ChevronDown, FlaskConical, Menu, PanelLeftClose, ShieldCheck, X} from 'lucide-react'
 import {Breadcrumbs} from './Breadcrumbs'
 import {GroupedNavigation} from './GroupedNavigation'
 import { useAuth } from '../auth'
@@ -13,6 +13,7 @@ import { SiteFooter } from './SiteFooter'
 import { PersonAvatar } from './PersonAvatar'
 import { LoginBackground } from './LoginBackground'
 import { DoomEasterEgg } from '../hooks/useDoomEasterEgg'
+import { HelpButton, HelpProvider } from './HelpProvider'
 
 export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children: ReactNode }) {
   const runtime=useRuntime(); const {active}=useTheme()
@@ -21,13 +22,14 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
   const menuId = useId()
   const { user, logout, isAdmin } = useAuth()
   const location = useLocation()
-  return <div className="shell">
+  return <HelpProvider mode={mode}><div className="shell">
     {__PORTAL_ARCADE__ && <DoomEasterEgg/>}
     <aside id={menuId} className={`sidebar ${open ? 'sidebar-open' : ''}`} onKeyDown={event=>{if(event.key==='Escape')setOpen(false)}}>
       <div className="brand"><BrandMark/><div><strong>{copy.title}</strong><span>{copy.subtitle}</span></div><button className="mobile-close" aria-label="Hauptmenü schließen" onClick={() => setOpen(false)}><X/></button></div>
       <div className="mode-label">{mode === 'admin' ? 'ADMINPORTAL' : 'BENUTZERPORTAL'}</div>
       <GroupedNavigation mode={mode} pathname={location.pathname} renderItem={([to, label, Icon]) => <NavLink key={to} to={to} end={to === `/${mode}`} onClick={() => setOpen(false)} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><Icon size={18}/><span>{label}</span></NavLink>}/>
       <div className="sidebar-bottom">
+        <NavLink to={`/${mode}/hilfe`} className="nav-item" onClick={()=>setOpen(false)}><BookOpen size={18}/>Hilfe & Dokumentation</NavLink>
         {runtime.demo_available&&<a href="/demo/" className="nav-item"><FlaskConical size={18}/>Demo öffnen</a>}
         {mode === 'admin' && <NavLink to="/portal" className="nav-item"><PanelLeftClose size={18}/>Benutzeransicht</NavLink>}
         {mode === 'portal' && isAdmin && <NavLink to="/admin" className="nav-item"><ShieldCheck size={18}/>Administration</NavLink>}
@@ -36,10 +38,10 @@ export function Layout({ mode, children }: { mode: 'admin' | 'portal'; children:
     {open && <button className="sidebar-shade" aria-label="Menühintergrund schließen" onClick={() => setOpen(false)} />}
     <div className={`main-wrap${active.loginBackground&&active.backgroundScope==='all'?' main-wrap-image':''}`}>
       {active.backgroundScope==='all'&&<LoginBackground image={active.loginBackground} blur={active.loginBackgroundBlur} dim={active.backgroundDim} milk={active.backgroundMilk} className="workspace-background"/>}
-      <header className="topbar"><button className="menu-button" aria-label="Hauptmenü öffnen" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(true)}><Menu/></button><Breadcrumbs mode={mode} pathname={location.pathname}/><div className="profile"><Link className="profile-identity" to="/portal/konto" aria-label="Mein Profil öffnen">{user&&<PersonAvatar person={user}/>}<div><strong>{user?.display_name}</strong><span>{user?.email}</span></div></Link><ChevronDown size={15}/><Button variant="ghost" onClick={() => void logout()}>Abmelden</Button></div></header>
+      <header className="topbar"><button className="menu-button" aria-label="Hauptmenü öffnen" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(true)}><Menu/></button><Breadcrumbs mode={mode} pathname={location.pathname}/><div className="profile"><HelpButton global label="Hilfe zu dieser Seite öffnen"/><Link className="profile-identity" to="/portal/konto" aria-label="Mein Profil öffnen">{user&&<PersonAvatar person={user}/>}<div><strong>{user?.display_name}</strong><span>{user?.email}</span></div></Link><ChevronDown size={15}/><Button variant="ghost" onClick={() => void logout()}>Abmelden</Button></div></header>
       <main className="content">{children}</main>
       <SiteFooter/>
     </div>
-  </div>
+  </div></HelpProvider>
 }
 

@@ -281,6 +281,14 @@ Vor dem ersten externen Löschversuch lässt sich ein begonnener Vorgang mit **B
 
 Der erfolgreiche Abschluss entfernt auch den internen Löschvorgang selbst. Es bleibt entsprechend der gewählten Vorgabe kein tenantbezogenes Löschprotokoll in der Anwendung zurück.
 
+## Integrierte Hilfe und Dokumentation
+
+Nach Anmeldung ist **Hilfe & Dokumentation** unten in der Sidebar erreichbar. Die gemeinsame Oberfläche steht unter `/admin/hilfe` beziehungsweise `/portal/hilfe` bereit und verwendet das gewählte Design einschließlich Schriftarten, Farben und Hintergrundgestaltung. Suche und Themenbereiche berücksichtigen die verfügbaren Artikel des angemeldeten Kontos. Administrationsartikel sind auch bei direktem API-Aufruf nur für Systemadmins zugänglich.
+
+Fragezeichen öffnen ein Seitenpanel mit einer kurzen Erklärung. Im Tenant-Assistenten passt sich die Hilfe dem jeweiligen Schritt an. Der Link zur vollständigen Anleitung öffnet einen neuen Tab; der Assistent und seine Eingaben bleiben erhalten. Native Dialogbedienung unterstützt Schließen per Escape und die Rückkehr zum auslösenden Element.
+
+Markdown-Dateien, Artikel-Metadaten und Kontextzuordnungen liegen unter `backend/app/help_content/`. Die dortige README beschreibt die redaktionelle Pflege. Inhalte werden mit dem Backend aktualisiert; der angezeigte Inhaltsstand bezeichnet die redaktionelle Version. Zusätzliche Container, Datenbankmigrationen, Host-Ports oder externe Suchdienste werden für die Dokumentation nicht benötigt. Frontend und Backend für diese Erweiterung gemeinsam aktualisieren. Die integrierte Demo verwendet dieselben Artikel und ihre eigenen Sitzungen sowie Rollen.
+
 ## Projektlogos und optionale Task-Genehmigungen
 
 ### Projektlogos

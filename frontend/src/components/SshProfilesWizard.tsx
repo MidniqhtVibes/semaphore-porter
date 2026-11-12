@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { HelpButton } from './HelpProvider'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { Field, Notice } from './ui'
@@ -9,7 +10,7 @@ export function SshProfilesWizard({templateId,overrides,bindings,onChange}:{temp
   const profiles=useQuery({queryKey:['ssh-profiles'],queryFn:()=>api<SshProfile[]>('/admin/credentials/profiles')})
   const resources=useQuery({queryKey:['template-resources',templateId],queryFn:()=>api<Resources>(`/admin/project-templates/${templateId}/resources`)})
   const source=overrides||resources.data
-  return <section aria-label="SSH-Zugangsprofile"><h3>Zentrale SSH-Zugangsprofile</h3><p>Vorhandene Schlüssel wiederverwenden: für jedes Inventory und SSH-Repository ein passendes Profil wählen. Neue Projekte erhalten eigene Key-Store-Einträge mit demselben privaten Schlüssel. Datei-Inventories unten als statische Kopie übernehmen, damit Host und Benutzer geprüft werden können.</p>
+  return <section aria-label="SSH-Zugangsprofile"><h3 className="help-section-title">Zentrale SSH-Zugangsprofile<HelpButton context="ssh" label="Hilfe zu SSH-Zugangsprofilen öffnen"/></h3><p>Vorhandene Schlüssel wiederverwenden: für jedes Inventory und SSH-Repository ein passendes Profil wählen. Neue Projekte erhalten eigene Key-Store-Einträge mit demselben privaten Schlüssel. Datei-Inventories unten als statische Kopie übernehmen, damit Host und Benutzer geprüft werden können.</p>
     {(profiles.error||resources.error)&&<Notice type="error">{profiles.error?.message||resources.error?.message}</Notice>}
     {!profiles.isLoading&&!profiles.data?.length&&<Notice type="info">Noch keine Profile vorhanden. <Link to="/admin/zugangsprofile">Zugangsprofile konfigurieren</Link>. Ohne Auswahl werden SSH-Zugänge nach der Anlage manuell gesetzt.</Notice>}
     {(['inventories','repositories'] as const).map(kind=>(source?.[kind]||[]).map(resource=>{

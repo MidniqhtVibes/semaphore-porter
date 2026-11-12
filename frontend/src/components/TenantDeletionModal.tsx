@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../api'
 import { Badge, Button, Field, Loading, Modal, Notice } from './ui'
+import { HelpButton } from './HelpProvider'
 
 type Preview = {
   revision: string; running: boolean; last_error: string | null
@@ -23,6 +24,7 @@ export function TenantDeletionModal({tenantId, onClose, onDeleted}: {tenantId: s
   const state = preview.data, busy = remove.isPending || cancel.isPending || Boolean(state?.running)
   const blockers = [...(state?.plan.blockers || []), ...(state?.deployment_blockers || [])]
   return <Modal title="Tenant vollständig entfernen" onClose={() => {if (!busy) onClose()}}>
+    <div className="help-inline-explanation"><span>Umfang und Voraussetzungen der Bereinigung</span><HelpButton context="tenant-delete" label="Hilfe zur Tenant-Bereinigung öffnen"/></div>
     <p>Eigene Ressourcen in Semaporter, Semaphore und Vault sowie der tenantbezogene Verlauf werden dauerhaft entfernt. Es werden keine Deployments gestoppt.</p>
     {preview.isLoading && <Loading/>}
     {preview.error && <Notice type="error">{preview.error.message}</Notice>}

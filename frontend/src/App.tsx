@@ -10,6 +10,7 @@ const PersonPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:
 const TeamPage=lazy(()=>import('./pages/ProfilesPage').then(module=>({default:module.TeamPage})))
 const DemoPage=lazy(()=>import('./demo/DemoPage'))
 const ApprovalsPage=lazy(()=>import('./pages/ApprovalsPage'))
+const HelpPage=lazy(()=>import('./pages/HelpPage'))
 import { AdminDashboardPage } from './pages/admin/DashboardPage'
 import { ApplicationsPage, PresetsPage, ProjectTemplatesPage } from './pages/admin/CatalogPages'
 import { AuditPage, AdminTasksPage, PermissionsPage } from './pages/admin/OpsPages'
@@ -68,6 +69,7 @@ export function App(){const runtime=useRuntime();return <Routes>
   <Route element={<Protected admin/>}>
     <Route path="/admin/designs/studio" element={<StudioRoute/>}/>
     <Route path="/admin" element={<AdminShell/>}>
+    <Route path="hilfe/:articleId?" element={<DeferredPage><HelpPage/></DeferredPage>}/>
     <Route path="bereiche/*" element={<NavigationPage mode="admin"/>}/>
     <Route path="vault" element={<VaultPage/>}/>
     <Route path="zugangsprofile" element={<DeferredPage><CredentialsPage/></DeferredPage>}/>
@@ -92,6 +94,7 @@ export function App(){const runtime=useRuntime();return <Routes>
     {DoomPage&&<Route path="/portal/iddqd" element={<ErrorBoundary><Suspense fallback={<div className="app-loading"><Loading/></div>}><DoomPage/></Suspense></ErrorBoundary>}/>}
     <Route path="/portal/designs/studio" element={<StudioRoute/>}/>
     <Route path="/portal" element={<PortalShell/>}>
+    <Route path="hilfe/:articleId?" element={<DeferredPage><HelpPage/></DeferredPage>}/>
     <Route path="bereiche/*" element={<NavigationPage mode="portal"/>}/>
     <Route path="genehmigungen" element={<DeferredPage><ApprovalsPage/></DeferredPage>}/>
     <Route path="designs" element={<DesignsPage/>}/>
